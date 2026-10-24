@@ -1,26 +1,60 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import 'lenis/dist/lenis.css';
+
+/* why: static emits every colour even when no class uses it, so the 3D scene
+   can read them at runtime (lib/color-tokens.ts). */
+@theme static {
+  --color-primary: #3f30f1;
+  --color-ink: #101113;
+  --color-steel: #4a5477;
+  --color-graphite: #5f5f5f;
+  --color-ash: #707070;
+  --color-mist: #f2f7ff;
+  --color-smoke: #f0f0f0;
+  --color-snow: #fbfbfb;
+}
+
+@theme {
+  --text-display: 3.9375rem;
+  --text-display--line-height: 0.89;
+  --text-title-lg: 3rem;
+  --text-title-lg--line-height: 1.2;
+  --text-title-lg--letter-spacing: -0.02em;
+  --text-title-md: 2rem;
+  --text-title-md--line-height: normal;
+  --text-title-sm: 1.5rem;
+  --text-title-sm--line-height: 1.2;
+  --text-subtitle: 1.125rem;
+  --text-subtitle--line-height: 1.2;
+  --text-body: 1rem;
+  --text-body--line-height: 1.625;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: normal;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--color-white);
+  --foreground: var(--color-ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-montserrat);
+  --font-display: var(--font-warping);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: var(--color-ink);
+    --foreground: var(--color-mist);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
