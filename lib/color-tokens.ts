@@ -13,7 +13,27 @@ export const COLOR_TOKENS = [
 
 export type ColorToken = (typeof COLOR_TOKENS)[number]
 
+// invariant: one entry per variable in the `:root` block of app/globals.css;
+// each maps to a brand colour that switches with prefers-color-scheme.
+export const THEME_COLORS = [
+  'background',
+  'foreground',
+  'glitch-a',
+  'glitch-b',
+  'grid-line'
+] as const
+
+export type ThemeColor = (typeof THEME_COLORS)[number]
+
 type StyleSource = Pick<CSSStyleDeclaration, 'getPropertyValue'>
+
+const readVariable = (name: string, styles: StyleSource) => {
+  const value = styles.getPropertyValue(name).trim()
+  // hazard: an empty value would turn three.js colours black without a word;
+  // fail loudly so a renamed or tree-shaken token is caught at once.
+  if (!value) throw new Error(`${name} is not defined in the theme.`)
+  return value
+}
 
 /**
  * Reads a brand colour from the CSS theme, for code that cannot use Tailwind
@@ -23,10 +43,13 @@ type StyleSource = Pick<CSSStyleDeclaration, 'getPropertyValue'>
 export const readColorToken = (
   token: ColorToken,
   styles: StyleSource = getComputedStyle(document.documentElement)
-) => {
-  const value = styles.getPropertyValue(`--color-${token}`).trim()
-  // hazard: an empty value would turn three.js colours black without a word;
-  // fail loudly so a renamed or tree-shaken token is caught at once.
-  if (!value) throw new Error(`--color-${token} is not defined in the theme.`)
-  return value
-}
+) => readVariable(`--color-${token}`, styles)
+
+/**
+ * Reads a colour of the active theme (light or dark), as the browser resolves
+ * it right now. Client-only, like readColorToken.
+ */
+export const readThemeColor = (
+  name: ThemeColor,
+  styles: StyleSource = getComputedStyle(document.documentElement)
+) => readVariable(`--${name}`, styles)

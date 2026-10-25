@@ -46,14 +46,15 @@
   }
 }
 
+/* invariant: the light theme; the dark one below overrides every variable
+   that differs. lib/color-tokens.ts lists these names in THEME_COLORS, and
+   JS (the 3D scene, the hero grid) reads them with readThemeColor. */
 :root {
   --background: var(--color-white);
   --foreground: var(--color-ink);
-  /* why: effect colours live here, next to the theme, so a theme can swap
-     them without touching the components (glitch-text, sections-backdrop). */
   --glitch-a: var(--color-primary);
-  --glitch-b: var(--color-mist);
-  --grid-line: var(--color-mist);
+  --glitch-b: var(--color-steel);
+  --grid-line: var(--color-steel);
 }
 
 @theme inline {
@@ -67,6 +68,8 @@
   :root {
     --background: var(--color-ink);
     --foreground: var(--color-mist);
+    --glitch-b: var(--color-mist);
+    --grid-line: var(--color-mist);
   }
 }
 
