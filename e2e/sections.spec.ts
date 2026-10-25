@@ -18,9 +18,9 @@ const LOREM = /lorem/i
 // hidden; a copy painted under the canvas changes next to nothing.
 const MIN_PAINTED_SHARE = 0.05
 
-// hazard: the 3D scene is ink in both themes until it follows the theme
-// (task T26); on the light theme the ink copy would vanish into it, so the
-// paint check runs where theme and scene agree today.
+// why: the 3D scene follows the theme (ink sky in dark, white in light), so
+// the copy contrasts with it in either; the check fixes one scheme, dark, so
+// it does not depend on the browser's default.
 const expectHeroCopyOnFirstScreen = async (page: Page) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/')
