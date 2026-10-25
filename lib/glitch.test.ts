@@ -11,6 +11,11 @@ import {
   type GlitchHistory
 } from './glitch.ts'
 
+// why: the checklist's own numbers (C22), fixed here so a change to the
+// module's constants cannot move the bar the tests hold it to.
+const MAX_CHANGES = 3
+const WINDOW_MS = 1000
+
 // why: replays triggers through the same policy the heading uses and returns
 // every moment the text changed on screen.
 const replay = (triggers: readonly number[]) => {
@@ -31,8 +36,7 @@ const maxChangesInAnyWindow = (changes: readonly number[]) => {
     0,
     ...sorted.map(
       start =>
-        sorted.filter(time => time >= start && time < start + GLITCH.windowMs)
-          .length
+        sorted.filter(time => time >= start && time < start + WINDOW_MS).length
     )
   )
 }
@@ -51,8 +55,13 @@ test('a burst ends within 600 ms and leaves the text clean', () => {
   assert.equal(BURST[0]?.at, 0, 'starts at once')
 })
 
+test('the rate limit is 3 changes per 1000 ms', () => {
+  assert.equal(GLITCH.maxChangesPerWindow, MAX_CHANGES)
+  assert.equal(GLITCH.windowMs, WINDOW_MS)
+})
+
 test('a burst changes the text at most 3 times', () => {
-  assert.ok(BURST.length <= GLITCH.maxChangesPerWindow)
+  assert.ok(BURST.length <= MAX_CHANGES)
 })
 
 test('every copy shifts at most 4px sideways and is cut to a band', () => {
@@ -118,7 +127,7 @@ test('hovering non-stop for 10 s never changes the text more than 3 times in any
   const triggers = Array.from({ length: 1000 }, (_, index) => index * 10)
   const changes = replay(triggers)
   assert.ok(changes.length > 3, 'bursts keep coming while triggered')
-  assert.ok(maxChangesInAnyWindow(changes) <= GLITCH.maxChangesPerWindow)
+  assert.ok(maxChangesInAnyWindow(changes) <= MAX_CHANGES)
 })
 
 test('random triggers never change the text more than 3 times in any second', () => {
@@ -127,9 +136,6 @@ test('random triggers never change the text more than 3 times in any second', ()
     let now = 0
     const triggers = Array.from({ length: 200 }, () => (now += random() * 700))
     const changes = replay(triggers)
-    assert.ok(
-      maxChangesInAnyWindow(changes) <= GLITCH.maxChangesPerWindow,
-      `run ${run}`
-    )
+    assert.ok(maxChangesInAnyWindow(changes) <= MAX_CHANGES, `run ${run}`)
   }
 })
