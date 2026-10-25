@@ -32,7 +32,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       lang="en"
       className={`${montserrat.variable} ${warping.variable} h-full antialiased`}
     >
-      <ReactLenis root />
+      {/* why: anchors lets Lenis run in-page links (the hero CTA) through its
+          own smooth scroll instead of the browser's jump. */}
+      <ReactLenis root options={{ anchors: true }} />
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   )
