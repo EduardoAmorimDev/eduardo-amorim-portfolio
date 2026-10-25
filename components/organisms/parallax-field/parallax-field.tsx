@@ -129,10 +129,9 @@ const DEPTH: Record<ParallaxLayer, string> = {
 }
 
 /**
- * Decorative layers over the sections that drift at their own speed while
- * the page scrolls (lib/parallax.ts), and hold still under reduced motion.
- * Must be placed inside a positioned container that creates a stacking
- * context (`relative isolate`).
+ * Decorative layers that drift at their own speed as the page scrolls
+ * (lib/parallax.ts) and hold still under reduced motion. Must sit inside a
+ * container that creates a stacking context (`relative isolate`).
  */
 export const ParallaxField = () => {
   const field = useRef<HTMLDivElement>(null)

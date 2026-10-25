@@ -23,10 +23,9 @@ export const prefersReducedMotion = () =>
   window.matchMedia(REDUCED_MOTION).matches
 
 /**
- * A value derived from the theme's CSS (e.g. colours read with
- * readThemeColor), read again whenever the colour scheme changes, so the
- * page follows the system without a reload. Client-only: call it after mount.
- * `read` must be stable (declared at module level).
+ * A value derived from the theme's CSS, read again whenever the colour scheme
+ * changes, so the page follows the system without a reload. Client-only, after
+ * mount; `read` must be stable (declared at module level).
  */
 export const useSchemeValue = <T>(read: () => T) => {
   const [value, setValue] = useState(read)

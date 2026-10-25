@@ -38,11 +38,9 @@ export const bendEnergy = (sinceMove: number) => {
 }
 
 /**
- * How far a point on a line moves across it, away from the pointer.
- * `across` is the line's signed distance from the pointer (line minus
- * pointer); `along` is the point's distance from the pointer along the line.
- * Zero at the pointer's own line and from GRID.radius out; at most
- * GRID.maxShift × energy in between.
+ * How far a point moves across its line, away from the pointer: `across` is
+ * the line minus the pointer, `along` the distance along the line. Zero on the
+ * pointer's line and from GRID.radius out; at most GRID.maxShift × energy.
  */
 export const bendShift = (across: number, along: number, energy: number) => {
   const reach = (across * across + along * along) / (GRID.radius * GRID.radius)
@@ -55,10 +53,9 @@ export const bendShift = (across: number, along: number, energy: number) => {
 export type LinePoint = { along: number; across: number }
 
 /**
- * The points to draw one line through. `rest` is where the line sits
- * straight, `length` how long it is; `pointer` is the pointer's position on
- * the same two axes, or null when there is none. A straight line is just its
- * two ends.
+ * The points to draw one line through: `rest` is where it sits straight,
+ * `pointer` the pointer on the same two axes, or null. A straight line is
+ * just its two ends.
  */
 export const bentLine = (
   rest: number,

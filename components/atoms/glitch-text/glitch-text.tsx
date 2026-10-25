@@ -24,10 +24,9 @@ const COPIES = ['a', 'b'] as const
 const ENTRY_RATIO = 0.5
 
 /**
- * A heading that glitches in one burst when it enters the viewport or the
- * pointer enters it, never on its own and never under reduced motion;
- * `data-glitch` is "on" meanwhile. The copies are aria-hidden, so its
- * accessible name is `text`, once.
+ * A heading that glitches in one burst on entering the viewport or on hover,
+ * never on its own nor under reduced motion; `data-glitch` is "on" meanwhile.
+ * The copies are aria-hidden, so its accessible name is `text`, once.
  */
 export const GlitchText = ({
   as: Tag,
