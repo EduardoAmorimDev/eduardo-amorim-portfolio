@@ -181,54 +181,64 @@ test('copies are hidden from assistive tech', async ({ page }) => {
   }
 })
 
-test('sections background is an 80px grid at most 6% opaque', async ({
-  page
-}) => {
-  await page.goto('/')
-  const grid = page.locator('[data-testid="sections-grid"]')
-  await expect(grid).toHaveCount(1)
-  await expect(page.locator('#hero [data-testid="sections-grid"]')).toHaveCount(
-    0
-  )
-  const heroBottom = await page
-    .locator('#hero')
-    .evaluate(hero => hero.getBoundingClientRect().bottom)
-  const gridTop = await grid.evaluate(node => node.getBoundingClientRect().top)
-  expect(gridTop, 'the grid starts after the hero').toBeGreaterThanOrEqual(
-    heroBottom - 1
-  )
+for (const scheme of ['light', 'dark'] as const) {
+  test.describe(`${scheme} backdrop`, () => {
+    test.use({ colorScheme: scheme })
 
-  const style = await grid.evaluate(node => {
-    const computed = getComputedStyle(node)
-    return {
-      image: computed.backgroundImage,
-      size: computed.backgroundSize,
-      opacity: Number(computed.opacity)
-    }
+    test('sections background is an 80px grid at most 6% opaque', async ({
+      page
+    }) => {
+      await page.goto('/')
+      const grid = page.locator('[data-testid="sections-grid"]')
+      await expect(grid).toHaveCount(1)
+      await expect(
+        page.locator('#hero [data-testid="sections-grid"]')
+      ).toHaveCount(0)
+      const heroBottom = await page
+        .locator('#hero')
+        .evaluate(hero => hero.getBoundingClientRect().bottom)
+      const gridTop = await grid.evaluate(
+        node => node.getBoundingClientRect().top
+      )
+      expect(gridTop, 'the grid starts after the hero').toBeGreaterThanOrEqual(
+        heroBottom - 1
+      )
+
+      const style = await grid.evaluate(node => {
+        const computed = getComputedStyle(node)
+        return {
+          image: computed.backgroundImage,
+          size: computed.backgroundSize,
+          opacity: Number(computed.opacity)
+        }
+      })
+      // invariant: one size per background layer; every layer tiles 80px cells.
+      const sizes = style.size.split(/,\s*/)
+      expect(sizes).toHaveLength(2)
+      for (const size of sizes) expect(size).toMatch(/^80px( 80px)?$/)
+      const gradients = style.image.split(/,\s*(?=linear-gradient)/)
+      expect(gradients).toHaveLength(2)
+      expect(gradients.some(gradient => gradient.includes('to right'))).toBe(
+        true
+      )
+      for (const gradient of gradients) {
+        expect(gradient).toMatch(/^linear-gradient\(/)
+        // invariant: a hard stop at 1px draws a 1px line per 80px cell.
+        expect(gradient).toMatch(/ 1px, rgba\(0, 0, 0, 0\) 1px\)$/)
+        const alphas = [
+          ...gradient.matchAll(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/g)
+        ]
+          .map(([, , , , alpha]) => (alpha === undefined ? 1 : Number(alpha)))
+          .filter(alpha => alpha > 0)
+        expect(alphas.length).toBeGreaterThan(0)
+        for (const alpha of alphas) {
+          expect(alpha * style.opacity).toBeGreaterThan(0)
+          expect(alpha * style.opacity).toBeLessThanOrEqual(0.06)
+        }
+      }
+    })
   })
-  // invariant: one size per background layer; every layer tiles 80px cells.
-  const sizes = style.size.split(/,\s*/)
-  expect(sizes).toHaveLength(2)
-  for (const size of sizes) expect(size).toMatch(/^80px( 80px)?$/)
-  const gradients = style.image.split(/,\s*(?=linear-gradient)/)
-  expect(gradients).toHaveLength(2)
-  expect(gradients.some(gradient => gradient.includes('to right'))).toBe(true)
-  for (const gradient of gradients) {
-    expect(gradient).toMatch(/^linear-gradient\(/)
-    // invariant: a hard stop at 1px draws a 1px line per 80px cell.
-    expect(gradient).toMatch(/ 1px, rgba\(0, 0, 0, 0\) 1px\)$/)
-    const alphas = [
-      ...gradient.matchAll(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/g)
-    ]
-      .map(([, , , , alpha]) => (alpha === undefined ? 1 : Number(alpha)))
-      .filter(alpha => alpha > 0)
-    expect(alphas.length).toBeGreaterThan(0)
-    for (const alpha of alphas) {
-      expect(alpha * style.opacity).toBeGreaterThan(0)
-      expect(alpha * style.opacity).toBeLessThanOrEqual(0.06)
-    }
-  }
-})
+}
 
 test('sections background has a primary and a steel glow', async ({ page }) => {
   await page.goto('/')
