@@ -42,3 +42,8 @@ next-env.d.ts
 
 # AI
 .tlc/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
