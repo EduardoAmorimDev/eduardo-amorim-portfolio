@@ -31,7 +31,9 @@ const expectHeroCopyOnFirstScreen = async (page: Page) => {
   expect(await page.evaluate(() => scrollY)).toBe(0)
 
   const viewport = page.viewportSize()
-  const canvas = await hero.locator('canvas').boundingBox()
+  const canvas = await hero
+    .locator('[data-testid="hero-scene"] canvas')
+    .boundingBox()
   if (!viewport || !canvas) throw new Error('no viewport or hero canvas')
 
   const copy = {

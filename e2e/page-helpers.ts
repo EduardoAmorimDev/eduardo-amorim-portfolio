@@ -87,3 +87,124 @@ export const paintedShare = async (page: Page, target: Locator) => {
     return changed / (a.length / 4)
   }, sources)
 }
+
+/** RGBA pixels, row by row, of a region `width` × `height` px. */
+export type Pixels = { width: number; height: number; data: Uint8Array }
+
+/** Pixels of a screen region as the page paints it (1 CSS px each). */
+export const screenPixels = async (
+  page: Page,
+  clip: { x: number; y: number; width: number; height: number }
+): Promise<Pixels> => {
+  const png = await page.screenshot({ clip })
+  const { width, height, base64 } = await page.evaluate(
+    async source => {
+      const image = new Image()
+      image.src = source
+      await image.decode()
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('no 2D context to read the screenshot')
+      context.drawImage(image, 0, 0)
+      const { data } = context.getImageData(0, 0, image.width, image.height)
+      let binary = ''
+      for (let index = 0; index < data.length; index += 0x8000)
+        binary += String.fromCharCode(...data.subarray(index, index + 0x8000))
+      return { width: image.width, height: image.height, base64: btoa(binary) }
+    },
+    `data:image/png;base64,${png.toString('base64')}`
+  )
+  return { width, height, data: Buffer.from(base64, 'base64') }
+}
+
+/** The [r, g, b, a] of one pixel. */
+export const pixelAt = ({ width, data }: Pixels, x: number, y: number) => {
+  const index = (Math.round(y) * width + Math.round(x)) * 4
+  return [data[index], data[index + 1], data[index + 2], data[index + 3]]
+}
+
+const linear = (channel: number) => {
+  const c = channel / 255
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+}
+
+/** WCAG relative luminance (0 black … 1 white) of an [r, g, b] colour. */
+export const relativeLuminance = ([r = 0, g = 0, b = 0]: readonly number[]) =>
+  0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+
+/** WCAG relative luminance of one pixel. */
+export const luminanceAt = (pixels: Pixels, x: number, y: number) =>
+  relativeLuminance(pixelAt(pixels, x, y))
+
+/** Mean luminance of a box inside the pixels, clamped to their bounds. */
+export const meanLuminance = (
+  pixels: Pixels,
+  box: { x0: number; x1: number; y0: number; y1: number }
+) => {
+  let sum = 0
+  let count = 0
+  const x0 = Math.max(0, Math.round(box.x0))
+  const x1 = Math.min(pixels.width, Math.round(box.x1))
+  const y0 = Math.max(0, Math.round(box.y0))
+  const y1 = Math.min(pixels.height, Math.round(box.y1))
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      sum += luminanceAt(pixels, x, y)
+      count++
+    }
+  if (!count) throw new Error(`empty box ${JSON.stringify(box)}`)
+  return sum / count
+}
+
+/** Parses `rgb(r, g, b)` into its channels. */
+export const channels = (rgb: string) => {
+  const match = /^rgba?\((\d+), (\d+), (\d+)/.exec(rgb)
+  if (!match) throw new Error(`not an rgb colour: ${rgb}`)
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+/** Largest per-channel difference between two colours. */
+export const channelGap = (a: readonly number[], b: readonly number[]) =>
+  Math.max(
+    ...[0, 1, 2].map(index => Math.abs((a[index] ?? 0) - (b[index] ?? 0)))
+  )
+
+/** Hides the hero's copy, so pixel checks see only the 3D scene under it. */
+export const hideHeroCopy = (page: Page) =>
+  page.evaluate(() => {
+    for (const node of document.querySelectorAll<HTMLElement>(
+      '#hero h1, #hero p, #hero a'
+    ))
+      node.style.visibility = 'hidden'
+  })
+
+/**
+ * Loads `/` and waits until the hero's models have arrived and drawn: the
+ * laptop's screen page exists once its model has loaded.
+ */
+export const gotoHero = async (page: Page) => {
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.locator('#hero iframe').waitFor({ state: 'attached' })
+  // why: a few frames for the icons' first poses to damp into place.
+  await page.waitForTimeout(1500)
+}
+
+/** Scroll position at which the hero's animation reaches its end. */
+export const heroEnd = (page: Page) =>
+  page.locator('#hero').evaluate(hero => {
+    const { top, height } = hero.getBoundingClientRect()
+    return top + scrollY + height - innerHeight
+  })
+
+/** The laptop's screen page box: the lid, wherever the laptop is posed. */
+export const laptopBox = async (page: Page) => {
+  const box = await page.locator('#hero iframe').evaluate(frame => {
+    const holder = frame.parentElement
+    return holder ? holder.getBoundingClientRect().toJSON() : null
+  })
+  if (!box) throw new Error('the laptop screen has no box')
+  return box as { left: number; right: number; top: number; bottom: number }
+}
