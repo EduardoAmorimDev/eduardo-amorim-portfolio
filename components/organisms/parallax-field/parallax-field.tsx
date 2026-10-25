@@ -7,6 +7,10 @@ import {
   layerShift,
   type ParallaxLayer
 } from '@/lib/parallax'
+import {
+  onReducedMotionChange,
+  prefersReducedMotion
+} from '@/lib/media-preferences'
 
 // why: fractions of the layer's height; enough items to keep each layer
 // populated over all eight sections at its own speed.
@@ -126,8 +130,9 @@ const DEPTH: Record<ParallaxLayer, string> = {
 
 /**
  * Decorative layers over the sections that drift at their own speed while
- * the page scrolls (lib/parallax.ts). Must be placed inside a positioned
- * container that creates a stacking context (`relative isolate`).
+ * the page scrolls (lib/parallax.ts), and hold still under reduced motion.
+ * Must be placed inside a positioned container that creates a stacking
+ * context (`relative isolate`).
  */
 export const ParallaxField = () => {
   const field = useRef<HTMLDivElement>(null)
@@ -144,18 +149,24 @@ export const ParallaxField = () => {
 
     // why: transforms are written straight to the DOM on every scroll event
     // (Lenis emits one per frame), so scrolling never re-renders React.
+    // Under reduced motion every layer scrolls with the content (T29).
     const update = () => {
       const { top } = container.getBoundingClientRect()
+      const still = prefersReducedMotion()
       for (const { element, speed } of layers)
-        element.style.transform = `translate3d(0, ${layerShift(speed, top)}px, 0)`
+        element.style.transform = still
+          ? ''
+          : `translate3d(0, ${layerShift(speed, top)}px, 0)`
     }
 
     update()
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
+    const stopMotion = onReducedMotionChange(update)
     return () => {
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
+      stopMotion()
     }
   }, [])
 
