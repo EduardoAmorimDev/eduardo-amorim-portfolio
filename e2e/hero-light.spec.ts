@@ -7,6 +7,7 @@ import {
   laptopBox,
   luminanceAt,
   meanLuminance,
+  pixelAt,
   screenPixels,
   scrollWindowTo,
   type Pixels
@@ -17,6 +18,11 @@ const HALO = { distance: 40, min: 0.15, max: 0.9, samples: 16 }
 // why: the lid's screen page is a little smaller than the lid; this share of
 // its height stands for the bezel when locating the laptop's top edge.
 const BEZEL = 0.05
+const TINT = { ring: 40, samples: 32, min: 20, skyMax: 3 }
+// why: open sky at 1440×900, between the light's glow and the icons on the
+// right, where nothing of the scene but the sky is drawn.
+const SKY = { x0: 620, x1: 900, y0: 20, y1: 260 }
+const WHITE_SKY = 0.95
 
 // why: the light is judged against the dark sky it was made for; on the light
 // theme the white sky itself is the brightest thing on screen.
@@ -48,6 +54,24 @@ const brightest = (pixels: Pixels) => {
     y: peak.reduce((sum, point) => sum + point.y, 0) / peak.length
   }
   return { luminance: top, peak, centre }
+}
+
+/** Mean of blue minus red (0–255 scale) over the given points. */
+const meanTint = (
+  pixels: Pixels,
+  points: readonly { x: number; y: number }[]
+) =>
+  points.reduce((sum, { x, y }) => {
+    const [r = 0, , b = 0] = pixelAt(pixels, x, y)
+    return sum + (b - r)
+  }, 0) / points.length
+
+/** Every pixel of a box, as points. */
+const boxPoints = (box: typeof SKY) => {
+  const points: { x: number; y: number }[] = []
+  for (let y = box.y0; y < box.y1; y++)
+    for (let x = box.x0; x < box.x1; x++) points.push({ x, y })
+  return points
 }
 
 test('a glowing light core with a halo sits above the laptop', async ({
@@ -124,6 +148,45 @@ test('laptop side facing the light is brighter', async ({ page }) => {
   expect(meanLuminance(pixels, facing)).toBeGreaterThan(
     meanLuminance(pixels, opposite)
   )
+})
+
+test.describe('light scheme', () => {
+  test.use({ colorScheme: 'light' })
+
+  test('light scheme shows a primary-tinted halo against white', async ({
+    page
+  }) => {
+    // why: the scene projects the light to the same spot in either theme; on
+    // the dark sky its core is the brightest pixel, which locates it.
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await gotoHero(page)
+    await hideHeroCopy(page)
+    const light = brightest(await heroScreen(page)).centre
+
+    await page.emulateMedia({ colorScheme: 'light' })
+    await gotoHero(page)
+    await hideHeroCopy(page)
+    // why: the grid is not sky; its steel lines would tint the sky samples.
+    await page
+      .locator('[data-testid="hero-grid"]')
+      .evaluate(grid => (grid.style.visibility = 'hidden'))
+    const pixels = await heroScreen(page)
+
+    expect(meanLuminance(pixels, SKY), 'the sky is white').toBeGreaterThan(
+      WHITE_SKY
+    )
+    const ring = Array.from({ length: TINT.samples }, (_, k) => {
+      const angle = (k / TINT.samples) * 2 * Math.PI
+      return {
+        x: light.x + TINT.ring * Math.cos(angle),
+        y: light.y + TINT.ring * Math.sin(angle)
+      }
+    })
+    expect(meanTint(pixels, ring), 'halo tint').toBeGreaterThanOrEqual(TINT.min)
+    expect(meanTint(pixels, boxPoints(SKY)), 'sky tint').toBeLessThanOrEqual(
+      TINT.skyMax
+    )
+  })
 })
 
 test('scrolling through the hero powers the laptop on', async ({ page }) => {
