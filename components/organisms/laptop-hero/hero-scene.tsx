@@ -5,6 +5,7 @@ import { CanvasTexture } from 'three'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
 import { useSchemeValue } from '@/lib/media-preferences'
 import { GlassElements } from './glass-elements'
+import { HeroLight } from './hero-light'
 import { Laptop } from './laptop'
 
 // why: the latest landing page, shown live on the laptop's screen.
@@ -142,6 +143,8 @@ export const HeroScene = ({ progress }: HeroSceneProps) => {
         penumbra={0.6}
         intensity={SPOT_INTENSITY}
       />
+
+      <HeroLight />
 
       {/* why: Suspense renders nothing until the model has loaded. */}
       <Suspense fallback={null}>
