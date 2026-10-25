@@ -24,10 +24,13 @@ export const LaptopHero = ({ id, children }: LaptopHeroProps) => {
         {/* why: no OrbitControls, so the camera stays put: the viewer can
             neither drag nor zoom; only the scroll moves the laptop.
             dpr: at least 1.5× even on 1× screens; MSAA alone left the thin
-            glass edges stair-stepped, and the browser's downscale smooths them. */}
+            glass edges stair-stepped, and the browser's downscale smooths them.
+            alpha: the sky stays transparent, showing the theme behind it. */}
         <Canvas
           className="isolate"
+          data-testid="hero-scene"
           dpr={[1.5, 2]}
+          gl={{ alpha: true }}
           camera={{ position: [0, 1, 7], fov: 40 }}
         >
           <HeroScene progress={progress} />
