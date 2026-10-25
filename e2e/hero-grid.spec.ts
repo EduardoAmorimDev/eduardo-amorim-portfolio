@@ -74,29 +74,37 @@ const restAtTop = async (page: Page) => {
   return { rest, pointer }
 }
 
-test('grid is straight and 48px apart at rest', async ({ page }) => {
-  await gotoHero(page)
-  const viewport = page.viewportSize()
-  if (!viewport) throw new Error('no viewport')
-  // why: the hero's last screen leaves its top half on screen, so the
-  // pointer can move below it, outside the hero, while the grid is read.
-  await scrollWindowTo(page, (await heroEnd(page)) + viewport.height / 2)
-  for (const x of [200, 600, 1000])
-    await sweepPointer(page, { x, y: viewport.height - 100 })
+for (const scheme of ['light', 'dark'] as const) {
+  test.describe(`${scheme} grid`, () => {
+    test.use({ colorScheme: scheme })
 
-  const grid = await readGrid(page)
-  const rest = restLines(grid)
-  for (const lines of [rest.vertical, rest.horizontal]) {
-    expect(lines.length).toBeGreaterThan(2)
-    for (let index = 1; index < lines.length; index++)
-      expect((lines[index] ?? NaN) - (lines[index - 1] ?? NaN)).toBeCloseTo(
-        SPACING,
-        2
-      )
-  }
-  for (const line of allLines(measureLines(grid, rest)))
-    expect(maxShift(line), `line at ${line.rest}px`).toBeLessThanOrEqual(STILL)
-})
+    test('grid is straight and 48px apart at rest', async ({ page }) => {
+      await gotoHero(page)
+      const viewport = page.viewportSize()
+      if (!viewport) throw new Error('no viewport')
+      // why: the hero's last screen leaves its top half on screen, so the
+      // pointer can move below it, outside the hero, while the grid is read.
+      await scrollWindowTo(page, (await heroEnd(page)) + viewport.height / 2)
+      for (const x of [200, 600, 1000])
+        await sweepPointer(page, { x, y: viewport.height - 100 })
+
+      const grid = await readGrid(page)
+      const rest = restLines(grid)
+      for (const lines of [rest.vertical, rest.horizontal]) {
+        expect(lines.length).toBeGreaterThan(2)
+        for (let index = 1; index < lines.length; index++)
+          expect((lines[index] ?? NaN) - (lines[index - 1] ?? NaN)).toBeCloseTo(
+            SPACING,
+            2
+          )
+      }
+      for (const line of allLines(measureLines(grid, rest)))
+        expect(maxShift(line), `line at ${line.rest}px`).toBeLessThanOrEqual(
+          STILL
+        )
+    })
+  })
+}
 
 test('lines near a moving pointer bend at most 12px', async ({ page }) => {
   const { rest, pointer } = await restAtTop(page)
@@ -191,20 +199,20 @@ test('grid never takes the pointer from the 3D canvas', async ({ page }) => {
       box.left + box.width / 2,
       Math.min(box.top + box.height / 2, innerHeight / 2)
     )
-    const webgl = [...scene.querySelectorAll('canvas')].some(
+    const webgl = [...scene.querySelectorAll('canvas')].filter(
       canvas => canvas.getContext('webgl2') !== null
     )
+    const holder = webgl[0]?.parentElement
     return {
       tag: target?.tagName,
-      inScene: !!target && scene.contains(target),
-      onGrid: !!target?.closest('[data-testid="hero-grid"]'),
-      webgl
+      webgl: webgl.length,
+      isHolder: !!holder && target === holder,
+      onGrid: !!target?.closest('[data-testid="hero-grid"]')
     }
   })
-  // why: R3F's own wrapper takes the pointer for its WebGL canvas (drei's
-  // occluding <Html> sets the canvas itself to pointer-events none), so any
-  // hit inside the scene container reaches the 3D scene.
-  expect(hit.webgl, 'the scene draws with WebGL').toBe(true)
+  // why: R3F listens for the pointer on the <div> that holds its WebGL
+  // canvas (drei's occluding <Html> sets the canvas to pointer-events none).
+  expect(hit.webgl, 'the scene draws with one WebGL canvas').toBe(1)
   expect(hit.onGrid, `hit ${hit.tag}`).toBe(false)
-  expect(hit.inScene, `hit ${hit.tag}`).toBe(true)
+  expect(hit.isHolder, `hit ${hit.tag}`).toBe(true)
 })
