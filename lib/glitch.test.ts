@@ -1,21 +1,29 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BURST, IDLE_GLITCH, clipPath, requestBurst } from './glitch.ts'
+import {
+  BURST,
+  IDLE_GLITCH,
+  burstWait,
+  clipPath,
+  requestBurst
+} from './glitch.ts'
 
-// why: the checklist's own numbers (C29–C31), fixed here so a change to the
+// why: the checklist's own numbers (C10, C14), fixed here so a change to the
 // module's constants cannot move the bar the tests hold it to.
-const MAX_BURST_MS = 600
-const FRAMES_WITH_COPIES = 6
+const MAX_BURST_MS = 300
+const MAX_FRAMES_WITH_COPIES = 3
 const BANDS = 3
 const MIN_SHIFT_PX = 1
-const MAX_SHIFT_PX = 8
-const MAX_SHAKE_PX = 2
+const MAX_SHIFT_PX = 3
+const MIN_WAIT_MS = 5000
+const MAX_WAIT_MS = 12000
 
 const withCopies = BURST.filter(frame => frame.copies !== null)
 
-test('a burst is six frames with copies, then a clean one, within 600 ms', () => {
-  assert.equal(withCopies.length, FRAMES_WITH_COPIES)
-  assert.equal(BURST.length, FRAMES_WITH_COPIES + 1)
+test('a burst is at most three frames of copies, then a clean one, within 300ms', () => {
+  assert.ok(withCopies.length >= 1, 'the burst shows copies')
+  assert.ok(withCopies.length <= MAX_FRAMES_WITH_COPIES, `${withCopies.length}`)
+  assert.equal(BURST.length, withCopies.length + 1)
   assert.equal(BURST[0]?.at, 0, 'starts at once')
   const last = BURST[BURST.length - 1]
   assert.ok(last, 'the burst has frames')
@@ -28,7 +36,13 @@ test('a burst is six frames with copies, then a clean one, within 600 ms', () =>
     )
 })
 
-test('every copy is cut into three bands and shifted between 1 and 8px', () => {
+test('copies shift 1 to 3px and the text never moves', () => {
+  for (const frame of BURST)
+    assert.deepEqual(
+      Object.keys(frame).sort(),
+      ['at', 'copies'],
+      'a frame carries no shift of the heading itself'
+    )
   for (const frame of withCopies) {
     assert.equal(frame.copies?.length, 2, `frame at ${frame.at}`)
     for (const copy of frame.copies ?? []) {
@@ -46,14 +60,18 @@ test('every copy is cut into three bands and shifted between 1 and 8px', () => {
   }
 })
 
-test('the text shakes at most 2px and settles at 0', () => {
-  for (const frame of BURST)
-    assert.ok(Math.abs(frame.shake) <= MAX_SHAKE_PX, `shake ${frame.shake}`)
-  assert.ok(
-    withCopies.some(frame => frame.shake !== 0),
-    'the text does shake'
-  )
-  assert.equal(BURST[BURST.length - 1]?.shake, 0)
+test('the wait before a burst is drawn uniformly from 5 to 12 s', () => {
+  assert.equal(burstWait(0), MIN_WAIT_MS)
+  assert.ok(Math.abs(burstWait(1) - MAX_WAIT_MS) < 1e-9)
+  // invariant: uniform means linear in the draw: equal steps of the draw
+  // give equal steps of the wait.
+  const step = burstWait(0.1) - burstWait(0)
+  for (let draw = 0.1; draw < 0.95; draw += 0.1)
+    assert.ok(Math.abs(burstWait(draw + 0.1) - burstWait(draw) - step) < 1e-6)
+  for (let draw = 0; draw < 1; draw += 0.01) {
+    const wait = burstWait(draw)
+    assert.ok(wait >= MIN_WAIT_MS && wait < MAX_WAIT_MS, `${draw} → ${wait}`)
+  }
 })
 
 test('clipPath keeps exactly the three bands', () => {
@@ -70,18 +88,18 @@ test('clipPath keeps exactly the three bands', () => {
   )
 })
 
-test('the first trigger starts a burst at once', () => {
+test('the first request starts a burst at once', () => {
   assert.equal(requestBurst(IDLE_GLITCH, 5000)?.start, 5000)
 })
 
-test('a trigger while a burst runs is ignored', () => {
+test('a request while a burst runs is ignored', () => {
   const first = requestBurst(IDLE_GLITCH, 0)
   assert.ok(first)
   assert.equal(requestBurst(first.history, 100), null)
   assert.equal(requestBurst(first.history, first.history.busyUntil - 1), null)
 })
 
-test('a trigger right after a burst starts at once', () => {
+test('a request right after a burst starts at once', () => {
   const first = requestBurst(IDLE_GLITCH, 0)
   assert.ok(first)
   const now = first.history.busyUntil + 1

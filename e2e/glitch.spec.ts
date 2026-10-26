@@ -1,16 +1,22 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { tokenRgb } from './page-helpers'
+import { documentTop, gotoStopped, tokenRgb } from './page-helpers'
 
-const MAX_BURST_MS = 600
+// why: the checklist's own numbers (C11–C16).
+const MIN_WAIT_MS = 5000
+const MAX_WAIT_MS = 12_000
+const MAX_FRAMES_WITH_COPIES = 3
 const MIN_SHIFT_PX = 1
-const MAX_SHIFT_PX = 8
-const MAX_SHAKE_PX = 2
-const FRAMES_WITH_COPIES = 6
+const MAX_SHIFT_PX = 3
+const QUIET_MS = 4900
+const NEVER_MS = 15_000
 // invariant: a band is four corners of one polygon; three bands, twelve.
 const POINTS_PER_CLIP = 12
 // why: a heading far below the hero, so it is off screen at load.
 const HEADING = '#cases h2'
+// why: real time for the visibility observer to report a scroll; the page's
+// own clock stays stopped meanwhile.
+const OBSERVE_MS = 300
 
 type Change = { at: number; value: string | undefined }
 type Burst = { start: number; end: number | undefined }
@@ -42,79 +48,179 @@ const burstsOf = (log: Change[]) => {
   return bursts
 }
 
-const expectOneShortBurst = (log: Change[]) => {
-  const bursts = burstsOf(log)
-  expect(bursts, JSON.stringify(log)).toHaveLength(1)
-  const [burst] = bursts
-  if (!burst || burst.end === undefined)
-    throw new Error('the burst never ended')
-  expect(burst.end - burst.start).toBeLessThanOrEqual(MAX_BURST_MS)
-}
-
-/** Scrolls the heading into view and waits for its entry burst to settle. */
-const bringIntoView = async (page: Page, heading: Locator) => {
-  const log = await watch(heading)
+/** Scrolls the heading to the middle of the screen; returns the page time. */
+const bringIn = async (page: Page, heading: Locator) => {
   await heading.evaluate(element =>
     element.scrollIntoView({ block: 'center', behavior: 'instant' })
   )
-  await expect
-    .poll(async () => burstsOf(await log.jsonValue()).at(-1)?.end)
-    .toBeDefined()
-  // why: well past the entry burst, so the next trigger starts a new one.
-  await page.waitForTimeout(1200)
+  await page.waitForTimeout(OBSERVE_MS)
+  return page.evaluate(() => performance.now())
 }
 
-test('a heading glitches once when it scrolls into view', async ({ page }) => {
-  await page.goto('/')
+test('a visible heading bursts 5 to 12 s after entering and after each burst', async ({
+  page
+}) => {
+  await gotoStopped(page, 100)
   const heading = page.locator(HEADING)
-  await expect(heading).toHaveAttribute('data-glitch', 'off')
   const log = await watch(heading)
-
-  await heading.evaluate(element =>
-    element.scrollIntoView({ block: 'center', behavior: 'instant' })
-  )
-  await page.waitForTimeout(2000)
-
-  expectOneShortBurst(await log.jsonValue())
-  await expect(heading).toHaveAttribute('data-glitch', 'off')
+  const entered = await bringIn(page, heading)
+  await page.clock.runFor(MAX_WAIT_MS + 400)
+  const [first] = burstsOf(await log.jsonValue())
+  if (!first?.end) throw new Error('no burst within 12 s of entering')
+  expect(first.start - entered).toBeGreaterThanOrEqual(MIN_WAIT_MS)
+  expect(first.start - entered).toBeLessThanOrEqual(MAX_WAIT_MS)
+  await page.clock.runFor(MAX_WAIT_MS + 400)
+  const second = burstsOf(await log.jsonValue())[1]
+  if (!second) throw new Error('no second burst within 12 s of the first')
+  expect(second.start - first.end).toBeGreaterThanOrEqual(MIN_WAIT_MS)
+  expect(second.start - first.end).toBeLessThanOrEqual(MAX_WAIT_MS)
 })
 
-test('hovering a heading triggers one burst', async ({ page }) => {
-  await page.goto('/')
-  const heading = page.locator(HEADING)
-  await bringIntoView(page, heading)
-  const log = await watch(heading)
+test.describe('tall window', () => {
+  // why: tall enough for two headings to be on screen at once.
+  test.use({ viewport: { width: 1440, height: 2400 } })
 
+  test('each heading draws its own wait', async ({ page }) => {
+    await gotoStopped(page, 100)
+    const headings = [page.locator('#cases h2'), page.locator('#workflow h2')]
+    const logs = await Promise.all(headings.map(watch))
+    await page.evaluate(
+      top => window.scrollTo({ top, behavior: 'instant' }),
+      (await documentTop(page.locator('#cases'))) - 200
+    )
+    await page.waitForTimeout(OBSERVE_MS)
+    await page.clock.runFor(MAX_WAIT_MS + 400)
+    const starts = await Promise.all(
+      logs.map(async log => burstsOf(await log.jsonValue())[0]?.start)
+    )
+    expect(starts.every(start => start !== undefined)).toBe(true)
+    expect(starts[0]).not.toBe(starts[1])
+  })
+})
+
+test('entering, hovering or clicking a heading starts no burst', async ({
+  page
+}) => {
+  await gotoStopped(page, 100)
+  const heading = page.locator(HEADING)
+  const log = await watch(heading)
+  await bringIn(page, heading)
   await heading.hover()
-  await page.waitForTimeout(1500)
-
-  expectOneShortBurst(await log.jsonValue())
+  await page.clock.runFor(500)
+  await heading.click()
+  await page.clock.runFor(QUIET_MS - 500)
+  expect(await log.jsonValue()).toEqual([])
 })
 
-test('no burst repeats on its own', async ({ page }) => {
-  await page.goto('/')
+test('hovering a heading sets off no glitch', async ({ page }) => {
+  await gotoStopped(page, 100)
+  for (const selector of ['#hero h1', HEADING]) {
+    const heading = page.locator(selector)
+    await bringIn(page, heading)
+    const log = await watch(heading)
+    await heading.hover()
+    await page.clock.runFor(1000)
+    expect(await log.jsonValue(), selector).toEqual([])
+  }
+})
+
+test('a heading less than half on screen never bursts', async ({ page }) => {
+  await gotoStopped(page, 100)
   const heading = page.locator(HEADING)
-  await bringIntoView(page, heading)
   const log = await watch(heading)
-
-  await page.waitForTimeout(6000)
-
+  // why: the heading's top 40% shows above the bottom of the window.
+  await heading.evaluate(element => {
+    const { top, height } = element.getBoundingClientRect()
+    window.scrollTo({
+      top: scrollY + top - innerHeight + height * 0.4,
+      behavior: 'instant'
+    })
+  })
+  await page.waitForTimeout(OBSERVE_MS)
+  await page.clock.runFor(NEVER_MS)
   expect(await log.jsonValue()).toEqual([])
+})
+
+type Frame = {
+  heading: { inline: string; computed: string }
+  copies: { transform: string; clipPath: string }[]
+}
+
+/**
+ * Records, inside the page, every frame the heading's next burst paints
+ * until it ends: the heading's own transform and each copy's.
+ */
+const recordBurst = (heading: Locator) =>
+  heading.evaluate(
+    element =>
+      new Promise<Frame[]>(resolve => {
+        const frames: Frame[] = []
+        const copies = [
+          ...element.querySelectorAll<HTMLElement>('[data-glitch-copy]')
+        ]
+        // why: a frame is painted in one task, and the observer runs once
+        // after it, so each callback sees one whole frame.
+        const observer = new MutationObserver(() => {
+          if (element.dataset.glitch === 'on') {
+            frames.push({
+              heading: {
+                inline: element.style.transform,
+                computed: getComputedStyle(element).transform
+              },
+              copies: copies.map(copy => ({
+                transform: copy.style.transform,
+                clipPath: copy.style.clipPath
+              }))
+            })
+            return
+          }
+          if (!frames.length) return
+          observer.disconnect()
+          resolve(frames)
+        })
+        observer.observe(element, { attributes: true, subtree: true })
+      })
+  )
+
+test('a burst paints at most three frames, shifted at most 3px, and the heading never moves', async ({
+  page
+}) => {
+  await gotoStopped(page, 100)
+  const heading = page.locator(HEADING)
+  await bringIn(page, heading)
+  const recorded = recordBurst(heading)
+  await page.clock.runFor(MAX_WAIT_MS + 400)
+  const frames = await recorded
+
+  const distinct = new Set(frames.map(frame => JSON.stringify(frame.copies)))
+  expect(distinct.size).toBeGreaterThanOrEqual(1)
+  expect(distinct.size).toBeLessThanOrEqual(MAX_FRAMES_WITH_COPIES)
+  for (const frame of frames) {
+    expect(frame.heading).toEqual({ inline: '', computed: 'none' })
+    for (const copy of frame.copies) {
+      const shift = /^translateX\((-?[\d.]+)px\)$/.exec(copy.transform)
+      expect(shift, `horizontal shift only: ${copy.transform}`).not.toBeNull()
+      const x = Math.abs(Number(shift?.[1]))
+      expect(x).toBeGreaterThanOrEqual(MIN_SHIFT_PX)
+      expect(x).toBeLessThanOrEqual(MAX_SHIFT_PX)
+    }
+  }
   await expect(heading).toHaveAttribute('data-glitch', 'off')
+  for (const copy of await heading.locator('[data-glitch-copy]').all())
+    await expect(copy).toBeHidden()
 })
 
 test.describe('dark scheme', () => {
   test.use({ colorScheme: 'dark' })
 
-  test('a burst shows a primary and a mist copy, shifted at most 8px and cut in three bands', async ({
+  test('a burst shows a primary and a mist copy, cut in three bands', async ({
     page
   }) => {
-    await page.goto('/')
+    await gotoStopped(page, 100)
     const heading = page.locator(HEADING)
-    await bringIntoView(page, heading)
-
+    await bringIn(page, heading)
     // why: the snapshot is taken inside the page the moment the burst
-    // starts; a round trip from the test could miss an 80 ms frame.
+    // starts; a round trip from the test could miss a 60 ms frame.
     const snapshot = heading.evaluate(
       element =>
         new Promise<{ text: string; copies: Record<string, string>[] }>(
@@ -130,7 +236,6 @@ test.describe('dark scheme', () => {
                     return {
                       text: copy.textContent ?? '',
                       color: style.color,
-                      transform: style.transform,
                       clipPath: style.clipPath,
                       visibility: style.visibility
                     }
@@ -145,12 +250,11 @@ test.describe('dark scheme', () => {
           }
         )
     )
-    await heading.hover()
+    await page.clock.runFor(MAX_WAIT_MS + 400)
     const { text, copies } = await snapshot
 
     expect(copies).toHaveLength(2)
-    const colors = copies.map(copy => copy.color)
-    expect(new Set(colors)).toEqual(
+    expect(new Set(copies.map(copy => copy.color))).toEqual(
       new Set([await tokenRgb(page, 'primary'), await tokenRgb(page, 'mist')])
     )
     for (const copy of copies) {
@@ -158,16 +262,7 @@ test.describe('dark scheme', () => {
       expect(copy.visibility).toBe('visible')
       expect(copy.clipPath).toMatch(/^polygon\(/)
       expect(copy.clipPath.split(',')).toHaveLength(POINTS_PER_CLIP)
-      const shift = /^matrix\(1, 0, 0, 1, (-?[\d.]+), 0\)$/.exec(copy.transform)
-      expect(shift, `horizontal shift only: ${copy.transform}`).not.toBeNull()
-      const x = Math.abs(Number(shift?.[1]))
-      expect(x).toBeGreaterThanOrEqual(MIN_SHIFT_PX)
-      expect(x).toBeLessThanOrEqual(MAX_SHIFT_PX)
     }
-
-    await expect(heading).toHaveAttribute('data-glitch', 'off')
-    for (const copy of await heading.locator('[data-glitch-copy]').all())
-      await expect(copy).toBeHidden()
   })
 })
 
@@ -185,81 +280,6 @@ test('copies are hidden from assistive tech', async ({ page }) => {
     await expect(heading).toHaveAccessibleName(text)
     await expect(heading).toHaveText(text.repeat(3))
   }
-})
-
-type Frame = {
-  shake: string
-  copies: { transform: string; clipPath: string }[]
-}
-
-/**
- * Hovers the heading and records, inside the page, every frame its burst
- * paints until it ends: the heading's own transform and each copy's.
- */
-const recordBurst = async (page: Page, heading: Locator) => {
-  const frames = heading.evaluate(
-    element =>
-      new Promise<{ frames: Frame[]; after: string }>(resolve => {
-        const frames: Frame[] = []
-        const copies = [
-          ...element.querySelectorAll<HTMLElement>('[data-glitch-copy]')
-        ]
-        // why: a frame is painted in one task, and the observer runs once
-        // after it, so each callback sees one whole frame.
-        const observer = new MutationObserver(() => {
-          if (element.dataset.glitch === 'on') {
-            frames.push({
-              shake: element.style.transform,
-              copies: copies.map(copy => ({
-                transform: copy.style.transform,
-                clipPath: copy.style.clipPath
-              }))
-            })
-            return
-          }
-          if (!frames.length) return
-          observer.disconnect()
-          resolve({ frames, after: getComputedStyle(element).transform })
-        })
-        observer.observe(element, { attributes: true, subtree: true })
-      })
-  )
-  await heading.hover()
-  return frames
-}
-
-test('a burst paints six frames of copies', async ({ page }) => {
-  await page.goto('/')
-  const heading = page.locator(HEADING)
-  await bringIntoView(page, heading)
-  const { frames } = await recordBurst(page, heading)
-
-  const distinct = new Set(frames.map(frame => JSON.stringify(frame.copies)))
-  expect(distinct.size, JSON.stringify(frames)).toBe(FRAMES_WITH_COPIES)
-  await expect(heading).toHaveAttribute('data-glitch', 'off')
-})
-
-test('the heading trembles during a burst and settles', async ({ page }) => {
-  await page.goto('/')
-  const heading = page.locator(HEADING)
-  await bringIntoView(page, heading)
-  const { frames, after } = await recordBurst(page, heading)
-
-  const shakes = frames.map(({ shake }) => {
-    if (!shake) return 0
-    const match = /^translateX\((-?[\d.]+)px\)$/.exec(shake)
-    expect(match, `horizontal shake only: ${shake}`).not.toBeNull()
-    return Number(match?.[1])
-  })
-  expect(
-    shakes.some(shake => shake !== 0),
-    'the text trembles'
-  ).toBe(true)
-  for (const shake of shakes)
-    expect(Math.abs(shake)).toBeLessThanOrEqual(MAX_SHAKE_PX)
-  expect(after, 'the heading is back in place').toBe('none')
-  for (const copy of await heading.locator('[data-glitch-copy]').all())
-    await expect(copy).toHaveCSS('transform', 'none')
 })
 
 test('no section but the hero has a grid', async ({ page }) => {

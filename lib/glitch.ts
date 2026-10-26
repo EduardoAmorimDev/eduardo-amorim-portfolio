@@ -1,11 +1,13 @@
-// why: the limits come from the task (T15–T17): one short burst per trigger,
-// six frames of sliced copies, then clean text, never looping.
+// why: the limits come from the task (cosmos, criteria 8–10): a subtle burst
+// of at most three frames of sliced copies, then clean text, never moving
+// the heading itself; bursts come on their own, 5 to 12 s apart.
 export const GLITCH = {
-  maxBurstMs: 600,
-  maxShiftPx: 8,
-  maxShakePx: 2,
-  framesWithCopies: 6,
-  bandsPerCopy: 3
+  maxBurstMs: 300,
+  maxShiftPx: 3,
+  framesWithCopies: 3,
+  bandsPerCopy: 3,
+  minWaitMs: 5000,
+  maxWaitMs: 12000
 } as const
 
 /** A horizontal band of a copy, in % of the heading's height from the top. */
@@ -21,8 +23,6 @@ export type GlitchSlice = {
 export type GlitchFrame = {
   /** Milliseconds after the burst starts. */
   at: number
-  /** Horizontal shift of the heading's own text in px; 0 is at rest. */
-  shake: number
   /** The two copies shown in this frame; null clears them (clean text). */
   copies: readonly [GlitchSlice, GlitchSlice] | null
 }
@@ -40,57 +40,30 @@ const slice = (x: number, ...bands: [number, number][]): GlitchSlice => {
 }
 
 // invariant: copy 0 is --glitch-a (primary), copy 1 --glitch-b (mist); the
-// last frame clears both and the shake, so a burst always ends clean.
+// last frame clears both, so a burst always ends clean.
 export const BURST: readonly GlitchFrame[] = [
   {
     at: 0,
-    shake: -1,
     copies: [
-      slice(-6, [8, 22], [40, 52], [70, 84]),
-      slice(5, [2, 12], [30, 46], [78, 92])
+      slice(-2, [10, 18], [44, 52], [72, 80]),
+      slice(2, [4, 12], [34, 40], [82, 90])
     ]
   },
   {
-    at: 80,
-    shake: 2,
+    at: 60,
     copies: [
-      slice(3, [16, 30], [48, 60], [86, 96]),
-      slice(-8, [6, 18], [36, 50], [62, 74])
+      slice(3, [22, 30], [56, 62], [84, 92]),
+      slice(-1, [8, 16], [40, 48], [66, 74])
     ]
   },
   {
-    at: 160,
-    shake: -2,
+    at: 120,
     copies: [
-      slice(-8, [0, 10], [26, 40], [56, 70]),
-      slice(7, [14, 26], [44, 58], [80, 96])
+      slice(-1, [2, 8], [30, 38], [60, 68]),
+      slice(3, [16, 24], [50, 58], [78, 86])
     ]
   },
-  {
-    at: 240,
-    shake: 1,
-    copies: [
-      slice(6, [10, 24], [34, 44], [66, 80]),
-      slice(-4, [4, 16], [50, 62], [72, 88])
-    ]
-  },
-  {
-    at: 320,
-    shake: -1,
-    copies: [
-      slice(-3, [20, 34], [46, 56], [74, 90]),
-      slice(8, [0, 14], [28, 38], [58, 72])
-    ]
-  },
-  {
-    at: 400,
-    shake: 1,
-    copies: [
-      slice(2, [6, 14], [38, 50], [84, 98]),
-      slice(-2, [18, 28], [52, 66], [76, 86])
-    ]
-  },
-  { at: 480, shake: 0, copies: null }
+  { at: 180, copies: null }
 ]
 
 /**
@@ -112,7 +85,7 @@ export type GlitchHistory = {
 export const IDLE_GLITCH: GlitchHistory = { busyUntil: -Infinity }
 
 /**
- * Asks for a burst at `now` (entering the viewport, or a hover). Returns null
+ * Asks for a burst at `now`, when its drawn wait is over. Returns null
  * while one is running; otherwise it starts at `now`, with the history that
  * keeps the next trigger out until it ends.
  */
@@ -124,3 +97,10 @@ export const requestBurst = (history: GlitchHistory, now: number) => {
     history: { busyUntil: now + (last ? last.at : 0) }
   }
 }
+
+/**
+ * How long a heading waits before its next burst, from a uniform draw
+ * `random` in [0, 1): GLITCH.minWaitMs at 0, up to GLITCH.maxWaitMs.
+ */
+export const burstWait = (random: number) =>
+  GLITCH.minWaitMs + (GLITCH.maxWaitMs - GLITCH.minWaitMs) * random

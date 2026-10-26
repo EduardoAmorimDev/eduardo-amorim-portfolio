@@ -171,14 +171,74 @@ export const channelGap = (a: readonly number[], b: readonly number[]) =>
     ...[0, 1, 2].map(index => Math.abs((a[index] ?? 0) - (b[index] ?? 0)))
   )
 
+/**
+ * Parses a computed colour (`rgb()`, `rgba()` or `color(srgb …)`) into
+ * [r, g, b] in 0–255 and alpha in 0–1.
+ */
+export const parseColor = (css: string) => {
+  const rgb = /^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/.exec(css)
+  if (rgb)
+    return {
+      rgb: [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])],
+      alpha: rgb[4] === undefined ? 1 : Number(rgb[4])
+    }
+  const srgb =
+    /^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)$/.exec(css)
+  if (srgb)
+    return {
+      rgb: [1, 2, 3].map(index => Number(srgb[index]) * 255),
+      alpha: srgb[4] === undefined ? 1 : Number(srgb[4])
+    }
+  throw new Error(`not a colour this test reads: ${css}`)
+}
+
+/** The hero's copy, the title's lens outline included. */
+const HERO_COPY = '#hero h1, #hero p, #hero a, #hero [data-lens="outline"]'
+
 /** Hides the hero's copy, so pixel checks see only the 3D scene under it. */
 export const hideHeroCopy = (page: Page) =>
-  page.evaluate(() => {
-    for (const node of document.querySelectorAll<HTMLElement>(
-      '#hero h1, #hero p, #hero a'
-    ))
+  page.evaluate(selector => {
+    for (const node of document.querySelectorAll<HTMLElement>(selector))
       node.style.visibility = 'hidden'
-  })
+  }, HERO_COPY)
+
+/**
+ * Hides the copy, the grid and the lens, so pixel checks see only the 3D
+ * scene: the black hole and the glass logo over the page background.
+ */
+export const showSceneOnly = (page: Page) =>
+  page.evaluate(selector => {
+    for (const node of document.querySelectorAll<HTMLElement>(selector))
+      node.style.visibility = 'hidden'
+  }, `${HERO_COPY}, [data-testid="hero-grid"], [data-testid="hero-lens"]`)
+
+/** Element boxes, read in one round trip. */
+export const boxesOf = (page: Page, selectors: readonly string[]) =>
+  page.evaluate(
+    list =>
+      list.map(selector => {
+        const element = document.querySelector(selector)
+        if (!element) throw new Error(`no ${selector}`)
+        const { left, top, right, bottom } = element.getBoundingClientRect()
+        return { left, top, right, bottom }
+      }),
+    [...selectors]
+  )
+
+const CLOCK_START = Date.UTC(2026, 0, 1)
+
+/**
+ * Loads `/` with the page's clock stopped from before its first script, then
+ * runs it `ms` forward: every animation is then at a known moment, and
+ * nothing moves while a capture is taken.
+ */
+export const gotoStopped = async (page: Page, ms: number) => {
+  await page.clock.install({ time: CLOCK_START })
+  await page.clock.pauseAt(CLOCK_START + 100)
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.clock.runFor(ms)
+}
 
 /**
  * Loads `/` and waits until the hero's models have arrived and drawn: every
