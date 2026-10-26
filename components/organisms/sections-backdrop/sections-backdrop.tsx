@@ -1,26 +1,14 @@
-// why: 1px lines every 80px; the whole grid is drawn at 6% opacity, so
-// the line colour (--grid-line) can stay a plain theme token.
-const GRID = {
-  backgroundImage:
-    'linear-gradient(to right, var(--grid-line) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px)',
-  backgroundSize: '80px 80px'
-}
-
 /**
- * The static background behind the sections after the hero: a faint grid and
- * two blurred radial glows that stay on screen while the sections scroll.
- * Must be placed inside a container that creates a stacking context.
+ * The static background behind the sections after the hero: two blurred
+ * radial glows that stay on screen while the sections scroll; no grid, which
+ * belongs to the hero alone. Must be placed inside a container that creates
+ * a stacking context.
  */
 export const SectionsBackdrop = () => (
   <div
     aria-hidden="true"
     className="pointer-events-none absolute inset-0 -z-20 overflow-clip"
   >
-    <div
-      data-testid="sections-grid"
-      className="absolute inset-0 opacity-[0.06]"
-      style={GRID}
-    />
     <div className="sticky top-0 h-svh">
       <div
         data-testid="sections-glow"

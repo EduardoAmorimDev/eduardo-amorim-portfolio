@@ -181,86 +181,55 @@ test('copies are hidden from assistive tech', async ({ page }) => {
   }
 })
 
-for (const scheme of ['light', 'dark'] as const) {
-  test.describe(`${scheme} backdrop`, () => {
-    test.use({ colorScheme: scheme })
-
-    test('sections background is an 80px grid at most 6% opaque', async ({
-      page
-    }) => {
-      await page.goto('/')
-      const grid = page.locator('[data-testid="sections-grid"]')
-      await expect(grid).toHaveCount(1)
-      await expect(
-        page.locator('#hero [data-testid="sections-grid"]')
-      ).toHaveCount(0)
-      const heroBottom = await page
-        .locator('#hero')
-        .evaluate(hero => hero.getBoundingClientRect().bottom)
-      const gridTop = await grid.evaluate(
-        node => node.getBoundingClientRect().top
-      )
-      expect(gridTop, 'the grid starts after the hero').toBeGreaterThanOrEqual(
-        heroBottom - 1
-      )
-
-      const style = await grid.evaluate(node => {
-        const computed = getComputedStyle(node)
-        return {
-          image: computed.backgroundImage,
-          size: computed.backgroundSize,
-          opacity: Number(computed.opacity)
-        }
+test('no section but the hero has a grid', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-testid="sections-grid"]')).toHaveCount(0)
+  // invariant: a grid of lines is a repeating linear-gradient with a hard
+  // stop at 1px; nothing outside the hero paints one.
+  const lined = await page.evaluate(() =>
+    [...document.querySelectorAll('body *')]
+      .filter(node => !node.closest('#hero'))
+      .filter(node => {
+        const image = getComputedStyle(node).backgroundImage
+        return image.includes('linear-gradient') && image.includes(' 1px')
       })
-      // invariant: one size per background layer; every layer tiles 80px cells.
-      const sizes = style.size.split(/,\s*/)
-      expect(sizes).toHaveLength(2)
-      for (const size of sizes) expect(size).toMatch(/^80px( 80px)?$/)
-      const gradients = style.image.split(/,\s*(?=linear-gradient)/)
-      expect(gradients).toHaveLength(2)
-      expect(gradients.some(gradient => gradient.includes('to right'))).toBe(
-        true
-      )
-      for (const gradient of gradients) {
-        expect(gradient).toMatch(/^linear-gradient\(/)
-        // invariant: a hard stop at 1px draws a 1px line per 80px cell.
-        expect(gradient).toMatch(/ 1px, rgba\(0, 0, 0, 0\) 1px\)$/)
-        const alphas = [
-          ...gradient.matchAll(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/g)
-        ]
-          .map(([, , , , alpha]) => (alpha === undefined ? 1 : Number(alpha)))
-          .filter(alpha => alpha > 0)
-        expect(alphas.length).toBeGreaterThan(0)
-        for (const alpha of alphas) {
-          expect(alpha * style.opacity).toBeGreaterThan(0)
-          expect(alpha * style.opacity).toBeLessThanOrEqual(0.06)
-        }
-      }
-    })
-  })
-}
+      .map(node => `${node.tagName}.${node.className}`)
+  )
+  expect(lined).toEqual([])
+})
 
 test('sections background has a primary and a steel glow', async ({ page }) => {
   await page.goto('/')
   const glows = page.locator('[data-testid="sections-glow"]')
-  await expect(glows).toHaveCount(2)
+  // invariant: one primary and one steel glow per block of sections, the
+  // block before the notebook and the one after it.
+  await expect(glows).toHaveCount(4)
   const found = await glows.evaluateAll(nodes =>
     nodes.map(node => {
       const { backgroundImage, filter } = getComputedStyle(node)
-      return { backgroundImage, filter }
+      const block = node.closest('main > div')
+      const siblings = block?.parentElement?.children ?? []
+      return {
+        backgroundImage,
+        filter,
+        block: block ? [...siblings].indexOf(block) : -1
+      }
     })
   )
   const palette = {
     primary: await tokenRgb(page, 'primary'),
     steel: await tokenRgb(page, 'steel')
   }
-  for (const color of Object.values(palette)) {
-    const glow = found.find(({ backgroundImage }) =>
-      backgroundImage.includes(color)
-    )
-    expect(glow, `a glow in ${color}`).toBeDefined()
-    expect(glow?.backgroundImage).toMatch(/^radial-gradient\(/)
-    const blur = /blur\(([\d.]+)px\)/.exec(glow?.filter ?? '')
-    expect(Number(blur?.[1] ?? 0), 'the glow is blurred').toBeGreaterThan(0)
-  }
+  const blocks = [...new Set(found.map(({ block }) => block))]
+  expect(blocks).toHaveLength(2)
+  for (const block of blocks)
+    for (const color of Object.values(palette)) {
+      const glow = found.find(
+        glow => glow.block === block && glow.backgroundImage.includes(color)
+      )
+      expect(glow, `a glow in ${color} in block ${block}`).toBeDefined()
+      expect(glow?.backgroundImage).toMatch(/^radial-gradient\(/)
+      const blur = /blur\(([\d.]+)px\)/.exec(glow?.filter ?? '')
+      expect(Number(blur?.[1] ?? 0), 'the glow is blurred').toBeGreaterThan(0)
+    }
 })
