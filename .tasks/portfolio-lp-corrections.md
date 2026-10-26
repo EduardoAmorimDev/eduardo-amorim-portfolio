@@ -4,6 +4,11 @@
 > Cada critério abaixo vira uma verificação com prova, citada pelo número. Nada em
 > `Unresolved` é decidido durante a implementação.
 
+> **Substituídos por `.tasks/portfolio-lp-cosmos.md` (2026-10-26):** 3 e 4 (só o `logo` fica na
+> Hero), 5 (malha gravitacional em perspectiva), 7–10 (a luz vira buraco negro), 15 e 16 (glitch
+> aleatório e sutil, sem hover nem tremor) e 17 só na regra de gatilhos; a de não sobrepor
+> rajadas continua. O resto segue valendo.
+
 ## Intent
 
 Hoje a Hero de `/` mistura tudo: o notebook que abre com a rolagem prende a primeira tela por
