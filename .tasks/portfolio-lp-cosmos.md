@@ -35,7 +35,7 @@ Fora da Hero:
 - O fundo das seções ganha movimento contínuo e lento.
 - Os cards ganham vidro fosco, com os brilhos passando por trás.
 
-42 critérios em 9 fatias · 0 one-way doors · 6 em aberto, nenhum bloqueia; 1 bloqueia go-live (herdado).
+42 critérios em 9 fatias · 0 one-way doors · 2 em aberto: 1 open, nenhum bloqueia; 1 bloqueia go-live (herdado).
 
 ## Criteria
 
@@ -144,7 +144,8 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
     - **Imagem curvada:** a parte de trás do disco forma um arco por cima e outro por baixo do
       horizonte.
 
-    O disco vai de `mist`, no miolo quente, a `primary`, na borda (Unresolved 2). Em janelas mais
+    O disco é frio, no azul da marca: `mist` no miolo, indo a `primary` na borda, sem tons quentes
+    (laranja, amarelo, vermelho). Em janelas mais
     estreitas que 1440 px, o tamanho encolhe na mesma proporção dos ícones, como a luz faz hoje.
 29. Enquanto não houver movimento reduzido, o buraco negro vaga por cima da malha num caminho
     aleatório e suave, novo a cada carregamento:
@@ -181,7 +182,7 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
 ### S9 — Vidro fosco e luzes (resposta do usuário)
 
 37. Sempre, os cards de `#solucoes` (6), `#cases` (3) e `#depoimentos` (3) e as etapas de
-    `#workflow` (6) têm superfície de vidro fosco (Unresolved 3):
+    `#workflow` (6) têm superfície de vidro fosco:
     - fundo `mist` com 5% de opacidade;
     - `backdrop-filter: blur(16px)`;
     - borda de 1 px em `mist` com 10% de opacidade;
@@ -220,7 +221,7 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
 | --- | --- | --- |
 | tela `/` › `#hero` | estado em repouso, sem ponteiro | 16, 17, 20, 28, 29 |
 | tela `/` › `#hero` | carregando (modelos ainda chegando) | existing - `Suspense` sem fallback; a malha e o buraco negro desenham antes do `logo` |
-| tela `/` › `#hero` | erro (WebGL indisponível) | Unresolved 4 |
+| tela `/` › `#hero` | erro (WebGL indisponível) | Unresolved 2 |
 | tela `/` › `#hero` | toque, sem hover | 27, e a malha sem depressão do ponteiro (18 exige mouse) |
 | tela `/` › `#hero` | movimento reduzido | 22, 27, 29 |
 | tela `/` › `#hero` | densidade e ordem | 12, 13, 14, 15 |
@@ -237,7 +238,7 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
 ## Swept
 
 - validation: n/a - nenhuma entrada de dados; o único insumo é a posição do ponteiro, ignorada fora da Hero (18, 27)
-- failure modes: Unresolved 4 (sem WebGL); modelo do `logo` que não carrega: existing - `Suspense` não mostra nada e o resto da Hero segue
+- failure modes: Unresolved 2 (sem WebGL); modelo do `logo` que não carrega: existing - `Suspense` não mostra nada e o resto da Hero segue
 - idempotency and retry: n/a - nada é enviado nem gravado
 - authorization: n/a - página pública
 - concurrency and ordering: 10 (rajada não se sobrepõe a si mesma; existing - `requestBurst` bloqueia um novo início durante a rajada); 40 (pausa e retomada não fazem o buraco negro saltar)
@@ -293,6 +294,13 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
     o ícone 3D de logo de vidro na Hero [...] Além disso pode trazer um pouco mais do
     glassmorfismo e brincadeira com luzes neste projeto".
   - **Lente:** "Constelações + H1 vazado".
+- Respostas às questões em aberto (2026-10-26):
+  - **Cor do disco (28):** "deve ser uma cor fria, pode ser o azul da marca, a referencia só foi
+    para você ver a distorçao do fundo".
+  - **Vidro e luzes (37–38):** "vamos ver, pode seguir" — user delegated. Vale o default: vidro
+    fosco nos cards e os brilhos vivos passando por trás, sem brilho que siga o cursor.
+  - **Números (8–10, 16–27, 33–35):** "Sobre os números, tudo bem".
+  - **CTAs:** "vamos ver os CTAs outra hora" — Unresolved 1 continua.
 - Pioneer, "Corn. Revolutionized." — https://cornrevolution.resn.global/#. O WebFetch devolveu só
   a tela de navegador sem suporte; abri o site no Chromium (Playwright) e transcrevi:
   - **Título:** em caixa alta, centralizado na tela, com a imagem do contexto (uma espiga) atrás.
@@ -300,7 +308,7 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
     aparece uma rede de pontos ligados por linhas finas, parecida com moléculas.
   - **Uso nesta tarefa:** referência de estilo, não binding.
 - `/home/joao-eduardo/Pictures/Screenshots/Screenshot From 2026-10-26 12-53-10.png` (buraco negro)
-  — transcrito em 28:
+  — transcrito em 28; vale a forma e a distorção, não a cor (o usuário pediu cor fria):
   - disco preto no centro, com anel fino e brilhante colado;
   - disco de acreção quase de perfil cruzando na horizontal;
   - a parte de trás do disco curvada num arco por cima e outro por baixo;
@@ -322,8 +330,4 @@ This task is the record of decision. If a linked document diverges, ask before b
 | # | Kind | Question | Until answered |
 |---|---|---|---|
 | 1 | blocks go-live | Destino real dos CTAs e conteúdo real (herdado da tarefa anterior). | A Hero continua com lorem e o CTA leva a `#contato`. |
-| 2 | open | Cores do disco de acreção: a referência é quente (branco a laranja), e a marca é fria. | 28 usa a paleta da marca: `mist` no miolo e `primary` na borda. Trocar para tons quentes muda só 28 e 31. |
-| 3 | open | Onde entra o "mais glassmorfismo e brincadeira com luzes": quais superfícies e quais luzes. | 37–38: vidro fosco nos cards de soluções, cases, depoimentos e workflow; luzes = brilhos vivos (33) passando por trás deles, mais a luz do buraco negro no `logo` (31). Sem brilho que siga o cursor, porque o item 1 restringe a interação aos botões. |
-| 4 | open | Sem WebGL disponível, o que a Hero mostra. | Hoje a cena só não aparece. Default: o H1, o subtítulo e o CTA continuam centralizados sobre o fundo `ink`, sem malha, buraco negro nem lente; nenhum critério cobre isso até a resposta. |
-| 5 | open | Os valores do glitch sutil e do fundo vivo são defaults: 5–12 s, 3 quadros, 3 px e 300 ms (8–10); 8vmax, 30–45 s, cintilar de 3–8 s, ±6° (33–35). | Escritos como critério. Ajustar é só trocar número. |
-| 6 | open | Os valores da malha e da lente são defaults: inclinação de 30°, raio de 180 px para o ponteiro e 280 px para o buraco negro, desvios de 6–20 px e 48 px, lente de 120 px, 6–10 estrelas. | Escritos como critério (16–27). Podem ser ajustados depois de ver na tela. |
+| 2 | open | Fallback para o caso raro de o navegador não ter WebGL (aparelho antigo, aceleração desligada, modo de economia): o que a Hero mostra no lugar da malha, do buraco negro e da lente? Não afeta quem tem WebGL, que é quase todo visitante. | Hoje a cena 3D simplesmente não aparece nesse caso. Nenhum critério cobre o fallback até a resposta. |
