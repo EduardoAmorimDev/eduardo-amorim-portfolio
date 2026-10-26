@@ -70,3 +70,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* why: the page reads as a visual piece, not a document: text never takes
+   the text cursor nor a selection, and only controls show the pointer
+   (task cosmos, criteria 1–2). Controls come last, so they win. */
+@layer base {
+  :where(h1, h2, h3, p, li, span, blockquote, figcaption) {
+    cursor: default;
+    user-select: none;
+  }
+
+  :where(button, a[href], summary),
+  :where(button, a[href], summary) * {
+    cursor: pointer;
+  }
+}
