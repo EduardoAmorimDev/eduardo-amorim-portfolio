@@ -1,97 +1,109 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import {
-  GRID,
-  bendEnergy,
-  bendShift,
-  bentLine,
-  gridLines
-} from './grid-motion.ts'
+import { holeShift, pointerShift, sheet } from './grid-motion.ts'
 
-const LENGTH = 900
-const pointer = { along: 300, across: 480 }
+// why: the checklist's own numbers (C26, C28, C33).
+const SPACING = 48
+const TOP_TO_BOTTOM = 0.8
+const POINTER_RADIUS = 180
+const HOLE_RADIUS = 280
+const HOLE_PULL = 48
+const HORIZON = 48
 
-/** Largest distance any point of the line moved from where it rests. */
-const maxShift = (rest: number, energy: number) =>
-  Math.max(
-    ...bentLine(rest, LENGTH, pointer, energy).map(point =>
-      Math.abs(point.across - rest)
-    )
+const WIDTH = 1440
+const HEIGHT = 900
+const hole = { x: 720, y: 288, horizon: HORIZON, scale: 1 }
+const pointer = { x: 300, y: 600, strength: 1 }
+
+test('a 30° tilt: straight verticals, 48px apart at the middle, closer at the top', () => {
+  const grid = sheet(WIDTH, HEIGHT)
+  const gaps = (y: number) =>
+    grid.verticals
+      .slice(1)
+      .map(
+        (u, index) =>
+          grid.verticalX(u, y) - grid.verticalX(grid.verticals[index] ?? u, y)
+      )
+  for (const gap of gaps(HEIGHT / 2)) assert.ok(Math.abs(gap - SPACING) < 1e-9)
+  const top = gaps(0)[0] ?? NaN
+  const bottom = gaps(HEIGHT)[0] ?? NaN
+  assert.ok(
+    top <= TOP_TO_BOTTOM * bottom,
+    `${top} at the top, ${bottom} at the bottom`
   )
-
-test('lines are 48px apart across the whole side', () => {
-  assert.equal(GRID.spacing, 48)
-  const lines = gridLines(LENGTH)
-  assert.equal(lines[0], GRID.offset)
-  for (let index = 1; index < lines.length; index++)
-    assert.equal(lines[index] - lines[index - 1], 48)
-  const last = lines.at(-1) ?? -Infinity
-  assert.ok(last < LENGTH && last + 48 >= LENGTH, 'no gap at the far edge')
-})
-
-test('with no pointer, or once the bend has faded, every line is straight', () => {
-  for (const rest of gridLines(LENGTH)) {
-    for (const line of [
-      bentLine(rest, LENGTH, null, 1),
-      bentLine(rest, LENGTH, pointer, 0)
-    ])
-      assert.ok(line.every(point => point.across === rest))
+  // invariant: a straight line has the same slope between any two rows.
+  for (const u of grid.verticals) {
+    const slope = (a: number, b: number) =>
+      (grid.verticalX(u, b) - grid.verticalX(u, a)) / (b - a)
+    assert.ok(Math.abs(slope(0, 450) - slope(450, 900)) < 1e-9, `line ${u}`)
   }
+  // invariant: the sheet covers the hero: lines past both sides at the top,
+  // rows within a gap of both edges.
+  assert.ok(grid.verticalX(grid.verticals[0] ?? 0, 0) <= 0)
+  assert.ok(grid.verticalX(grid.verticals.at(-1) ?? 0, 0) >= WIDTH)
+  assert.ok((grid.rows[0] ?? Infinity) <= SPACING)
+  assert.ok((grid.rows.at(-1) ?? -Infinity) >= HEIGHT - SPACING)
 })
 
-test('every line within 160px of a moving pointer bends, by at most 12px', () => {
-  assert.equal(GRID.radius, 160)
-  assert.equal(GRID.maxShift, 12)
-  for (let across = -159; across <= 159; across += 1) {
-    if (across === 0) continue
-    const shift = maxShift(pointer.across + across, 1)
-    assert.ok(shift > 0, `line ${across}px away bends`)
-    assert.ok(shift <= 12 + 1e-9, `line ${across}px away: ${shift}px`)
-  }
-})
-
-test('no point anywhere moves more than 12px', () => {
-  for (let across = -200; across <= 200; across += 0.5)
-    for (let along = -200; along <= 200; along += 0.5)
-      assert.ok(Math.abs(bendShift(across, along, 1)) <= 12 + 1e-9)
-})
-
-test('the strongest bend reaches the full 12px', () => {
-  const peak = Math.max(
-    ...Array.from({ length: 1601 }, (_, i) => bendShift(i / 10, 0, 1))
+test('no displacement beyond either well', () => {
+  for (let angle = 0; angle < 2 * Math.PI; angle += 0.05)
+    for (const extra of [1e-6, 1, 40, 400]) {
+      const far = (body: { x: number; y: number }, radius: number) => ({
+        x: body.x + (radius + extra) * Math.cos(angle),
+        y: body.y + (radius + extra) * Math.sin(angle)
+      })
+      assert.deepEqual(pointerShift(far(pointer, POINTER_RADIUS), pointer), {
+        x: 0,
+        y: 0
+      })
+      assert.deepEqual(holeShift(far(hole, HOLE_RADIUS), hole), { x: 0, y: 0 })
+    }
+  assert.deepEqual(
+    pointerShift({ x: 310, y: 610 }, { ...pointer, strength: 0 }),
+    {
+      x: 0,
+      y: 0
+    }
   )
-  assert.ok(peak > 11.99 && peak <= 12 + 1e-9, `peak ${peak}`)
 })
 
-test('lines beyond 160px of the pointer stay straight', () => {
-  for (const across of [160, 168, 216, 400, -160, -168, -500])
-    assert.equal(maxShift(pointer.across + across, 1), 0, `${across}px away`)
-  for (let along = -400; along <= 400; along += 7)
-    assert.equal(bendShift(10, 170 + Math.abs(along), 1), 0)
+test('the hole pulls towards its centre, by at most 48px, within 280px', () => {
+  let strongest = 0
+  for (let distance = 0.5; distance < HOLE_RADIUS; distance += 0.5)
+    for (let angle = 0; angle < 2 * Math.PI; angle += 0.3) {
+      const point = {
+        x: hole.x + distance * Math.cos(angle),
+        y: hole.y + distance * Math.sin(angle)
+      }
+      const shift = holeShift(point, hole)
+      const size = Math.hypot(shift.x, shift.y)
+      strongest = Math.max(strongest, size)
+      assert.ok(size <= HOLE_PULL + 1e-9, `${size}px at ${distance}px`)
+      assert.ok(size > 0, `the well reaches ${distance}px`)
+      // invariant: towards the centre, and never past it.
+      const after = { x: point.x + shift.x, y: point.y + shift.y }
+      const before = Math.hypot(point.x - hole.x, point.y - hole.y)
+      const now = Math.hypot(after.x - hole.x, after.y - hole.y)
+      assert.ok(now < before, `closer at ${distance}px`)
+      const along =
+        (after.x - hole.x) * (point.x - hole.x) +
+        (after.y - hole.y) * (point.y - hole.y)
+      assert.ok(along >= -1e-9, `not past the centre at ${distance}px`)
+    }
+  assert.ok(strongest > HOLE_PULL - 1, `the well reaches ${strongest}px`)
 })
 
-test('lines bend away from the pointer, on both sides', () => {
-  assert.ok(bendShift(40, 0, 1) > 0)
-  assert.ok(bendShift(-40, 0, 1) < 0)
-})
-
-test('the bend fades after the pointer stops and is gone within 800ms', () => {
-  assert.equal(GRID.settleMs, 800)
-  assert.ok(GRID.fadeMs <= GRID.settleMs)
-  assert.equal(bendEnergy(0), 1)
-  assert.equal(bendEnergy(-5), 1)
-  let previous = 1
-  for (let since = 10; since <= 2000; since += 10) {
-    const energy = bendEnergy(since)
-    assert.ok(energy <= previous, `fades monotonically at ${since}ms`)
-    previous = energy
-  }
-  assert.equal(bendEnergy(GRID.settleMs), 0)
-  assert.equal(maxShift(pointer.across + 40, bendEnergy(GRID.settleMs)), 0)
-})
-
-test('a bent line still spans the whole side, end to end', () => {
-  const line = bentLine(pointer.across + 40, LENGTH, pointer, 1)
-  assert.equal(line[0]?.along, 0)
-  assert.equal(line.at(-1)?.along, LENGTH)
+test('the pointer pulls lines sideways towards it and sinks them, by at most 20px', () => {
+  for (let dx = -179; dx <= 179; dx += 3)
+    for (let dy = -179; dy <= 179; dy += 3) {
+      if (Math.hypot(dx, dy) >= POINTER_RADIUS || dx === 0) continue
+      const shift = pointerShift(
+        { x: pointer.x + dx, y: pointer.y + dy },
+        pointer
+      )
+      assert.ok(Math.sign(shift.x) === -Math.sign(dx), `towards at ${dx},${dy}`)
+      assert.ok(Math.abs(shift.x) < Math.abs(dx), `not past it at ${dx},${dy}`)
+      assert.ok(shift.y > 0, `down at ${dx},${dy}`)
+      assert.ok(Math.hypot(shift.x, shift.y) <= 20, `${dx},${dy}`)
+    }
 })

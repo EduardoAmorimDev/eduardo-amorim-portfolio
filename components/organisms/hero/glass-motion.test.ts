@@ -3,12 +3,8 @@ import { test } from 'node:test'
 import {
   GLASS_LAYOUT,
   MOTION,
-  ORBIT,
   anchorToWorld,
-  cageAngle,
-  motionTarget,
-  orbitIndex,
-  tumbleAngle
+  motionTarget
 } from './glass-motion.ts'
 
 const centre = { x: 0, y: 0 }
@@ -25,16 +21,16 @@ test('every layout anchor stays inside the view', () => {
   }
 })
 
-test('the hero shows exactly the cursor, atom and logo icons', () => {
+test('the hero shows the logo alone', () => {
   assert.deepEqual(
     GLASS_LAYOUT.map(({ name }) => name),
-    ['cursor', 'atom', 'logo']
+    ['logo']
   )
 })
 
 // why: the task keeps the icons' motion as it was (T4); the literals are the
 // values shipped before it, so a change to the constants fails here.
-test('motion and orbit constants keep their values', () => {
+test('motion constants keep their values', () => {
   assert.deepEqual(MOTION, {
     parallaxTilt: 0.12,
     parallaxShift: 0.08,
@@ -44,7 +40,6 @@ test('motion and orbit constants keep their values', () => {
     sway: 0.12,
     speed: 0.5
   })
-  assert.deepEqual(ORBIT, { tumble: [0.55, -0.42, 0.32], cage: 0.25 })
 })
 
 test('with the pointer centred and nothing hovered, only the idle motion is left', () => {
@@ -80,32 +75,4 @@ test('the idle sway never exceeds its amplitude', () => {
     assert.ok(Math.abs(rotationY) <= MOTION.sway + 1e-12)
     assert.ok(Math.abs(shiftY) <= MOTION.bob + 1e-12)
   }
-})
-
-test('atom rings are found by name, with their ring number', () => {
-  assert.equal(orbitIndex('Orbit2'), 2)
-  for (const name of ['Nucleus', 'Stud', 'Orbit', 'Electron1', 'OrbitPivot1']) {
-    assert.equal(orbitIndex(name), null, name)
-  }
-})
-
-test('each ring tumbles at its own speed and direction', () => {
-  assert.equal(tumbleAngle(0, 1), 0)
-  assert.equal(tumbleAngle(2, 1), 2 * ORBIT.tumble[0])
-  const speeds = [1, 2, 3].map(index => tumbleAngle(1, index))
-  assert.equal(new Set(speeds).size, 3, 'three distinct speeds')
-  assert.ok(
-    speeds.some(speed => speed < 0),
-    'at least one turns the other way'
-  )
-})
-
-test('a ring past the speed list reuses a speed instead of returning NaN', () => {
-  assert.equal(tumbleAngle(1, 4), tumbleAngle(1, 1))
-  assert.ok(Number.isFinite(tumbleAngle(1, 0)))
-})
-
-test('the cage turns steadily about the vertical axis', () => {
-  assert.equal(cageAngle(0), 0)
-  assert.equal(cageAngle(4), 4 * ORBIT.cage)
 })

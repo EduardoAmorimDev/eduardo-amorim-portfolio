@@ -5,7 +5,7 @@ import { useNearViewport } from '@/lib/use-near-viewport'
 
 // why: a quarter screen of lead, so a scene starts drawing again before it
 // scrolls into view and its last paused frame is never seen.
-const LEAD = '25% 0px'
+export const RENDER_LEAD = '25% 0px'
 
 /**
  * Stops its `<Canvas>`'s render loop while the canvas is off screen, so a
@@ -14,7 +14,7 @@ const LEAD = '25% 0px'
 export const RenderGate = () => {
   const canvas = useRef(useThree(state => state.gl.domElement))
   const get = useThree(state => state.get)
-  const near = useNearViewport(canvas, LEAD)
+  const near = useNearViewport(canvas, RENDER_LEAD)
 
   useEffect(() => {
     const { clock, setFrameloop } = get()

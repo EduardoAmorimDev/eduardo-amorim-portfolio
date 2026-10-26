@@ -1,6 +1,6 @@
 import { MathUtils } from 'three'
 
-export type GlassName = 'cursor' | 'atom' | 'logo'
+export type GlassName = 'logo'
 
 export type GlassLayout = {
   name: GlassName
@@ -14,26 +14,12 @@ export type GlassLayout = {
   pose: readonly [number, number, number]
 }
 
-// why: the copy holds the bottom left and the light the top left, so the
-// icons gather on the right half, the atom largest, at staggered depths.
+// why: the title holds the centre and the black hole wanders around it, so
+// the logo floats alone at the top right, clear of the title and the CTA.
 export const GLASS_LAYOUT: readonly GlassLayout[] = [
   {
-    name: 'cursor',
-    anchor: [0.08, 0.5],
-    depth: -2.5,
-    size: 0.95,
-    pose: [0.25, 0.5, -0.25]
-  },
-  {
-    name: 'atom',
-    anchor: [0.58, 0.12],
-    depth: -1,
-    size: 1.5,
-    pose: [0.2, 0.3, 0.1]
-  },
-  {
     name: 'logo',
-    anchor: [0.36, -0.55],
+    anchor: [0.62, 0.62],
     depth: 0,
     size: 0.95,
     pose: [0.2, 0.4, 0]
@@ -43,6 +29,24 @@ export const GLASS_LAYOUT: readonly GlassLayout[] = [
 // why: the whole layout fits ~6 units at z = 0; narrower views shrink the
 // icons with them so they never crowd the copy.
 export const LAYOUT_WIDTH = 6
+
+/** The hero's camera; it looks at the origin from a little above. */
+export const HERO_CAMERA = {
+  position: [0, 1, 7] as [number, number, number],
+  fov: 40
+}
+
+/**
+ * How much the icons shrink in a hero `width` × `height` px: the view's width
+ * at the origin over LAYOUT_WIDTH, never above 1.
+ */
+export const viewFit = (width: number, height: number) => {
+  const [x, y, z] = HERO_CAMERA.position
+  const distance = Math.hypot(x, y, z)
+  const halfFov = (HERO_CAMERA.fov * Math.PI) / 360
+  const viewWidth = (width / height) * 2 * distance * Math.tan(halfFov)
+  return Math.min(1, viewWidth / LAYOUT_WIDTH)
+}
 
 // why: kept small on purpose; the icons should feel alive, not draw the eye
 // away from the copy. Radians for tilt, world units for shift.
@@ -58,38 +62,6 @@ export const MOTION = {
   sway: 0.12,
   speed: 0.5
 }
-
-// why: a Dyson-sphere cage: each ring tumbles about its own diameter, at its
-// own speed and direction, while the whole cage turns slowly about the atom's
-// vertical axis; together they sweep a sphere around the nucleus.
-export const ORBIT = {
-  /** Radians per second ring n tumbles; the sign is the direction. */
-  tumble: [0.55, -0.42, 0.32],
-  /** Radians per second the cage turns about the atom's y (~25 s a turn). */
-  cage: 0.25
-}
-
-// invariant: the atom names its equal rings Orbit1..3, each centred on the
-// nucleus at its origin with a diameter along its local x (canvas-lab's
-// glass-elements.js).
-const ORBIT_NAME = /^Orbit(\d+)$/
-
-/** The ring number of an atom ring from its mesh name; null for the rest. */
-export const orbitIndex = (name: string) => {
-  const match = ORBIT_NAME.exec(name)
-  return match ? Number(match[1]) : null
-}
-
-/** How far ring `index` (1-based) has tumbled about its diameter by `time`. */
-export const tumbleAngle = (time: number, index: number) => {
-  const { tumble } = ORBIT
-  // invariant: rings past the list reuse its speeds in turn, never NaN.
-  const slot = (((index - 1) % tumble.length) + tumble.length) % tumble.length
-  return time * tumble[slot]
-}
-
-/** How far the whole cage has turned about the atom's vertical by `time`. */
-export const cageAngle = (time: number) => time * ORBIT.cage
 
 type Point = { x: number; y: number }
 

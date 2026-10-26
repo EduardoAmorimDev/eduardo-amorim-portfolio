@@ -125,6 +125,26 @@
   --grid-line: var(--color-mist);
 }
 
+/* why: the hero lens (components/organisms/hero/use-hero-field.ts) sets
+   --lens-x, --lens-y and --lens-r on both, in px of the title's own box;
+   -1px means closed. The solid title loses the circle, the outline keeps
+   only it, so inside the lens the title is a 1 px mist stroke. */
+@utility lens-solid {
+  mask-image: radial-gradient(
+    circle at var(--lens-x, 0px) var(--lens-y, 0px),
+    transparent var(--lens-r, -1px),
+    #000 calc(var(--lens-r, -1px) + 0.5px)
+  );
+}
+
+@utility lens-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px var(--color-mist);
+  clip-path: circle(
+    max(0px, var(--lens-r, -1px)) at var(--lens-x, 0px) var(--lens-y, 0px)
+  );
+}
+
 /* why: the cards' frosted glass (task cosmos, criterion 37): mist at 5%
    over a 16 px blur of whatever glows behind, a 10% mist edge and a 20%
    mist highlight along the top. */

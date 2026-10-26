@@ -10,18 +10,14 @@ import {
   type BufferGeometry,
   type Group,
   type Matrix4,
-  type Texture,
-  Vector3
+  type Texture
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
 import {
   GLASS_LAYOUT,
   LAYOUT_WIDTH,
   anchorToWorld,
-  cageAngle,
   motionTarget,
-  orbitIndex,
-  tumbleAngle,
   type GlassLayout
 } from './glass-motion'
 
@@ -34,8 +30,8 @@ const SMOOTHING = 3
 // why: diagonal bands, repeated so every icon spans several of them; the
 // refraction bends them inside the glass, which is what reads as glass.
 const BACKDROP = { size: 512, repeats: 4 }
-// why: below 1 the real scene (the light, icons behind) shows through, so
-// the icons read as translucent instead of solid coloured glass.
+// why: below 1 the real scene (the black hole, the grid) shows through, so
+// the logo reads as translucent instead of solid coloured glass.
 const GLASS_OPACITY = 0.7
 
 /**
@@ -79,11 +75,7 @@ type Part = {
   key: string
   geometry: BufferGeometry
   matrix: Matrix4
-  /** Ring number when the part is one of the atom's rings. */
-  orbit: number | null
 }
-
-type Orbit = { part: Part; index: number; axis: Vector3 }
 
 type GlassPartProps = { part: Part; backdrop: Texture }
 
@@ -114,32 +106,6 @@ const GlassPart = ({ part, backdrop }: GlassPartProps) => (
   </mesh>
 )
 
-/** Pairs each atom ring with the diameter it tumbles about, in model space. */
-const findOrbits = (parts: Part[]): Orbit[] =>
-  parts.flatMap(part => {
-    if (part.orbit === null) return []
-    // invariant: each ring lies in its own xy plane, so local x is a diameter.
-    const axis = new Vector3(1, 0, 0).transformDirection(part.matrix)
-    return [{ part, index: part.orbit, axis }]
-  })
-
-type OrbitPartProps = { orbit: Orbit; backdrop: Texture }
-
-const OrbitPart = ({ orbit, backdrop }: OrbitPartProps) => {
-  const pivot = useRef<Group>(null)
-  useFrame(({ clock }) => {
-    pivot.current?.quaternion.setFromAxisAngle(
-      orbit.axis,
-      tumbleAngle(clock.elapsedTime, orbit.index)
-    )
-  })
-  return (
-    <group ref={pivot}>
-      <GlassPart part={orbit.part} backdrop={backdrop} />
-    </group>
-  )
-}
-
 type GlassElementProps = {
   layout: GlassLayout
   phase: number
@@ -149,7 +115,6 @@ type GlassElementProps = {
 const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
   const { scene } = useGLTF(modelUrl(layout.name), false)
   const body = useRef<Group>(null)
-  const cage = useRef<Group>(null)
   const hover = useRef<{ x: number; y: number } | null>(null)
   // why: the view at the icon's own depth, so anchors reach the visible edges
   // at that distance; the selectors re-render only on resize.
@@ -168,18 +133,12 @@ const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
     const found: Part[] = []
     scene.traverse(object => {
       if (object instanceof Mesh) {
-        const { uuid, name, geometry, matrixWorld } = object
-        found.push({
-          key: uuid,
-          geometry,
-          matrix: matrixWorld.clone(),
-          orbit: orbitIndex(name)
-        })
+        const { uuid, geometry, matrixWorld } = object
+        found.push({ key: uuid, geometry, matrix: matrixWorld.clone() })
       }
     })
     return found
   }, [scene])
-  const orbits = useMemo(() => findOrbits(parts), [parts])
 
   useFrame(({ clock, pointer }, delta) => {
     const group = body.current
@@ -197,7 +156,6 @@ const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
     group.rotation.x = damp(group.rotation.x, layout.pose[0] + target.rotationX)
     group.rotation.y = damp(group.rotation.y, layout.pose[1] + target.rotationY)
     group.scale.setScalar(damp(group.scale.x, layout.size * fit * target.scale))
-    if (cage.current) cage.current.rotation.y = cageAngle(clock.elapsedTime)
   })
 
   const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
@@ -220,23 +178,14 @@ const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
       onPointerMove={onPointerMove}
       onPointerOut={() => (hover.current = null)}
     >
-      {parts
-        .filter(part => part.orbit === null)
-        .map(part => (
-          <GlassPart key={part.key} part={part} backdrop={backdrop} />
-        ))}
-      {/* why: the parts' matrices are baked in the model's frame, so turning
-          this group about y turns the rings about the atom's own vertical. */}
-      <group ref={cage}>
-        {orbits.map(orbit => (
-          <OrbitPart key={orbit.part.key} orbit={orbit} backdrop={backdrop} />
-        ))}
-      </group>
+      {parts.map(part => (
+        <GlassPart key={part.key} part={part} backdrop={backdrop} />
+      ))}
     </group>
   )
 }
 
-/** The translucent icons floating in the hero, leaning to the pointer. */
+/** The translucent glass logo floating in the hero, leaning to the pointer. */
 export const GlassElements = () => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when a canvas and the theme's CSS variables are available.

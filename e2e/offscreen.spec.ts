@@ -1,11 +1,14 @@
 import type { Page } from '@playwright/test'
+import { findHorizon } from './black-hole-helpers'
 import { expect, test } from './fixtures'
-import { coreCentre } from './light-helpers'
 import {
+  channels,
   documentTop,
   gotoHero,
-  hideHeroCopy,
-  scrollWindowTo
+  gotoStopped,
+  scrollWindowTo,
+  showSceneOnly,
+  tokenRgb
 } from './page-helpers'
 
 const SCREEN_HOST = 'kune-joaoeduardoajs-projects.vercel.app'
@@ -15,44 +18,52 @@ const SAMPLE_MS = 1000
 // scroll; this covers both with room to spare.
 const SETTLE_MS = 300
 // why: the clock is faked in that test, so the scene only animates when the
-// test advances it: 0.1 s of it after returning moves the core ~3 px at
-// most, while the 2 s away would move it 21.9 px or more (light-drift.ts).
+// test advances it: 0.1 s of it after returning moves the black hole 6 px at
+// most (60 px/s), while 2 s away would move it 40 px or more (20 px/s).
 const RESUMED_PX = 12
 const AWAY_MS = 2000
 const RESUME_MS = 100
-const CLOCK_START = Date.UTC(2026, 0, 1)
 
 /**
- * Counts, from the first script on, every WebGL draw call by the canvas
- * that made it, so a test can tell which scene drew and which sat idle.
+ * Counts, from the first script on, every draw call by the canvas that made
+ * it: WebGL draws, and the 2D strokes, fills and clears of the hero's grid
+ * and lens, so a test can tell which layer drew and which sat idle.
  */
 const recordDraws = (page: Page) =>
   page.addInitScript(key => {
     const draws = new Map<HTMLCanvasElement, number>()
     Reflect.set(window, key, draws)
-    const prototype = WebGL2RenderingContext.prototype
-    for (const name of [
+    const count = (prototype: object, names: string[]) => {
+      for (const name of names) {
+        const original: unknown = Reflect.get(prototype, name)
+        if (typeof original !== 'function') continue
+        Reflect.set(
+          prototype,
+          name,
+          function (this: { canvas: unknown }, ...args: unknown[]) {
+            const { canvas } = this
+            if (canvas instanceof HTMLCanvasElement)
+              draws.set(canvas, (draws.get(canvas) ?? 0) + 1)
+            return Reflect.apply(original, this, args)
+          }
+        )
+      }
+    }
+    count(WebGL2RenderingContext.prototype, [
       'drawArrays',
       'drawElements',
       'drawArraysInstanced',
       'drawElementsInstanced'
-    ]) {
-      const original: unknown = Reflect.get(prototype, name)
-      if (typeof original !== 'function') continue
-      Reflect.set(
-        prototype,
-        name,
-        function (this: WebGL2RenderingContext, ...args: unknown[]) {
-          const { canvas } = this
-          if (canvas instanceof HTMLCanvasElement)
-            draws.set(canvas, (draws.get(canvas) ?? 0) + 1)
-          return Reflect.apply(original, this, args)
-        }
-      )
-    }
+    ])
+    count(CanvasRenderingContext2D.prototype, [
+      'stroke',
+      'fill',
+      'fillRect',
+      'clearRect'
+    ])
   }, DRAWS)
 
-/** Draw calls each scene makes over `SAMPLE_MS` of real time. */
+/** Draw calls each layer makes over `SAMPLE_MS` of real time. */
 const drawsNow = async (page: Page) => {
   await page.waitForTimeout(SETTLE_MS)
   return page.evaluate(
@@ -60,21 +71,26 @@ const drawsNow = async (page: Page) => {
       const read = () => {
         const draws: unknown = Reflect.get(window, key)
         if (!(draws instanceof Map)) throw new Error('draws are not recorded')
-        const of = (testId: string) => {
-          const canvas = document.querySelector(
-            `[data-testid="${testId}"] canvas`
-          )
-          if (!canvas) throw new Error(`no ${testId} canvas`)
+        const of = (selector: string) => {
+          const canvas = document.querySelector(selector)
+          if (!canvas) throw new Error(`no ${selector}`)
           const count: unknown = draws.get(canvas)
           return typeof count === 'number' ? count : 0
         }
-        return { hero: of('hero-scene'), notebook: of('notebook-scene') }
+        return {
+          hero: of('[data-testid="hero-scene"] canvas'),
+          grid: of('[data-testid="hero-grid"]'),
+          lens: of('[data-testid="hero-lens"]'),
+          notebook: of('[data-testid="notebook-scene"] canvas')
+        }
       }
       const before = read()
       await new Promise(resolve => setTimeout(resolve, ms))
       const after = read()
       return {
         hero: after.hero - before.hero,
+        grid: after.grid - before.grid,
+        lens: after.lens - before.lens,
         notebook: after.notebook - before.notebook
       }
     },
@@ -112,7 +128,7 @@ test('only the notebook draws while it is on screen', async ({ page }) => {
   await scrollWindowTo(page, top + viewport.height)
   const draws = await drawsNow(page)
   expect(draws.notebook).toBeGreaterThan(0)
-  expect(draws.hero).toBe(0)
+  expect(draws).toMatchObject({ hero: 0, grid: 0, lens: 0 })
 })
 
 test('no scene draws while both are off screen', async ({ page }) => {
@@ -120,7 +136,12 @@ test('no scene draws while both are off screen', async ({ page }) => {
   await gotoHero(page)
   for (const section of ['#sobre', '#faq']) {
     await scrollToSection(page, section)
-    expect(await drawsNow(page), section).toEqual({ hero: 0, notebook: 0 })
+    expect(await drawsNow(page), section).toEqual({
+      hero: 0,
+      grid: 0,
+      lens: 0,
+      notebook: 0
+    })
   }
 })
 
@@ -133,18 +154,13 @@ test('the hero draws again when scrolled back', async ({ page }) => {
   expect((await drawsNow(page)).hero).toBeGreaterThan(0)
 })
 
-test('the hero light resumes where it stopped', async ({ page }) => {
-  // why: a capture takes 0.3-0.6 s, long enough for the light to drift
-  // 6-15 px under it; with time faked, nothing moves while one is taken.
-  // why: paused before the page loads, so the first capture always lands
-  // at the same 2 s of animation, with the light well off its rest point.
-  await page.clock.install({ time: CLOCK_START })
-  await page.clock.pauseAt(CLOCK_START + 100)
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await page.clock.runFor(2000)
-  await hideHeroCopy(page)
-  const before = await coreCentre(page)
+test('the black hole resumes where it stopped', async ({ page }) => {
+  // why: a capture takes 0.3-0.6 s, long enough for the black hole to move
+  // under it; with time stopped, nothing moves while one is taken.
+  await gotoStopped(page, 2000)
+  await showSceneOnly(page)
+  const ink = channels(await tokenRgb(page, 'ink'))
+  const before = await findHorizon(page, ink)
 
   await page.evaluate(() =>
     document.querySelector('#faq')?.scrollIntoView({ behavior: 'instant' })
@@ -154,10 +170,10 @@ test('the hero light resumes where it stopped', async ({ page }) => {
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
   await page.waitForTimeout(SETTLE_MS)
   await page.clock.runFor(RESUME_MS)
-  const after = await coreCentre(page)
+  const after = await findHorizon(page, ink)
 
   expect(
-    Math.hypot(after.x - before.x, after.y - before.y)
+    Math.hypot(after.cx - before.cx, after.cy - before.cy)
   ).toBeLessThanOrEqual(RESUMED_PX)
 })
 
