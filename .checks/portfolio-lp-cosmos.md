@@ -516,3 +516,17 @@ Ficou como lacuna declarada:
   misturado 40% com `primary`. O vidro do `logo` já é azul saturado, então a luz não sobe o canal
   azul, e a tinta não dá para medir em pixels. O teste de que o lado voltado fica mais claro
   continua.
+
+Rodada 3 (depois da 2ª verificação, `b4d6bad`). O que mudou:
+
+- **C23.** O hit test no vidro do `logo` agora roda com todas as camadas da Hero visíveis.
+  Antes, a malha, a lente e o texto estavam escondidos, e o teste não conseguia flagrar uma
+  camada tomando o ponteiro.
+- **C7.** O fechamento agora prova o `1fr` → `0fr`: a altura passa por valores intermediários e
+  chega a menos de 2 px com o `<details>` ainda aberto.
+- **C41.** O canvas das estrelas é escondido para a captura, e a prova exige que todos os
+  pixels do miolo das letras dentro da lente apaguem, não mais 90%.
+- **Gate em `b4d6bad` + estas correções:**
+  - tsc e lint OK;
+  - `npm test`: 40/40;
+  - `npm run test:e2e`: 119/119.
