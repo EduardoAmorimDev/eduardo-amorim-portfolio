@@ -9,11 +9,14 @@ import {
   restLines,
   sweepPointer
 } from './grid-helpers'
+import { coreCentre } from './light-helpers'
 import {
   documentTop,
   gotoHero,
-  heroEnd,
+  gotoNotebook,
+  hideHeroCopy,
   nextFrames,
+  notebookEnd,
   scrollWindowTo
 } from './page-helpers'
 
@@ -24,6 +27,7 @@ const STILL = 0.05
 // content means they scrolled with it.
 const PARALLAX_SLACK = 1
 const SCROLL_PX = 400
+const STILL_LIGHT_PX = 1
 
 test.use({ reducedMotion: 'reduce' })
 
@@ -100,12 +104,13 @@ test('parallax layers stay put under reduced motion', async ({ page }) => {
   const offsets = () =>
     page.evaluate(() => {
       const anchor = document.querySelector('#solucoes')
-      if (!anchor) throw new Error('no #solucoes')
+      const block = anchor?.parentElement
+      if (!anchor || !block) throw new Error('no #solucoes in a block')
       const top = anchor.getBoundingClientRect().top
       return {
         scrollY,
         layers: [
-          ...document.querySelectorAll<HTMLElement>('[data-parallax-layer]')
+          ...block.querySelectorAll<HTMLElement>('[data-parallax-layer]')
         ].map(layer => ({
           name: layer.dataset.parallaxLayer,
           offset: layer.getBoundingClientRect().top - top
@@ -135,16 +140,27 @@ test('parallax layers stay put under reduced motion', async ({ page }) => {
   }
 })
 
+test('the light holds still under reduced motion', async ({ page }) => {
+  await gotoHero(page)
+  await hideHeroCopy(page)
+  const first = await coreCentre(page)
+  await page.waitForTimeout(2000)
+  const second = await coreCentre(page)
+  expect(
+    Math.hypot(first.x - second.x, first.y - second.y)
+  ).toBeLessThanOrEqual(STILL_LIGHT_PX)
+})
+
 test('laptop still opens with the scroll under reduced motion', async ({
   page
 }) => {
-  await gotoHero(page)
-  await scrollWindowTo(page, await heroEnd(page))
+  await gotoNotebook(page)
+  await scrollWindowTo(page, await notebookEnd(page))
   await expect
     .poll(
       () =>
         page
-          .locator('#hero iframe')
+          .locator('#notebook iframe')
           .evaluate(frame => Number(getComputedStyle(frame).opacity)),
       { timeout: 10_000 }
     )

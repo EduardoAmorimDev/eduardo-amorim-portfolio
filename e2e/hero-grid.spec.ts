@@ -202,17 +202,16 @@ test('grid never takes the pointer from the 3D canvas', async ({ page }) => {
     const webgl = [...scene.querySelectorAll('canvas')].filter(
       canvas => canvas.getContext('webgl2') !== null
     )
-    const holder = webgl[0]?.parentElement
     return {
       tag: target?.tagName,
       webgl: webgl.length,
-      isHolder: !!holder && target === holder,
+      inScene: !!target && scene.contains(target),
       onGrid: !!target?.closest('[data-testid="hero-grid"]')
     }
   })
   // why: R3F listens for the pointer on the <div> that holds its WebGL
-  // canvas (drei's occluding <Html> sets the canvas to pointer-events none).
+  // canvas; a hit on the canvas or on that <div> reaches the scene alike.
   expect(hit.webgl, 'the scene draws with one WebGL canvas').toBe(1)
   expect(hit.onGrid, `hit ${hit.tag}`).toBe(false)
-  expect(hit.isHolder, `hit ${hit.tag}`).toBe(true)
+  expect(hit.inScene, `hit ${hit.tag}`).toBe(true)
 })

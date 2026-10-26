@@ -181,30 +181,40 @@ export const hideHeroCopy = (page: Page) =>
   })
 
 /**
- * Loads `/` and waits until the hero's models have arrived and drawn: the
- * laptop's screen page exists once its model has loaded.
+ * Loads `/` and waits until the hero's models have arrived and drawn: every
+ * model request has settled once the network is idle.
  */
 export const gotoHero = async (page: Page) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
-  await page.locator('#hero iframe').waitFor({ state: 'attached' })
   // why: a few frames for the icons' first poses to damp into place.
   await page.waitForTimeout(1500)
 }
 
-/** Scroll position at which the hero's animation reaches its end. */
+/** Scroll position at which the hero's last screen is on screen. */
 export const heroEnd = (page: Page) =>
   page.locator('#hero').evaluate(hero => {
     const { top, height } = hero.getBoundingClientRect()
     return top + scrollY + height - innerHeight
   })
 
-/** The laptop's screen page box: the lid, wherever the laptop is posed. */
-export const laptopBox = async (page: Page) => {
-  const box = await page.locator('#hero iframe').evaluate(frame => {
-    const holder = frame.parentElement
-    return holder ? holder.getBoundingClientRect().toJSON() : null
+/** Scroll position at which the notebook's animation reaches its end. */
+export const notebookEnd = (page: Page) =>
+  page.locator('#notebook').evaluate(section => {
+    const { top, height } = section.getBoundingClientRect()
+    return top + scrollY + height - innerHeight
   })
-  if (!box) throw new Error('the laptop screen has no box')
-  return box as { left: number; right: number; top: number; bottom: number }
+
+/**
+ * Loads `/`, waits for the laptop (its screen page exists once its model
+ * has loaded) and scrolls until the notebook's top meets the screen's top,
+ * where its animation starts.
+ */
+export const gotoNotebook = async (page: Page) => {
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.locator('#notebook iframe').waitFor({ state: 'attached' })
+  await scrollWindowTo(page, await documentTop(page.locator('#notebook')))
+  // why: a few frames for the laptop's damped pose to settle at the start.
+  await page.waitForTimeout(1500)
 }

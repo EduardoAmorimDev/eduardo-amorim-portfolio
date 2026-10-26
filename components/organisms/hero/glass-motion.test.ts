@@ -25,6 +25,28 @@ test('every layout anchor stays inside the view', () => {
   }
 })
 
+test('the hero shows exactly the cursor, atom and logo icons', () => {
+  assert.deepEqual(
+    GLASS_LAYOUT.map(({ name }) => name),
+    ['cursor', 'atom', 'logo']
+  )
+})
+
+// why: the task keeps the icons' motion as it was (T4); the literals are the
+// values shipped before it, so a change to the constants fails here.
+test('motion and orbit constants keep their values', () => {
+  assert.deepEqual(MOTION, {
+    parallaxTilt: 0.12,
+    parallaxShift: 0.08,
+    hoverTilt: 0.3,
+    hoverScale: 1.06,
+    bob: 0.05,
+    sway: 0.12,
+    speed: 0.5
+  })
+  assert.deepEqual(ORBIT, { tumble: [0.55, -0.42, 0.32], cage: 0.25 })
+})
+
 test('with the pointer centred and nothing hovered, only the idle motion is left', () => {
   const target = motionTarget(centre, null, 0, 0)
   assert.equal(target.rotationX, -0)

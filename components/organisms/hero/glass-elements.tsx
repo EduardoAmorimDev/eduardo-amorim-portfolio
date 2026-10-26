@@ -34,7 +34,7 @@ const SMOOTHING = 3
 // why: diagonal bands, repeated so every icon spans several of them; the
 // refraction bends them inside the glass, which is what reads as glass.
 const BACKDROP = { size: 512, repeats: 4 }
-// why: below 1 the real scene (floor, laptop, icons behind) shows through, so
+// why: below 1 the real scene (the light, icons behind) shows through, so
 // the icons read as translucent instead of solid coloured glass.
 const GLASS_OPACITY = 0.7
 
@@ -90,7 +90,7 @@ type GlassPartProps = { part: Part; backdrop: Texture }
 const GlassPart = ({ part, backdrop }: GlassPartProps) => (
   <mesh geometry={part.geometry} matrix={part.matrix} matrixAutoUpdate={false}>
     {/* why: a given `buffer` makes drei skip its per-frame render of the
-        scene, so six glass icons cost no extra passes. */}
+        scene, so the glass icons cost no extra passes. */}
     <MeshTransmissionMaterial
       buffer={backdrop}
       transparent
@@ -236,7 +236,7 @@ const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
   )
 }
 
-/** The translucent icons floating around the laptop, leaning to the pointer. */
+/** The translucent icons floating in the hero, leaning to the pointer. */
 export const GlassElements = () => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when a canvas and the theme's CSS variables are available.

@@ -11,16 +11,22 @@ const SPEEDS = { back: 0.2, mid: 0.5, front: 1.3 }
 const TOLERANCE_PX = 4
 const SCROLL_PX = 400
 
+// why: the layers of the block holding #solucoes, the block on screen; the
+// block after the notebook has its own, moving at the same speeds.
 const layerTops = (page: Page) =>
   page.evaluate(() => ({
     scrollY,
     tops: Object.fromEntries(
-      [...document.querySelectorAll<HTMLElement>('[data-parallax-layer]')].map(
-        layer => [
-          layer.dataset.parallaxLayer,
-          layer.getBoundingClientRect().top
-        ]
-      )
+      [
+        ...(document
+          .querySelector('#solucoes')
+          ?.parentElement?.querySelectorAll<HTMLElement>(
+            '[data-parallax-layer]'
+          ) ?? [])
+      ].map(layer => [
+        layer.dataset.parallaxLayer,
+        layer.getBoundingClientRect().top
+      ])
     )
   }))
 

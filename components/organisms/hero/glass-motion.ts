@@ -1,13 +1,12 @@
 import { MathUtils } from 'three'
 
-export type GlassName =
-  'note' | 'flag' | 'wave' | 'brick' | 'cursor' | 'atom' | 'logo'
+export type GlassName = 'cursor' | 'atom' | 'logo'
 
 export type GlassLayout = {
   name: GlassName
   /** Position as a fraction of the half view at `depth`: -1 left/bottom edge, 1 right/top. */
   anchor: readonly [number, number]
-  /** World z; negative is behind the laptop. */
+  /** World z; negative is farther from the camera. */
   depth: number
   /** Largest side in world units (each model's largest side is 1). */
   size: number
@@ -15,66 +14,38 @@ export type GlassLayout = {
   pose: readonly [number, number, number]
 }
 
-// why: anchors keep the icons in the margins around the laptop on any aspect
-// ratio; corners on wide screens, the bands above and below it on phones.
+// why: the copy holds the bottom left and the light the top left, so the
+// icons gather on the right half, the atom largest, at staggered depths.
 export const GLASS_LAYOUT: readonly GlassLayout[] = [
   {
-    name: 'note',
-    anchor: [-0.78, 0.45],
-    depth: -1.5,
-    size: 1.3,
-    pose: [0.15, 0.45, 0.1]
-  },
-  {
-    name: 'flag',
-    anchor: [0.78, 0.45],
-    depth: -1,
-    size: 1.2,
-    pose: [0.1, -0.5, -0.05]
-  },
-  {
-    name: 'wave',
-    anchor: [-0.72, -0.55],
-    depth: 0.5,
-    size: 1.3,
-    pose: [0.55, 0.35, -0.3]
-  },
-  {
-    name: 'brick',
-    anchor: [0.74, -0.5],
-    depth: 0,
-    size: 1.1,
-    pose: [0.5, -0.6, 0.12]
-  },
-  {
     name: 'cursor',
-    anchor: [-0.4, 0.62],
-    depth: -3,
+    anchor: [0.08, 0.5],
+    depth: -2.5,
     size: 0.95,
     pose: [0.25, 0.5, -0.25]
   },
   {
     name: 'atom',
-    anchor: [0.42, 0.62],
-    depth: -3.5,
-    size: 1.15,
+    anchor: [0.58, 0.12],
+    depth: -1,
+    size: 1.5,
     pose: [0.2, 0.3, 0.1]
   },
   {
     name: 'logo',
-    anchor: [-0.78, 0],
-    depth: -2.5,
+    anchor: [0.36, -0.55],
+    depth: 0,
     size: 0.95,
     pose: [0.2, 0.4, 0]
   }
 ]
 
 // why: the whole layout fits ~6 units at z = 0; narrower views shrink the
-// icons with them so they never crowd the laptop.
+// icons with them so they never crowd the copy.
 export const LAYOUT_WIDTH = 6
 
 // why: kept small on purpose; the icons should feel alive, not draw the eye
-// away from the laptop. Radians for tilt, world units for shift.
+// away from the copy. Radians for tilt, world units for shift.
 export const MOTION = {
   /** Every icon leans this far towards the pointer, wherever it is. */
   parallaxTilt: 0.12,

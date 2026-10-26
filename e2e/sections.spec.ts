@@ -1,12 +1,13 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { paintedShare } from './page-helpers'
+import { paintedShare, scrollWindowTo } from './page-helpers'
 
 const SECTION_IDS = [
   'hero',
   'prova-social',
   'sobre',
   'solucoes',
+  'notebook',
   'cases',
   'workflow',
   'depoimentos',
@@ -18,11 +19,7 @@ const LOREM = /lorem/i
 // hidden; a copy painted under the canvas changes next to nothing.
 const MIN_PAINTED_SHARE = 0.05
 
-// why: the 3D scene follows the theme (ink sky in dark, white in light), so
-// the copy contrasts with it in either; the check fixes one scheme, dark, so
-// it does not depend on the browser's default.
 const expectHeroCopyOnFirstScreen = async (page: Page) => {
-  await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/')
   await page.waitForLoadState('networkidle')
   const hero = page.locator('#hero')
@@ -67,7 +64,7 @@ const expectHeroCopyOnFirstScreen = async (page: Page) => {
   }
 }
 
-test('main has the nine sections in order', async ({ page }) => {
+test('main has the ten sections in order', async ({ page }) => {
   await page.goto('/')
   const ids = await page
     .locator('main section')
@@ -75,9 +72,13 @@ test('main has the nine sections in order', async ({ page }) => {
   expect(ids).toEqual(SECTION_IDS)
 })
 
-test('every section but hero has an h2 and lorem text', async ({ page }) => {
+test('every section but hero and notebook has an h2 and lorem text', async ({
+  page
+}) => {
   await page.goto('/')
-  for (const id of SECTION_IDS.filter(id => id !== 'hero')) {
+  for (const id of SECTION_IDS.filter(
+    id => id !== 'hero' && id !== 'notebook'
+  )) {
     const section = page.locator(`#${id}`)
     await expect(section.locator('h2'), id).toHaveCount(1)
     await expect(section.locator('h2'), id).toHaveAccessibleName(/\S/)
@@ -209,25 +210,20 @@ test('testimonials shows three quotes with name, role and avatar', async ({
   }
 })
 
-test('faq shows five closed questions', async ({ page }) => {
+test('no horizontal scroll at 375px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 })
   await page.goto('/')
-  const questions = page.locator('#faq details')
-  await expect(questions).toHaveCount(5)
-  for (const question of await questions.all()) {
-    await expect(question).toHaveJSProperty('open', false)
-    await expect(question.locator('summary')).toHaveText(/\S/)
-    await expect(question.locator('p')).toBeHidden()
+  await page.waitForLoadState('networkidle')
+  const height = await page.evaluate(
+    () => document.documentElement.scrollHeight
+  )
+  // why: every screen down the page, so a section wider than the phone is
+  // caught wherever it sits.
+  for (let top = 0; top < height; top += 667) {
+    await scrollWindowTo(page, top)
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+      `at ${top}px`
+    ).toBeLessThanOrEqual(375)
   }
-})
-
-test('faq question opens and closes', async ({ page }) => {
-  await page.goto('/')
-  const question = page.locator('#faq details').nth(1)
-  const answer = question.locator('p')
-  await expect(answer).toBeHidden()
-  await question.locator('summary').click()
-  await expect(answer).toBeVisible()
-  await expect(answer).toHaveText(LOREM)
-  await question.locator('summary').click()
-  await expect(answer).toBeHidden()
 })

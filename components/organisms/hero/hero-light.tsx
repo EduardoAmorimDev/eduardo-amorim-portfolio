@@ -1,14 +1,18 @@
 'use client'
-import { useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
-import { CanvasTexture, Color, SRGBColorSpace } from 'three'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { CanvasTexture, Color, SRGBColorSpace, type Group } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
+import {
+  onReducedMotionChange,
+  prefersReducedMotion
+} from '@/lib/media-preferences'
 import { LAYOUT_WIDTH, anchorToWorld } from './glass-motion'
+import { lightDrift } from './light-drift'
 
-// why: above and behind the laptop, off to its left, clear of the glass
-// icons, so it lights the floor and the laptop's left side more than their
-// right (T16–T17). Anchored to the view like the icons, so it stays on
-// screen on narrow phones; on 1440×900 it lands at x -2.8, y 2.
+// why: the hero's top left, behind the icons and clear of the copy below.
+// Anchored to the view like the icons, so it stays on screen on narrow
+// phones; on 1440×900 it rests at x -2.8, y 2.
 const ANCHOR = [-0.56, 0.64] as const
 const DEPTH = -1.5
 const CORE_RADIUS = 0.14
@@ -16,8 +20,8 @@ const HALO_SIZE = 3.2
 // why: an emissive core reads as over-exposed, like a lamp in a photo: past
 // 1 the mist clips to white, so nothing lit in the scene outshines it.
 const CORE_GAIN = 2
-// why: candela, fading with the square of the distance; ~4 units down to the
-// floor needs this much to brighten it visibly under the spotlights.
+// why: candela, fading with the square of the distance; enough to tint the
+// glass icons a few units away.
 const INTENSITY = 160
 const HALO_TEXTURE_SIZE = 256
 
@@ -45,7 +49,7 @@ const createHalo = (core: string, halo: string) => {
   gradient.addColorStop(0.08, core)
   gradient.addColorStop(0.3, halo)
   // why: the halo colour at zero alpha, not `transparent` (black at zero
-  // alpha), which would darken the fade into a grey rim on the light theme.
+  // alpha), which would darken the fade into a grey rim.
   gradient.addColorStop(1, `#${new Color(halo).getHexString()}00`)
   context.fillStyle = gradient
   context.fillRect(0, 0, HALO_TEXTURE_SIZE, HALO_TEXTURE_SIZE)
@@ -56,8 +60,9 @@ const createHalo = (core: string, halo: string) => {
 
 /**
  * The hero's light source: an emissive core with a soft halo, plus a real
- * point light at the same spot so the laptop and the floor facing it
- * brighten. Core in mist, halo in primary (task Unresolved 7).
+ * point light at the same spot that tints the icons facing it. Core in mist,
+ * halo in primary. It drifts in a slow figure-eight (light-drift.ts) and
+ * rests under reduced motion.
  */
 export const HeroLight = () => {
   // why: <Canvas> renders this only in the browser, after mount, which is
@@ -80,11 +85,27 @@ export const HeroLight = () => {
   const view = viewport.getCurrentViewport(camera, [0, 0, DEPTH], size)
   const home = anchorToWorld(ANCHOR, view)
   const fit = Math.min(1, viewport.width / LAYOUT_WIDTH)
+  const group = useRef<Group>(null)
+  // why: read once and on change, not per frame; the light snaps back to
+  // rest the moment reduced motion turns on (T9).
+  const still = useRef(true)
+  useEffect(() => {
+    still.current = prefersReducedMotion()
+    return onReducedMotionChange(() => {
+      still.current = prefersReducedMotion()
+    })
+  }, [])
+
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    const drift = still.current ? { x: 0, y: 0 } : lightDrift(clock.elapsedTime)
+    group.current.position.set(home.x + drift.x, home.y + drift.y, DEPTH)
+  })
 
   return (
-    <group position={[home.x, home.y, DEPTH]} scale={fit}>
+    <group ref={group} position={[home.x, home.y, DEPTH]} scale={fit}>
       {/* why: unlit, untoned and unfogged, so the core keeps its brightness
-          at any distance and in either theme. */}
+          at any distance. */}
       <mesh>
         <sphereGeometry args={[CORE_RADIUS, 32, 16]} />
         <meshBasicMaterial color={glow} toneMapped={false} fog={false} />

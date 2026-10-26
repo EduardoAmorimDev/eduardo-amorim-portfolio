@@ -1,11 +1,9 @@
 'use client'
-import { ContactShadows, Environment, Lightformer } from '@react-three/drei'
+import { ContactShadows } from '@react-three/drei'
 import { Suspense, useEffect, useMemo, type RefObject } from 'react'
 import { CanvasTexture } from 'three'
+import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
-import { useSchemeValue } from '@/lib/media-preferences'
-import { GlassElements } from './glass-elements'
-import { HeroLight } from './hero-light'
 import { Laptop } from './laptop'
 
 // why: the latest landing page, shown live on the laptop's screen.
@@ -18,12 +16,10 @@ const FLOOR_Y = -2
 const SPOT_INTENSITY = 300
 const FLOOR_SIZE = 30
 // why: fractions of the floor's half width; opaque around the laptop, then
-// fading out well before the plane's edge, so the hero grid shows around it.
+// fading out well before the plane's edge, into the page background.
 const FLOOR_FADE = { from: 0.25, to: 0.7 }
 const FLOOR_MASK_SIZE = 256
 
-// why: read again whenever the colour scheme changes (useSchemeValue), so the
-// sky, fog and floor follow the theme live (T26, T28).
 const readSceneColors = () => ({
   background: readThemeColor('background'),
   keyLight: readColorToken('primary'),
@@ -53,78 +49,24 @@ const createFloorMask = () => {
   return new CanvasTexture(canvas)
 }
 
-type HeroSceneProps = { progress: RefObject<number> }
+type NotebookSceneProps = { progress: RefObject<number> }
 
-export const HeroScene = ({ progress }: HeroSceneProps) => {
+/** The laptop on its floor, under two spotlights, opened by the scroll. */
+export const NotebookScene = ({ progress }: NotebookSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
-  const colors = useSchemeValue(readSceneColors)
+  const colors = useMemo(() => readSceneColors(), [])
   const floorMask = useMemo(() => createFloorMask(), [])
   useEffect(() => () => floorMask.dispose(), [floorMask])
 
   return (
     <>
       {/* why: no scene background; the canvas is transparent, so the sky is
-          the page's own theme background and the hero grid behind it. Fog
-          in that colour fades the far floor into it, with no horizon line. */}
+          the page's own background. Fog in that colour fades the far floor
+          into it, with no horizon line. */}
       <fog attach="fog" args={[colors.background, 8, 16]} />
 
-      {/* why: metal is mostly reflection, so aluminium renders black
-          without an environment to reflect. Lightformers paint glowing
-          panels into it, tinted like the spotlights so reflections match
-          the light on the floor. Nothing is downloaded. */}
-      <Environment resolution={256}>
-        <Lightformer
-          form="rect"
-          color={colors.keyLight}
-          intensity={3}
-          position={[-3, 4, 2]}
-          scale={[4, 2, 1]}
-          target={[0, 0, 0]}
-        />
-        <Lightformer
-          form="rect"
-          color={colors.fillLight}
-          intensity={3}
-          position={[3, 4, 2]}
-          scale={[4, 2, 1]}
-          target={[0, 0, 0]}
-        />
-        <Lightformer
-          form="rect"
-          intensity={0.8}
-          position={[0, 1, 6]}
-          scale={[8, 3, 1]}
-          target={[0, 0, 0]}
-        />
-        {/* why: glass reads as glass only through what its curves reflect;
-            tall strips at the sides and a ring above draw the bright streaks
-            along the edges of the glass icons. */}
-        <Lightformer
-          form="rect"
-          color={colors.keyLight}
-          intensity={2}
-          position={[-6, 0, 1]}
-          scale={[1, 6, 1]}
-          target={[0, 0, 0]}
-        />
-        <Lightformer
-          form="rect"
-          color={colors.fillLight}
-          intensity={1.5}
-          position={[6, 0, -1]}
-          scale={[1, 6, 1]}
-          target={[0, 0, 0]}
-        />
-        <Lightformer
-          form="ring"
-          color={colors.fillLight}
-          intensity={2}
-          position={[0, 6, -3]}
-          scale={3}
-          target={[0, 0, 0]}
-        />
-      </Environment>
+      <StudioEnvironment />
 
       {/* why: spotlights shine as a cone towards `target` (the origin by
           default), like stage lights; both sit above the laptop, side by
@@ -144,15 +86,9 @@ export const HeroScene = ({ progress }: HeroSceneProps) => {
         intensity={SPOT_INTENSITY}
       />
 
-      <HeroLight />
-
       {/* why: Suspense renders nothing until the model has loaded. */}
       <Suspense fallback={null}>
         <Laptop progress={progress} screenUrl={SCREEN_URL} />
-      </Suspense>
-      {/* why: its own boundary, so the laptop never waits for the icons. */}
-      <Suspense fallback={null}>
-        <GlassElements />
       </Suspense>
 
       {/* why: a plane is vertical by default; -90° around X lays it flat
