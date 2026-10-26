@@ -10,6 +10,8 @@ const MAX_SPEED = 60
 const MIN_LEG_S = 4
 const MAX_LEG_S = 10
 const MAX_FRAME_PX = 4
+// why: a change of direction a viewer can see, about 3°.
+const MIN_TURN = 0.05
 const MARGIN = 0.1
 // why: the body's half extent in horizon radii (disk and arcs, criterion 28).
 const HALF_WIDTH = 4.2
@@ -88,9 +90,16 @@ test('the path turns every 4 to 10 s', () => {
     }
     assert.ok(legs >= (MINUTES * 60) / MAX_LEG_S - 1, `${legs} legs`)
     // invariant: a turn at each leg, so the heading at one turn differs from
-    // the heading at the next.
-    for (let index = 1; index < headings.length; index++)
-      assert.notEqual(headings[index], headings[index - 1])
+    // the heading at the next by a visible angle.
+    for (let index = 1; index < headings.length; index++) {
+      const turn = Math.abs(
+        Math.atan2(
+          Math.sin((headings[index] ?? 0) - (headings[index - 1] ?? 0)),
+          Math.cos((headings[index] ?? 0) - (headings[index - 1] ?? 0))
+        )
+      )
+      assert.ok(turn >= MIN_TURN, `leg ${index} turns ${turn} rad`)
+    }
   }
 })
 

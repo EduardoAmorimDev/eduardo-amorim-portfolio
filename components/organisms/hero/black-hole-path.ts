@@ -16,7 +16,8 @@ export const WANDER = {
   /** The turn at each waypoint, so every leg really changes direction. */
   minTurn: Math.PI / 12,
   maxTurn: (5 * Math.PI) / 6,
-  /** The sharpest turn allowed when nothing else fits, e.g. in a corner. */
+  /** The turns allowed when nothing else fits, e.g. in a corner. */
+  minTurnCornered: 0.06,
   maxTurnCornered: (17 * Math.PI) / 18,
   /** Points sampled along a leg to measure it. */
   samples: 192,
@@ -110,10 +111,10 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
 
   /**
    * The next leg from `from` towards `via`, or null if none fits. `relax` 1
-   * lets the speed change more than WANDER.maxSpeedStep; 2 also drops the
-   * smallest turn, allows up to WANDER.maxTurnCornered and, failing all,
-   * takes a leg at a clamped speed. No level allows a reversal, which would
-   * make a cusp.
+   * lets the speed change more than WANDER.maxSpeedStep; 2 also widens the
+   * turn to WANDER.minTurnCornered–maxTurnCornered and, failing all, takes
+   * a leg at a clamped speed. No level allows a reversal, which would make a
+   * cusp, nor a leg that does not turn.
    */
   const plan = (from: Point, via: Point, speed: number, relax: 0 | 1 | 2) => {
     let fallback: { leg: Leg; next: Point; stray: number } | null = null
@@ -140,9 +141,9 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
       const hop = Math.hypot(next.x - via.x, next.y - via.y)
       const shortest = WANDER.minHop * WANDER.minSpeed * WANDER.minLeg
       const sharpest = relax === 2 ? WANDER.maxTurnCornered : WANDER.maxTurn
-      if (turn > sharpest || hop < shortest) continue
-      const turns = turn >= WANDER.minTurn || relax === 2
-      if (low <= high && turns)
+      const softest = relax === 2 ? WANDER.minTurnCornered : WANDER.minTurn
+      if (turn > sharpest || turn < softest || hop < shortest) continue
+      if (low <= high)
         return {
           leg: { from, via, to, speed: low + random() * (high - low), lengths },
           next
