@@ -12,6 +12,7 @@ import {
   channels,
   gotoStopped,
   luminanceAt,
+  pixelAt,
   screenPixels,
   tokenRgb
 } from './page-helpers'
@@ -32,6 +33,7 @@ const OUTSIDE = RADIUS + 2
 const MIST_SLACK = 1
 const DIM = 0.3
 const LIT = 0.6
+const STROKE_SLACK = 12
 
 /**
  * Replaces Math.random, from the first script on, with a seeded generator,
@@ -170,14 +172,22 @@ test('the lens shows 6 to 10 stars and nothing outside its circle', async ({
   )
   expect(stars.length).toBeGreaterThanOrEqual(STARS.min)
   expect(stars.length).toBeLessThanOrEqual(STARS.max)
+  const mist = channels(await tokenRgb(page, 'mist'))
   for (const star of stars) {
     const xs = star.map(({ x }) => x)
     const ys = star.map(({ y }) => y)
-    for (const side of [
+    const sides = [
       Math.max(...xs) - Math.min(...xs) + 1,
       Math.max(...ys) - Math.min(...ys) + 1
-    ])
-      expect(side).toBeLessThanOrEqual(STAR_BOX.max)
+    ]
+    // why: a 2 px dot covers at least two pixels across in one direction,
+    // even placed right on a pixel's edge; a 3 px one at most four.
+    expect(Math.max(...sides)).toBeGreaterThanOrEqual(STAR_BOX.min)
+    for (const side of sides) expect(side).toBeLessThanOrEqual(STAR_BOX.max)
+    for (const { rgb, alpha } of star)
+      expect(channelGap(rgb, mist), 'star in mist').toBeLessThanOrEqual(
+        MIST_SLACK + (2 * 255) / alpha
+      )
   }
   // invariant: lines join the stars, so there is faint ink inside besides
   // them and the ring.
@@ -186,6 +196,10 @@ test('the lens shows 6 to 10 stars and nothing outside its circle', async ({
       alpha < STAR_ALPHA && Math.hypot(x - spot.x, y - spot.y) < RADIUS - 4
   )
   expect(lines.length).toBeGreaterThan(50)
+  for (const { rgb, alpha } of lines.filter(({ alpha }) => alpha >= 40))
+    expect(channelGap(rgb, mist), 'line in mist').toBeLessThanOrEqual(
+      MIST_SLACK + (2 * 255) / alpha
+    )
 })
 
 test('inside the lens the title is an outline; outside it stays solid', async ({
@@ -238,11 +252,19 @@ test('inside the lens the title is an outline; outside it stays solid', async ({
   ).toBeGreaterThan(0.95)
   // invariant: the outline is drawn: lit pixels remain inside the circle,
   // along the letters' edges.
+  // why: a 1 px stroke is the brightest thing in the lens bar a star, and in
+  // mist; its brightest pixels sit within antialiasing of mist itself.
+  const mist = channels(await tokenRgb(page, 'mist'))
   let stroke = 0
+  let closest = Infinity
   for (let y = 0; y < after.height; y++)
     for (let x = 0; x < after.width; x++)
-      if (at({ x, y }) < RADIUS - 10 && luminanceAt(after, x, y) > 0.5) stroke++
+      if (at({ x, y }) < RADIUS - 10 && luminanceAt(after, x, y) > 0.5) {
+        stroke++
+        closest = Math.min(closest, channelGap(pixelAt(after, x, y), mist))
+      }
   expect(stroke, 'outline pixels inside the lens').toBeGreaterThan(50)
+  expect(closest, 'the outline is mist').toBeLessThanOrEqual(STROKE_SLACK)
 })
 
 test('the lens is gone within 300ms of leaving', async ({ page }) => {

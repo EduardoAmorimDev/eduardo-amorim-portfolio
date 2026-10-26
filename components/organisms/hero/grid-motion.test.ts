@@ -5,6 +5,7 @@ import { holeShift, pointerShift, sheet } from './grid-motion.ts'
 // why: the checklist's own numbers (C26, C28, C33).
 const SPACING = 48
 const TOP_TO_BOTTOM = 0.8
+const TILT = Math.PI / 6
 const POINTER_RADIUS = 180
 const HOLE_RADIUS = 280
 const HOLE_PULL = 48
@@ -31,6 +32,12 @@ test('a 30° tilt: straight verticals, 48px apart at the middle, closer at the t
     top <= TOP_TO_BOTTOM * bottom,
     `${top} at the top, ${bottom} at the bottom`
   )
+  // invariant: near the midline a 48 px step up the sheet shows as
+  // 48·cos(tilt) on screen, whatever the depth; this pins the tilt at 30°.
+  const above = grid.rows.filter(y => y < HEIGHT / 2).at(-1) ?? NaN
+  const below = grid.rows.find(y => y > HEIGHT / 2) ?? NaN
+  const tilt = Math.acos((below - above) / SPACING)
+  assert.ok(Math.abs(tilt - TILT) < 0.005, `tilt ${(tilt * 180) / Math.PI}°`)
   // invariant: a straight line has the same slope between any two rows.
   for (const u of grid.verticals) {
     const slope = (a: number, b: number) =>

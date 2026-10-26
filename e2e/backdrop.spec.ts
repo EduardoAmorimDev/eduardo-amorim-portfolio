@@ -85,7 +85,33 @@ test('each glow drifts on a closed path of at most 8vmax', async ({ page }) => {
     })
     expect(Math.max(...offsets)).toBeLessThanOrEqual(GLOW_PATH.reach * vmax)
     expect(Math.max(...offsets), 'the glow moves').toBeGreaterThan(vmax)
-    expect(values[0]).toBe(values.at(-1))
+    // invariant: closed means the path ends where it starts: the first and
+    // last keyframes match, and just before the end it is back at the start.
+    const ends = await glow.evaluate(element => {
+      const drift = element
+        .getAnimations()
+        .find(
+          found =>
+            found instanceof CSSAnimation &&
+            found.animationName === 'glow-drift'
+        )
+      const frames =
+        drift?.effect instanceof KeyframeEffect
+          ? drift.effect.getKeyframes()
+          : []
+      return {
+        first: { offset: frames[0]?.offset, translate: frames[0]?.translate },
+        last: {
+          offset: frames.at(-1)?.offset,
+          translate: frames.at(-1)?.translate
+        }
+      }
+    })
+    expect(ends.first.offset).toBe(0)
+    expect(ends.last.offset).toBe(1)
+    expect(ends.first.translate).toBe(ends.last.translate)
+    const [x = NaN, y = NaN] = numbers(values[STEPS - 1] ?? '')
+    expect(Math.hypot(x, y), 'nearly home at the end').toBeLessThan(vmax)
   }
 })
 
@@ -127,7 +153,7 @@ test('back-layer dots twinkle out of step', async ({ page }) => {
   }
   expect(periods.size).toBeGreaterThanOrEqual(TWINKLE.distinct)
   expect(phases.size).toBeGreaterThanOrEqual(TWINKLE.distinct)
-  for (const dot of (await dots.all()).slice(0, 6)) {
+  for (const dot of await dots.all()) {
     const { duration, iterations, values } = await sweep(
       dot,
       'twinkle',

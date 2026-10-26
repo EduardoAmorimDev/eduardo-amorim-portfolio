@@ -20,10 +20,12 @@ import {
 const PARALLAX_SLACK = 1
 const SCROLL_PX = 400
 // why: the checklist's own numbers (C17, C58).
-const GLITCH_WAIT_MS = 13_000
+const GLITCH_WAIT_MS = 15_000
 const REST = { x: 720, y: 288 }
 const REST_SLACK = 4
 const STILL_PX = 1
+// why: two frames at 60 Hz; an animated close would take 300 ms.
+const AT_ONCE_MS = 50
 
 test.use({ reducedMotion: 'reduce' })
 
@@ -55,7 +57,7 @@ const logGlitches = async (page: Page) => {
 
 test('no glitch under reduced motion', async ({ page }) => {
   // why: each heading waits out a whole burst cycle on the page's own clock.
-  test.setTimeout(120_000)
+  test.setTimeout(240_000)
   const log = await logGlitches(page)
   await gotoStopped(page, 100)
   for (const heading of await page.locator('h1, h2').all()) {
@@ -132,12 +134,31 @@ test('faq answers open and close without animation', async ({ page }) => {
         ...details.querySelectorAll('[data-answer], summary [aria-hidden]')
       ].flatMap(element => element.getAnimations())
     )
+  // why: in page time, from the pointer crossing the edge to the open state
+  // changing; at once means within a frame or two.
+  await question.evaluate(details => {
+    const stamp = (key: string) =>
+      (details.dataset[key] = String(performance.now()))
+    details.addEventListener('pointerenter', () => stamp('enteredAt'))
+    details.addEventListener('pointerleave', () => stamp('leftAt'))
+    new MutationObserver(() =>
+      stamp(details.hasAttribute('open') ? 'openedAt' : 'closedAt')
+    ).observe(details, { attributes: true, attributeFilter: ['open'] })
+  })
+  const took = (from: string, to: string) =>
+    question.evaluate(
+      (details, [a, b]) =>
+        Number(details.dataset[b]) - Number(details.dataset[a]),
+      [from, to] as const
+    )
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await expect(question).toHaveJSProperty('open', true)
   await expect(question).toHaveAttribute('data-state', 'open')
+  expect(await took('enteredAt', 'openedAt')).toBeLessThanOrEqual(AT_ONCE_MS)
   expect(await animations()).toEqual([])
   await page.mouse.move(2, 2, { steps: 4 })
   await expect(question).toHaveJSProperty('open', false)
+  expect(await took('leftAt', 'closedAt')).toBeLessThanOrEqual(AT_ONCE_MS)
   expect(await animations()).toEqual([])
 })
 

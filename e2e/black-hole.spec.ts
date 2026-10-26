@@ -27,6 +27,11 @@ const RING_MIN = 0.5
 const DISK_SPAN = { min: 340, max: 460 }
 const DISK_AT_PX = 150
 const DISK_MAX_THICK = 30
+// why: in horizon diameters from the centre: the disk's inner part and its
+// outer stretch, short of where it fades out.
+const DISK_HEART = 0.85
+const DISK_EDGE = 1.8
+const DISK_FADE = 0.2
 const MIN_WANDER_PX = 30
 // why: the arcs of a disk that does not turn, aligned within a few px,
 // changed by 6.3 levels at most in 1 s (measured on a build with the turn
@@ -144,6 +149,28 @@ test.describe('at rest', () => {
     const [from, to] = litRun(pixels, ink, horizon.cx, row)
     expect(to - from + 1).toBeGreaterThanOrEqual(DISK_SPAN.min)
     expect(to - from + 1).toBeLessThanOrEqual(DISK_SPAN.max)
+    // invariant: the disk is mist at its heart and the brand blue at its
+    // edge: red over blue falls from mist's ~0.95 towards primary's ~0.26.
+    const redOverBlue = (offset: number) => {
+      let red = 0
+      let blue = 0
+      for (const side of [-1, 1])
+        for (let dx = -4; dx <= 4; dx++) {
+          const [r = 0, , b = 0] = pixelAt(
+            pixels,
+            horizon.cx + side * offset + dx,
+            row
+          )
+          red += r
+          blue += b
+        }
+      return red / blue
+    }
+    const heart = redOverBlue(horizon.width * DISK_HEART)
+    const edge = redOverBlue(horizon.width * DISK_EDGE)
+    expect(heart, `heart ${heart}, edge ${edge}`).toBeGreaterThan(
+      edge + DISK_FADE
+    )
     for (const x of [horizon.cx - DISK_AT_PX, horizon.cx + DISK_AT_PX]) {
       let top = row
       let bottom = row

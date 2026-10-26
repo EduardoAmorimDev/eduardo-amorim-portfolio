@@ -28,9 +28,11 @@ const CORNER = 64
 // why: where the black hole rests: the hero's centre, 32% down.
 const REST = { x: 720, y: 288 }
 const HORIZON = 48
-// why: right after loading, the black hole has wandered at most 60 px/s
-// from rest; this much more keeps every sample clear of its well.
-const HOLE_DRIFT = 40
+// why: the black hole moves at most 60 px/s from rest, which it leaves at
+// load; a test that runs the page clock `ms` in all keeps every sample this
+// much further from rest, so it stays clear of the well wherever the hole is.
+const MAX_SPEED = 60
+const drift = (ms: number) => (MAX_SPEED * ms) / 1000 + 4
 const WIDTH = 1440
 // why: a line is matched to the crossing nearest its straight course only
 // within half a gap; past that the crossing is its neighbour's, and a row
@@ -88,11 +90,12 @@ const between = (grid: GridImage, x: number, y: number) => {
  * Each line's straight course comes from its samples far from both wells.
  */
 const bends = (
+  holeSlack: number,
   grid: GridImage,
   pointer: { x: number; y: number },
   rest: { y: number; left: number; right: number }
 ) => {
-  const straight = fits(grid, farFrom(pointer, HOLE_DRIFT))
+  const straight = fits(grid, farFrom(pointer, holeSlack))
   const course = (x: number) => {
     const found = straight.reduce((best, fit) =>
       Math.abs(fit.line.at(rest.y) - x) < Math.abs(best.line.at(rest.y) - x)
@@ -239,7 +242,7 @@ test('lines far from the pointer and the black hole stay straight', async ({
   await gotoStopped(page, 300)
   const pointer = { x: 240, y: 640 }
   await pointAt(page, pointer, 300)
-  expectStraight(await readGrid(page), farFrom(pointer, HOLE_DRIFT))
+  expectStraight(await readGrid(page), farFrom(pointer, drift(600)))
 })
 
 test('the pointer pulls the nearest verticals 6 to 20px towards it', async ({
@@ -254,7 +257,7 @@ test('the pointer pulls the nearest verticals 6 to 20px towards it', async ({
   ] as const) {
     const pointer = { x: rest.left + gap * share, y: rest.y }
     await pointAt(page, pointer, 300)
-    const shift = bends(await readGrid(page), pointer, rest)
+    const shift = bends(drift(900), await readGrid(page), pointer, rest)
     const label = `pointer at ${share} of the gap`
     // invariant: towards the pointer is right for the left line, left for
     // the right one; never the other way.
@@ -319,7 +322,7 @@ test('the well follows the pointer within 150ms and stays while it rests', async
   await page.mouse.move(second.x, second.y)
   for (const wait of [FOLLOW_MS, 2000]) {
     await page.clock.runFor(wait)
-    const shift = bends(await readGrid(page), second, rest)
+    const shift = bends(drift(2750), await readGrid(page), second, rest)
     const left = Math.max(...shift.left)
     const right = -Math.min(...shift.right)
     const label = `${wait} ms after the jump`
@@ -342,6 +345,7 @@ test('the well fades within 800ms after the pointer leaves', async ({
   const pointer = { x: 240, y: 675 }
   await pointAt(page, { x: pointer.x, y: pointer.y - 450 }, 300)
   const bent = bends(
+    drift(650),
     await readGrid(page),
     pointer,
     between(await readGrid(page), pointer.x, pointer.y)
@@ -349,7 +353,7 @@ test('the well fades within 800ms after the pointer leaves', async ({
   expect(Math.max(...bent.left.map(Math.abs))).toBeGreaterThan(1)
   await page.mouse.move(pointer.x, 700, { steps: 4 })
   await page.clock.runFor(SETTLE_MS)
-  expectStraight(await readGrid(page), farFrom(null, HOLE_DRIFT))
+  expectStraight(await readGrid(page), farFrom(null, drift(1450)))
 })
 
 test('the grid and the lens never take the pointer', async ({ page }) => {
@@ -372,7 +376,9 @@ test('the grid and the lens never take the pointer', async ({ page }) => {
       )
     }
     const scene = document.querySelector('[data-testid="hero-scene"]')
-    const open = document.elementFromPoint(200, 450)
+    // why: the hero's middle, which falls between the title and the
+    // subtitle, on no text.
+    const open = document.elementFromPoint(innerWidth / 2, innerHeight / 2)
     return {
       scene: !!open && !!scene?.contains(open),
       title: centre('#hero h1')?.closest('h1') !== null,

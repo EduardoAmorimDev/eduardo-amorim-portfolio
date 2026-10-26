@@ -185,6 +185,15 @@ test('an opening answer grows and fades in over 300ms, whatever opens it', async
     // between.
     const full = heights.at(-1) ?? 0
     expect(full, name).toBeGreaterThan(20)
+    // why: the row's 0fr and 1fr read back resolved to px; 1fr is the
+    // answer's own content height, which the row must end at exactly.
+    const content = await question
+      .locator('[data-answer] > div')
+      .evaluate(inner => inner.scrollHeight)
+    expect(
+      Math.abs(full - content),
+      `${name} ends at the content`
+    ).toBeLessThanOrEqual(1)
     expect(Math.min(...heights), name).toBeLessThan(1)
     expect(
       heights.some(height => height > 1 && height < full - 1),
