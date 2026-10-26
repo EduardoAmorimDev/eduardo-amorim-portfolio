@@ -15,7 +15,7 @@ export const Testimonials = () => (
       {TESTIMONIALS.map(({ name, role, quote }) => (
         <figure
           key={name}
-          className="border-foreground/10 flex flex-col justify-between gap-8 rounded-3xl border p-6"
+          className="glass-card flex flex-col justify-between gap-8 rounded-3xl p-6"
         >
           <blockquote>
             <p className="text-body text-foreground/80">{quote}</p>

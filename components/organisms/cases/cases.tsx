@@ -18,10 +18,7 @@ export const Cases = () => (
   >
     <div className="mt-12 grid gap-6 lg:grid-cols-3">
       {CASES.map(({ name, title, text, stack }) => (
-        <article
-          key={name}
-          className="border-foreground/10 overflow-hidden rounded-3xl border"
-        >
+        <article key={name} className="glass-card overflow-hidden rounded-3xl">
           <svg
             role="img"
             aria-label={`Imagem de exemplo: ${name}`}

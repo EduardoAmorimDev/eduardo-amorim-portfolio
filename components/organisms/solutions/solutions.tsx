@@ -25,10 +25,7 @@ export const Solutions = () => (
   >
     <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {SOLUTIONS.map(({ icon, title, text }) => (
-        <li
-          key={title}
-          className="border-foreground/10 bg-foreground/3 rounded-3xl border p-6"
-        >
+        <li key={title} className="glass-card rounded-3xl p-6">
           <svg
             viewBox="0 0 24 24"
             aria-hidden="true"

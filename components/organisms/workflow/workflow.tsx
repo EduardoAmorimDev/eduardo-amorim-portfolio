@@ -20,7 +20,7 @@ export const Workflow = () => (
   >
     <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {STEPS.map((title, index) => (
-        <li key={title} className="border-foreground/10 rounded-3xl border p-6">
+        <li key={title} className="glass-card rounded-3xl p-6">
           <span
             data-step-number
             className="font-display text-title-md text-primary"

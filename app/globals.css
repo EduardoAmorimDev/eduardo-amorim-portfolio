@@ -125,6 +125,16 @@
   --grid-line: var(--color-mist);
 }
 
+/* why: the cards' frosted glass (task cosmos, criterion 37): mist at 5%
+   over a 16 px blur of whatever glows behind, a 10% mist edge and a 20%
+   mist highlight along the top. */
+@utility glass-card {
+  background-color: rgb(from var(--color-mist) r g b / 5%);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(from var(--color-mist) r g b / 10%);
+  box-shadow: inset 0 1px 0 0 rgb(from var(--color-mist) r g b / 20%);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
