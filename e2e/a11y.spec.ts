@@ -28,3 +28,19 @@ test('decorations are hidden and each title is read once', async ({ page }) => {
   await expect(page.locator('#hero h1 [data-lens]')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
 })
+
+test('the hero scene is hidden from assistive tech', async ({ page }) => {
+  await gotoHero(page)
+  await expect(page.locator('[data-testid="hero-scene"]')).toHaveAttribute(
+    'aria-hidden',
+    'true'
+  )
+  // invariant: the hero's accessibility tree holds its copy and nothing
+  // else: the title, the subtitle and the CTA.
+  const tree = await page.locator('#hero').ariaSnapshot()
+  const roles = tree
+    .split('\n')
+    .map(line => line.trim().replace(/^- /, '').split(/[ :"]/)[0])
+    .filter(Boolean)
+  expect(roles).toEqual(['heading', 'paragraph', 'link', '/url'])
+})

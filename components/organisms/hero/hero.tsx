@@ -44,7 +44,10 @@ export const Hero = ({ id, children }: HeroProps) => {
           drag nor zoom. dpr: at least 1.5× even on 1× screens; MSAA alone left
           the thin glass edges stair-stepped. alpha: the sky stays transparent,
           showing the page background and the grid. */}
+      {/* why: the black hole and the logo are decoration (criterion 42);
+          the hero's meaning is its copy. */}
       <Canvas
+        aria-hidden="true"
         className="isolate"
         data-testid="hero-scene"
         dpr={[1.5, 2]}
