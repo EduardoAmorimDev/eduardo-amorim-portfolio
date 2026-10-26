@@ -76,6 +76,26 @@ Decisões reversíveis, registradas antes do código:
   (`ORBIT`, `tumbleAngle`, `cageAngle`, `orbitIndex`, `OrbitPart`). Os testes deles saem junto
   (ver *Tests superseded*).
 
+Decisões reversíveis descobertas no build. Ficaram registradas depois do código, não antes; é
+um desvio do processo, anotado aqui:
+
+- **Poço do ponteiro por família de linhas.** As verticais recebem só o puxão lateral e as
+  horizontais só o afundamento. Rejeitado: aplicar os dois às duas famílias. Como as verticais
+  são inclinadas pela perspectiva, o afundamento as desloca de lado, e a depressão saía
+  assimétrica em ~4 px (C31).
+- **Recorte da malha a 1 px além do horizonte.** Rejeitado: recortar no raio exato. A borda
+  suavizada do recorte deixava alfa 1/255 dentro do horizonte (C35).
+- **Curva do acordeão no `ease-out` literal do CSS** (`ease-[ease-out]`). Rejeitado: o
+  utilitário `ease-out` do Tailwind, que vale `cubic-bezier(0, 0, 0.2, 1)` e não é o `ease-out`
+  do critério 4.
+- **Estrias do disco com mais contraste e sem saturar o miolo.** Rejeitado: o contraste
+  inicial, em que o giro mal se via (C59, ver Evidence).
+- **Extensão `.ts` explícita** nos imports entre módulos puros que os testes `node --test`
+  carregam (`allowImportingTsExtensions` já está ligado no `tsconfig`). Rejeitado: import sem
+  extensão, que o Node não resolve.
+- **Redesenho imediato no `resize`.** Redimensionar o canvas o limpa. Rejeitado: esperar o
+  próximo quadro, que deixa um quadro em branco.
+
 ## Checks
 
 Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que dependem de tempo usam
@@ -393,3 +413,61 @@ parênteses):
   alfa ≥ 128, porque as linhas inclinadas da perspectiva não têm pixel 100% opaco.
 - `e2e/faq.spec.ts` "leaving an unpinned question closes it within 300ms" vira "leaving an
   unpinned question starts closing within 300ms" (critério 7).
+
+Handoff, ao fim do lote único:
+
+- **Onde caiu o limite:** C1–C75 num lote só, sem handoff; o Verifier recebe
+  `c625ce9..HEAD`.
+- **O que o usuário decidiu durante o build:** nada; nenhuma pergunta foi feita.
+- **O que foi abandonado:**
+  - Medir o giro do disco na faixa fina. Desalinhamentos de subpixel a mudavam tanto quanto o
+    giro: o mutante sem giro dava 3,0–5,4 níveis, e o build real, 4,7–5,7. O teste passou a ler
+    os arcos.
+  - Medir o disco por luminância. O `primary` da borda tem luminância baixa mesmo aceso, por
+    isso o teste passou a usar a distância de cor até `ink`.
+  - Localizar o horizonte pela maior região escura fechada. Em 375 px essa região é o furo do
+    logo; o teste agora procura um disco (calotas alinhadas, altura ≈ largura).
+
+## Evidence
+
+Medido em Chromium headless com ANGLE/GL, build de produção.
+
+- **Caminho do buraco negro, fora da suíte:** os cinco testes de `black-hole-path.test.ts`
+  rodaram com 300 sementes × 10 min simulados × 2 tamanhos, todos verdes. Duas versões
+  anteriores do algoritmo reprovaram nesse estresse em 375×667:
+  - uma deixava um trecho durar 3,48 s;
+  - a outra fazia curvas em cúspide, com a velocidade da corda em 9,7 px/s.
+
+  Por isso entraram o salto mínimo entre waypoints e a curva máxima de 170° quando encurralado.
+- **Mutantes**, cada um num build próprio:
+  - **Disco sem giro** (`innerTurn` e `outerTurn` em 1e9), medido nos arcos e alinhado em
+    ±3 px:
+    - mutante: 2,8 / 5,4 / 6,2 níveis;
+    - real: 22,4–22,8 níveis;
+    - por isso o limite de C59 ficou em 12.
+  - **Luz do buraco negro apagada** (`INTENSITY = 0`):
+    - mutante: o lado voltado sai 1% mais escuro (0,0377 contra 0,0382);
+    - real: 10–16% mais claro;
+    - por isso C60 exige 5%.
+- **Canvas lido de volta:**
+  - Depois de alguns `getImageData`, o Chrome passa o canvas para desenho em software, e o
+    antialiasing muda por centésimos de px.
+  - Por isso C36 faz três leituras e redesenhos antes da leitura de referência.
+- **Gate, rodadas 1 e 2:** tsc, lint e `npm test` (40/40) passaram. O `npm run test:e2e` deu
+  116/117 nas duas rodadas.
+  - Falhou o último teste da suíte, "switching the system scheme changes no colour": na
+    primeira leitura, a malha não parecia `mist`.
+  - Isolado, `theme.spec` passou 44/44 em 4 repetições.
+  - A primeira hipótese foi um canvas em branco entre um `resize` e o quadro seguinte. Ela não
+    se confirmou: com o redesenho imediato no `resize`, a rodada 2 reprovou igual.
+  - Causa confirmada pela rodada 3: o arredondamento da leitura do canvas na GPU. Depois de ~116
+    páginas com WebGL, ele passava da folga `1 + 2×255/α`. O teste foi corrigido assim:
+    - a folga de cor da malha passou a ser `3 + 3×255/α`, que fica a mais de 190 níveis de
+      qualquer outra cor do tema;
+    - a falha agora informa quantos pixels de linha havia e o pior desvio.
+  - O redesenho imediato no `resize` continua: evita um quadro em branco para o visitante.
+- **Gate, rodada 3 (HEAD do build):**
+  - `npx tsc --noEmit`, exit 0;
+  - `npm run lint`, sem problemas;
+  - `npm test`, 40/40;
+  - `npm run test:e2e`, 117/117.
