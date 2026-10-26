@@ -5,7 +5,7 @@ import {
   channelGap,
   channels,
   gotoHero,
-  hideHeroCopy,
+  gotoNotebook,
   meanLuminance,
   pixelAt,
   relativeLuminance,
@@ -17,11 +17,9 @@ import {
 const INK = 'rgb(16, 17, 19)'
 const MIST = 'rgb(242, 247, 255)'
 const WHITE = 'rgb(255, 255, 255)'
-const THEMES = {
-  dark: { background: INK, text: MIST, other: WHITE },
-  light: { background: WHITE, text: INK, other: INK }
-} as const
-type Scheme = keyof typeof THEMES
+// invariant: the page has one theme; the system's scheme never changes it.
+const THEME = { background: INK, text: MIST, other: WHITE } as const
+const SCHEMES = ['dark', 'light'] as const
 // why: the checklist's tolerance for the sky's colour, per channel.
 const SKY_SLACK = 3
 // why: a step between neighbouring floor pixels larger than this would read
@@ -50,27 +48,27 @@ const sectionColours = (page: Page) =>
     })
   )
 
-const expectSectionsIn = async (page: Page, scheme: Scheme) => {
+const expectSectionsInk = async (page: Page) => {
   const found = await sectionColours(page)
-  expect(found.map(({ id }) => id)).toHaveLength(9)
+  expect(found.map(({ id }) => id)).toHaveLength(10)
   for (const { id, background, text } of found) {
-    expect(background, `${id} background`).toBe(THEMES[scheme].background)
-    expect(text, `${id} text`).toBe(THEMES[scheme].text)
+    expect(background, `${id} background`).toBe(THEME.background)
+    expect(text, `${id} text`).toBe(THEME.text)
   }
 }
 
-/** The hero's whole first screen, as painted. */
-const heroScreen = async (page: Page) => {
+/** The whole first screen, as painted. */
+const firstScreen = async (page: Page) => {
   const viewport = page.viewportSize()
   if (!viewport) throw new Error('no viewport')
   return screenPixels(page, { x: 0, y: 0, ...viewport })
 }
 
-/** The sky: the pixel at the hero's top left corner. */
-const expectSkyIn = (pixels: Pixels, scheme: Scheme) => {
+/** The sky: the pixel at the screen's top left corner. */
+const expectInkSky = (pixels: Pixels) => {
   const sky = pixelAt(pixels, 2, 2)
   expect(
-    channelGap(sky, channels(THEMES[scheme].background)),
+    channelGap(sky, channels(THEME.background)),
     `sky ${sky.join(',')}`
   ).toBeLessThanOrEqual(SKY_SLACK)
 }
@@ -80,9 +78,9 @@ const expectSkyIn = (pixels: Pixels, scheme: Scheme) => {
  * where it meets the sky: it starts in the theme's floor colour and fades,
  * with no edge, into the theme's background.
  */
-const expectFloorIn = (pixels: Pixels, scheme: Scheme) => {
-  const background = channels(THEMES[scheme].background)
-  const other = channels(THEMES[scheme].other)
+const expectInkFloor = (pixels: Pixels) => {
+  const background = channels(THEME.background)
+  const other = channels(THEME.other)
   for (const x of [pixels.width * 0.02, pixels.width * 0.98]) {
     const column: { y: number; pixel: number[] }[] = []
     for (
@@ -110,7 +108,7 @@ const expectFloorIn = (pixels: Pixels, scheme: Scheme) => {
       ).toBeLessThanOrEqual(SKY_SLACK)
   }
   // invariant: the near floor is lit by the spotlights, so it is not the
-  // background exactly, but it sits on the theme's side of the two.
+  // background exactly, but it sits on the ink side of ink and white.
   const near = meanLuminance(pixels, {
     x0: 0,
     x1: pixels.width,
@@ -145,73 +143,63 @@ const glitchCopyColours = (page: Page) =>
       )
     )
 
-test.describe('dark scheme', () => {
-  test.use({ colorScheme: 'dark' })
-
-  test('dark scheme paints ink background and mist text', async ({ page }) => {
-    await page.goto('/')
-    await expectSectionsIn(page, 'dark')
-  })
+/** Every colour this task fixes, as the page paints it right now. */
+const paintedColours = async (page: Page) => ({
+  sections: await sectionColours(page),
+  grid: gridInk(await readGrid(page)),
+  glitch: await glitchCopyColours(page)
 })
 
-test.describe('light scheme', () => {
-  test.use({ colorScheme: 'light' })
-
-  test('light scheme paints white background and ink text', async ({
-    page
-  }) => {
-    await page.goto('/')
-    await expectSectionsIn(page, 'light')
-  })
-
-  test('light scheme glitch copies are primary and steel', async ({ page }) => {
-    await page.goto('/')
-    const expected = new Set([
-      await tokenRgb(page, 'primary'),
-      await tokenRgb(page, 'steel')
-    ])
-    const headings = await glitchCopyColours(page)
-    expect(headings).toHaveLength(9)
-    for (const copies of headings) {
-      expect(copies).toHaveLength(2)
-      expect(new Set(copies)).toEqual(expected)
-    }
-  })
-
-  test('light scheme grids are drawn in steel', async ({ page }) => {
-    await gotoHero(page)
-    const steel = await tokenRgb(page, 'steel')
-    expect(gridInk(await readGrid(page))).toEqual([steel])
-
-    const gradients = await page
-      .locator('[data-testid="sections-grid"]')
-      .evaluate(node => getComputedStyle(node).backgroundImage)
-    const colours = [...gradients.matchAll(/rgba?\([^)]*\)/g)]
-      .map(([colour]) => colour)
-      .filter(colour => !colour.startsWith('rgba(0, 0, 0, 0'))
-    expect(colours.length).toBeGreaterThan(0)
-    expect(new Set(colours)).toEqual(new Set([steel]))
-  })
-})
-
-for (const scheme of ['dark', 'light'] as const) {
-  test.describe(`${scheme} scene`, () => {
+for (const scheme of SCHEMES) {
+  test.describe(`${scheme} system scheme`, () => {
     test.use({ colorScheme: scheme })
 
-    test('3D scene sky matches the theme background', async ({ page }) => {
-      await gotoHero(page)
-      expectSkyIn(await heroScreen(page), scheme)
+    test(`sections paint ink and mist under ${scheme}`, async ({ page }) => {
+      await page.goto('/')
+      await expectSectionsInk(page)
     })
 
-    test('far floor fades into the theme background', async ({ page }) => {
+    test(`glitch copies are primary and mist under ${scheme}`, async ({
+      page
+    }) => {
+      await page.goto('/')
+      const expected = new Set([
+        await tokenRgb(page, 'primary'),
+        await tokenRgb(page, 'mist')
+      ])
+      const headings = await glitchCopyColours(page)
+      expect(headings).toHaveLength(9)
+      for (const copies of headings) {
+        expect(copies).toHaveLength(2)
+        expect(new Set(copies)).toEqual(expected)
+      }
+    })
+
+    test(`hero grid is drawn in mist under ${scheme}`, async ({ page }) => {
       await gotoHero(page)
-      await hideHeroCopy(page)
-      // why: the floor is read on its own; the grid lines behind the faded
-      // floor would otherwise be counted as floor.
-      await page
-        .locator('[data-testid="hero-grid"]')
-        .evaluate(grid => (grid.style.visibility = 'hidden'))
-      expectFloorIn(await heroScreen(page), scheme)
+      expect(gridInk(await readGrid(page))).toEqual([
+        await tokenRgb(page, 'mist')
+      ])
+    })
+
+    test(`the document declares a dark color scheme under ${scheme}`, async ({
+      page
+    }) => {
+      await page.goto('/')
+      expect(
+        await page.evaluate(
+          () => getComputedStyle(document.documentElement).colorScheme
+        )
+      ).toBe('dark')
+    })
+
+    test(`${scheme} scheme notebook sky and floor are ink`, async ({
+      page
+    }) => {
+      await gotoNotebook(page)
+      const screen = await firstScreen(page)
+      expectInkSky(screen)
+      expectInkFloor(screen)
     })
   })
 }
@@ -219,57 +207,15 @@ for (const scheme of ['dark', 'light'] as const) {
 test.describe('switching scheme', () => {
   test.use({ colorScheme: 'dark' })
 
-  /** Marks the document, so a reload would be caught. */
-  const markDocument = (page: Page) =>
-    page.evaluate(() => (document.documentElement.dataset.sameDocument = 'yes'))
-  const expectSameDocument = (page: Page) =>
-    expect(page.locator('html')).toHaveAttribute('data-same-document', 'yes')
-
-  test('switching scheme live repaints the sections', async ({ page }) => {
-    await page.goto('/')
-    await markDocument(page)
-    await expectSectionsIn(page, 'dark')
-
-    await page.emulateMedia({ colorScheme: 'light' })
-    await expectSectionsIn(page, 'light')
-    await page.emulateMedia({ colorScheme: 'dark' })
-    await expectSectionsIn(page, 'dark')
-    await expectSameDocument(page)
-  })
-
-  test('switching scheme live repaints the 3D scene', async ({ page }) => {
+  test('switching the system scheme changes no colour', async ({ page }) => {
     await gotoHero(page)
-    await markDocument(page)
-    await hideHeroCopy(page)
-    const grid = page.locator('[data-testid="hero-grid"]')
-    const showGrid = (visibility: string) =>
-      grid.evaluate(
-        (node, value) => (node.style.visibility = value),
-        visibility
-      )
-    const expectScene = async (scheme: Scheme) => {
-      const screen = await heroScreen(page)
-      expectSkyIn(screen, scheme)
-      await showGrid('hidden')
-      expectFloorIn(await heroScreen(page), scheme)
-      await showGrid('')
-    }
-    await expectScene('dark')
-    expect(gridInk(await readGrid(page))).toEqual([
-      await tokenRgb(page, 'mist')
-    ])
+    const before = await paintedColours(page)
+    expect(before.sections).toHaveLength(10)
 
     await page.emulateMedia({ colorScheme: 'light' })
-    // why: the scene re-reads its colours on the change event and redraws on
-    // the next frame; a short pause lets that frame land.
+    // why: anything listening for the change would repaint on the next
+    // frame; a short pause lets such a frame land.
     await page.waitForTimeout(500)
-    await expectScene('light')
-    expect(gridInk(await readGrid(page))).toEqual([
-      await tokenRgb(page, 'steel')
-    ])
-    expect(new Set((await glitchCopyColours(page)).flat())).toEqual(
-      new Set([await tokenRgb(page, 'primary'), await tokenRgb(page, 'steel')])
-    )
-    await expectSameDocument(page)
+    expect(await paintedColours(page)).toEqual(before)
   })
 })

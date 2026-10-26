@@ -46,15 +46,16 @@
   }
 }
 
-/* invariant: the light theme; the dark one below overrides every variable
-   that differs. lib/color-tokens.ts lists these names in THEME_COLORS, and
-   JS (the 3D scene, the hero grid) reads them with readThemeColor. */
+/* invariant: the only theme, dark whatever the system asks (task T27).
+   lib/color-tokens.ts lists these names in THEME_COLORS, and JS (the 3D
+   scenes, the hero grid) reads them with readThemeColor. */
 :root {
-  --background: var(--color-white);
-  --foreground: var(--color-ink);
+  color-scheme: dark;
+  --background: var(--color-ink);
+  --foreground: var(--color-mist);
   --glitch-a: var(--color-primary);
-  --glitch-b: var(--color-steel);
-  --grid-line: var(--color-steel);
+  --glitch-b: var(--color-mist);
+  --grid-line: var(--color-mist);
 }
 
 @theme inline {
@@ -62,15 +63,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-montserrat);
   --font-display: var(--font-warping);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: var(--color-ink);
-    --foreground: var(--color-mist);
-    --glitch-b: var(--color-mist);
-    --grid-line: var(--color-mist);
-  }
 }
 
 body {

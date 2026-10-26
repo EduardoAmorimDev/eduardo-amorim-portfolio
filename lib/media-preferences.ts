@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react'
-
-const DARK_SCHEME = '(prefers-color-scheme: dark)'
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
 
 const onQueryChange = (query: string, listener: () => void) => {
@@ -8,10 +5,6 @@ const onQueryChange = (query: string, listener: () => void) => {
   list.addEventListener('change', listener)
   return () => list.removeEventListener('change', listener)
 }
-
-/** Calls `listener` whenever the system switches between light and dark. */
-export const onSchemeChange = (listener: () => void) =>
-  onQueryChange(DARK_SCHEME, listener)
 
 /** Calls `listener` whenever the reduced-motion preference changes. */
 export const onReducedMotionChange = (listener: () => void) =>
@@ -21,14 +14,3 @@ export const onReducedMotionChange = (listener: () => void) =>
 // the page open applies to the very next trigger.
 export const prefersReducedMotion = () =>
   window.matchMedia(REDUCED_MOTION).matches
-
-/**
- * A value derived from the theme's CSS, read again whenever the colour scheme
- * changes, so the page follows the system without a reload. Client-only, after
- * mount; `read` must be stable (declared at module level).
- */
-export const useSchemeValue = <T>(read: () => T) => {
-  const [value, setValue] = useState(read)
-  useEffect(() => onSchemeChange(() => setValue(() => read())), [read])
-  return value
-}

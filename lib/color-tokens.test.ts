@@ -40,7 +40,7 @@ test('readColorToken fails loudly when the token is missing', () => {
   )
 })
 
-test('THEME_COLORS lists exactly the variables of the light theme', async () => {
+test('THEME_COLORS lists exactly the colour variables of the theme', async () => {
   const css = await globalsCss()
   const block = css.match(/^:root\s*{([^}]*)}/m)
   assert.ok(block, 'globals.css has a top-level :root block')
@@ -54,7 +54,7 @@ test('every theme colour points at a brand colour token', async () => {
   for (const [, name, token] of css.matchAll(
     /--(background|foreground|glitch-a|glitch-b|grid-line):\s*var\(--color-([a-z]+)\);/g
   ))
-    assert.ok(token === 'white' || tokens.includes(token), `${name}: ${token}`)
+    assert.ok(tokens.includes(token), `${name}: ${token}`)
 })
 
 test('readThemeColor returns the trimmed value of the theme variable', () => {

@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react'
 import { readThemeColor } from '@/lib/color-tokens'
 import {
   onReducedMotionChange,
-  onSchemeChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import { bendEnergy, bentLine, gridLines, type LinePoint } from './grid-motion'
@@ -23,7 +22,7 @@ export const HeroGrid = () => {
     const context = canvas?.getContext('2d')
     if (!canvas || !context) return
 
-    let color = readThemeColor('grid-line')
+    const color = readThemeColor('grid-line')
     let size = { width: 0, height: 0 }
     let pointer: Point | null = null
     let movedAt = -Infinity
@@ -106,10 +105,6 @@ export const HeroGrid = () => {
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
     window.addEventListener('pointermove', onMove, { passive: true })
-    const stopScheme = onSchemeChange(() => {
-      color = readThemeColor('grid-line')
-      schedule()
-    })
     const stopMotion = onReducedMotionChange(() => {
       movedAt = -Infinity
       schedule()
@@ -117,7 +112,6 @@ export const HeroGrid = () => {
     return () => {
       observer.disconnect()
       window.removeEventListener('pointermove', onMove)
-      stopScheme()
       stopMotion()
       cancelAnimationFrame(frame)
     }

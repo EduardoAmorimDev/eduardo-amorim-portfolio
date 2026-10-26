@@ -14,7 +14,7 @@ export const COLOR_TOKENS = [
 export type ColorToken = (typeof COLOR_TOKENS)[number]
 
 // invariant: one entry per variable in the `:root` block of app/globals.css;
-// each maps to a brand colour that switches with prefers-color-scheme.
+// each maps to a brand colour of the page's only (dark) theme.
 export const THEME_COLORS = [
   'background',
   'foreground',
@@ -46,8 +46,8 @@ export const readColorToken = (
 ) => readVariable(`--color-${token}`, styles)
 
 /**
- * Reads a colour of the active theme (light or dark), as the browser resolves
- * it right now. Client-only, like readColorToken.
+ * Reads a colour of the page's theme, as the browser resolves it. Client-only,
+ * like readColorToken.
  */
 export const readThemeColor = (
   name: ThemeColor,
