@@ -181,7 +181,9 @@ com `node --test`.
 - **C23** (15) O `logo` continua inclinando na direção do ponteiro e crescendo 1,06× no hover.
   Proof: `components/organisms/hero/glass-motion.test.ts` "a pointer up and to the right leans
   the icon towards it by the parallax tilt" e "hovering leans towards the hovered point, not the
-  canvas pointer, and grows".
+  canvas pointer, and grows". O vidro do `logo` continua recebendo o ponteiro: nenhuma camada
+  sobre a cena (malha, lente, texto) o toma. Proof: `e2e/hero.spec.ts` "the logo still takes the
+  pointer" (acrescentado na rodada 2).
 
 ### S5 - Malha gravitacional em perspectiva · 9 files · ~9k
 
@@ -357,6 +359,13 @@ com `node --test`.
   têm `aria-hidden="true"`. Cada `h1`/`h2` tem como nome acessível o próprio texto, uma vez.
   Proof: `e2e/a11y.spec.ts` "decorations are hidden and each title is read once".
 
+- **C76** (42) O canvas 3D da Hero, com o buraco negro e o `logo`, tem `aria-hidden="true"`. A
+  árvore de acessibilidade de `#hero` só contém o título, o subtítulo e o CTA. Proof:
+  `e2e/a11y.spec.ts` "the hero scene is hidden from assistive tech".
+  - **Origem:** acrescentado na rodada 2. O Verifier apontou que o critério 42 cita o buraco
+    negro e o C74 não o cobria.
+  - **Natureza:** a mudança é aditiva; nenhum check foi rebaixado.
+
 ### Gate
 
 - **C75** `npx tsc --noEmit`, `npm run lint`, `npm test` e `npm run test:e2e` passam. Proof: os
@@ -471,3 +480,39 @@ Medido em Chromium headless com ANGLE/GL, build de produção.
   - `npm run lint`, sem problemas;
   - `npm test`, 40/40;
   - `npm run test:e2e`, 117/117.
+
+Rodada 2 (depois do Verifier, `a0ad62b`). O que mudou:
+
+- **C32 intermitente, e o mesmo risco em C27, C29 e C31.** Os testes supunham que o buraco
+  negro anda no máximo 40 px. Agora a folga em volta do repouso é `60 px/s × o tempo de relógio
+  que o teste avança + 4 px`.
+- **Critério 42.** O canvas da Hero ganhou `aria-hidden`, coberto por C76.
+- **C54.** O teste agora exige uma curva de ao menos 0,05 rad a cada trecho, e não só ângulos
+  diferentes. O código garante isso mesmo encurralado: `minTurnCornered = 0,06`. Passou no
+  estresse de 300 sementes.
+- **C62.** O caminho fechado é provado pelos quadros-chave de 0% e 100% e pela posição perto do
+  início no fim do ciclo.
+- **C17.** A espera passou para 15 s.
+- **C64.** O teste passou a amostrar todos os pontos.
+- **C8.** "De imediato" passou a significar no máximo 50 ms entre o ponteiro e a troca de
+  `open`.
+- **C26.** A inclinação de 30° ficou fixada pelo passo das fileiras no meio da Hero, que vale
+  48·cos θ, com ±0,3°.
+- **Critério 25:** estrelas e linhas em `mist`.
+- **Critério 26:** o contorno em `mist`.
+- **Critério 28:** o disco vai de `mist` no miolo a `primary` na borda, medido pela razão
+  vermelho/azul.
+- **C71.** Com a Hero na tela, os contadores 2D da malha e da lente ficam acima de zero.
+- **C39.** O teste confere o mínimo de 2 px das estrelas.
+- **C22.** O teste passou a valer também com o ponteiro nos quatro cantos. A área excluída em
+  volta do buraco negro diminuiu para não cobrir o `h1`.
+- **C37.** O ponto do meio usado é o meio real da Hero.
+- **C6 e C7.** O `getKeyframes` lê `0fr`/`1fr` já resolvidos em px. Por isso a prova compara a
+  altura final com a altura do conteúdo: 1fr é essa altura.
+
+Ficou como lacuna declarada:
+
+- **Critério 31, "com a cor do disco".** A cor da luz só está provada no código: é `mist`
+  misturado 40% com `primary`. O vidro do `logo` já é azul saturado, então a luz não sobe o canal
+  azul, e a tinta não dá para medir em pixels. O teste de que o lado voltado fica mais claro
+  continua.
