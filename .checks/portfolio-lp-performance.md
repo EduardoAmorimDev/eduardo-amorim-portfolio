@@ -60,8 +60,9 @@ Decisões reversíveis, registradas antes do código:
   `e2e/offscreen.spec.ts` "the hero draws again when scrolled back".
 - **C5** Voltando de `#faq` ao topo depois de 2 s fora, o centro da luz fica a ≤ 12 px de onde
   estava antes de sair (a animação retoma de onde parou; rodando o tempo todo, 2 s a moveriam
-  ≥ 20 px — `light-drift.ts`). Proof: `e2e/offscreen.spec.ts` "the hero light resumes where it
-  stopped".
+  ≥ 21,9 px — `light-drift.ts`). Proof: `e2e/offscreen.spec.ts` "the hero light resumes where it
+  stopped". O tempo da página é falso e fica parado (`page.clock.pauseAt`); o teste o avança
+  com `runFor`: 2 s antes da primeira captura, 2 s fora e 0,1 s depois de voltar.
 
 ### S2 - Iframe do Kune só perto do notebook (item 2) · 4 files · ~5k
 
@@ -143,6 +144,17 @@ Chromium headless com ANGLE/GL e requisições externas abortadas.
 - **Com vsync (60 Hz, o caso real) em DPR 2:** nenhum quadro acima de 25 ms durante a rolagem,
   nem na base nem em HEAD. Esta máquina já segurava 60 fps, e o ganho aparece como folga de GPU,
   que é o que falta numa GPU integrada.
+- **C5, rodada 2:**
+  - Na rodada 1, as capturas rodavam em tempo real. Cada uma leva 0,3–0,6 s, então a luz
+    andava 6–15 px durante a captura, e o Verifier viu 6 reprovações em 19.
+  - Com o relógio falso parado, duas capturas seguidas dão o mesmo ponto. Fora da tela, a Hero
+    fez 0 draw calls, e na volta a luz se moveu 3,2 px.
+  - HEAD: 15/15. Base: reprova com 54,9 px. Mutante sem a restauração do relógio em
+    `render-gate.tsx`: reprova 3/3 com 26,6–26,9 px.
+  - A captura "antes" acontece sempre em 2 s de animação, então o mutante é pego sempre. Isso
+    responde à observação 4 do Verifier.
+- **C7, rodada 2:** a contagem de requisições ao Kune passou a usar `expect.poll`, sem a corrida
+  da leitura única.
 - **Shaders:** compilam na carga nos dois builds (22 `compileShader` no notebook). Nenhum compila
   durante a rolagem, então pausar não desloca a compilação para a hora em que a cena aparece.
 - **C10, sombra:** região do piso (x 300–1140, y 640–900) em `notebookEnd`, luminância de 0 a 255.

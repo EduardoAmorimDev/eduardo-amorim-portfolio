@@ -14,10 +14,12 @@ const SAMPLE_MS = 1000
 // why: the observer reports and React re-renders a frame or two after the
 // scroll; this covers both with room to spare.
 const SETTLE_MS = 300
-// why: the core moves at most ~34 px/s; the screenshots and frames around
-// the pause take well under 0.4 s, while 2 s of running moves it 20+ px.
+// why: the clock is faked in that test, so the scene only animates when the
+// test advances it: 0.1 s of it after returning moves the core ~3 px at
+// most, while the 2 s away would move it 21.9 px or more (light-drift.ts).
 const RESUMED_PX = 12
 const AWAY_MS = 2000
+const RESUME_MS = 100
 
 /**
  * Counts, from the first script on, every WebGL draw call by the canvas
@@ -131,13 +133,27 @@ test('the hero draws again when scrolled back', async ({ page }) => {
 })
 
 test('the hero light resumes where it stopped', async ({ page }) => {
-  await gotoHero(page)
+  // why: a capture takes 0.3-0.6 s, long enough for the light to drift
+  // 10-20 px under it; with time faked, nothing moves while one is taken.
+  await page.clock.install()
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  // why: an installed clock still flows in real time until paused.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await page.clock.runFor(2000)
   await hideHeroCopy(page)
   const before = await coreCentre(page)
-  await scrollToSection(page, '#faq')
-  await page.waitForTimeout(AWAY_MS)
-  await scrollWindowTo(page, 0)
+
+  await page.evaluate(() =>
+    document.querySelector('#faq')?.scrollIntoView({ behavior: 'instant' })
+  )
+  await page.waitForTimeout(SETTLE_MS)
+  await page.clock.runFor(AWAY_MS)
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+  await page.waitForTimeout(SETTLE_MS)
+  await page.clock.runFor(RESUME_MS)
   const after = await coreCentre(page)
+
   expect(
     Math.hypot(after.x - before.x, after.y - before.y)
   ).toBeLessThanOrEqual(RESUMED_PX)
@@ -163,7 +179,7 @@ test('the screen page loads a screen before the notebook', async ({ page }) => {
     'src',
     new RegExp(`^https://${SCREEN_HOST.replaceAll('.', '\\.')}/`)
   )
-  expect(requests.length).toBeGreaterThan(0)
+  await expect.poll(() => requests.length).toBeGreaterThan(0)
 })
 
 test('the screen page unloads far past the notebook', async ({ page }) => {
