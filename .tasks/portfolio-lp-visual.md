@@ -4,6 +4,12 @@
 > Cada critério abaixo vira uma verificação com prova, citada pelo número. Nada em
 > `Unresolved` é decidido durante a implementação.
 
+> **Substituída em parte por `.tasks/portfolio-lp-corrections.md` (2026-10-26).** Deixam de
+> valer: 1 (agora dez seções, com `#notebook`), 11 (FAQ abre no hover), 16 e 17 (a luz fica só na
+> Hero e não ilumina mais o notebook), 21 e 22 (rajada mais rica, sem o limite de 3 mudanças por
+> segundo), 23 na parte da malha (só a Hero tem malha), 24 (o notebook vira a seção `#notebook`;
+> a Hero fica só com os ícones `cursor`, `atom` e `logo`) e 25–28 (só tema escuro).
+
 ## Intent
 
 Hoje `/` mostra só o hero 3D (laptop que abre com a rolagem e ícones de vidro), com
