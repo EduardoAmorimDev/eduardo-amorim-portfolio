@@ -3,6 +3,7 @@ import { expect, test } from './fixtures'
 import { tokenRgb } from './page-helpers'
 
 const MAX_BURST_MS = 600
+const MIN_SHIFT_PX = 1
 const MAX_SHIFT_PX = 8
 const MAX_SHAKE_PX = 2
 const FRAMES_WITH_COPIES = 6
@@ -160,7 +161,7 @@ test.describe('dark scheme', () => {
       const shift = /^matrix\(1, 0, 0, 1, (-?[\d.]+), 0\)$/.exec(copy.transform)
       expect(shift, `horizontal shift only: ${copy.transform}`).not.toBeNull()
       const x = Math.abs(Number(shift?.[1]))
-      expect(x).toBeGreaterThan(0)
+      expect(x).toBeGreaterThanOrEqual(MIN_SHIFT_PX)
       expect(x).toBeLessThanOrEqual(MAX_SHIFT_PX)
     }
 

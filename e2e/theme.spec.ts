@@ -25,6 +25,9 @@ const SKY_SLACK = 3
 // why: a step between neighbouring floor pixels larger than this would read
 // as an edge; a fog fade changes a few levels per pixel at most.
 const MAX_STEP = 4
+// why: the lit near floor measured ~0.016 against ink's ~0.0056; half that
+// lift still tells a lit floor from a bare ink one.
+const MIN_FLOOR_LIFT = 0.005
 
 /**
  * Each section's painted background (the first opaque one up its
@@ -119,6 +122,10 @@ const expectInkFloor = (pixels: Pixels) => {
     Math.abs(near - relativeLuminance(background)),
     `near floor luminance ${near.toFixed(3)}`
   ).toBeLessThan(Math.abs(near - relativeLuminance(other)))
+  expect(
+    near - relativeLuminance(background),
+    `near floor is lit: ${near.toFixed(4)}`
+  ).toBeGreaterThanOrEqual(MIN_FLOOR_LIFT)
 }
 
 /** Colours of the fully inked pixels of the hero grid. */

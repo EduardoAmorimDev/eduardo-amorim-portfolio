@@ -7,6 +7,7 @@ import { BURST, IDLE_GLITCH, clipPath, requestBurst } from './glitch.ts'
 const MAX_BURST_MS = 600
 const FRAMES_WITH_COPIES = 6
 const BANDS = 3
+const MIN_SHIFT_PX = 1
 const MAX_SHIFT_PX = 8
 const MAX_SHAKE_PX = 2
 
@@ -27,11 +28,11 @@ test('a burst is six frames with copies, then a clean one, within 600 ms', () =>
     )
 })
 
-test('every copy is cut into three bands and shifted at most 8px', () => {
+test('every copy is cut into three bands and shifted between 1 and 8px', () => {
   for (const frame of withCopies) {
     assert.equal(frame.copies?.length, 2, `frame at ${frame.at}`)
     for (const copy of frame.copies ?? []) {
-      assert.ok(copy.x !== 0, 'a copy is shifted')
+      assert.ok(Math.abs(copy.x) >= MIN_SHIFT_PX, `shift ${copy.x}`)
       assert.ok(Math.abs(copy.x) <= MAX_SHIFT_PX, `shift ${copy.x}`)
       assert.equal(copy.bands.length, BANDS)
       let previous = 0

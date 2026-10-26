@@ -162,7 +162,7 @@ Proof: `npx playwright test e2e/glitch.spec.ts -g "a burst paints six frames of 
 
 **C30** - Em cada quadro, uma cópia `primary` e uma `mist`, cada uma recortada em 3 faixas
 horizontais e deslocada entre 1 e 8 px na horizontal
-Proof: `node --test lib/glitch.test.ts` (teste "every copy is cut into three bands and shifted at most 8px")
+Proof: `node --test lib/glitch.test.ts` (teste "every copy is cut into three bands and shifted between 1 and 8px")
 Proof: `npx playwright test e2e/glitch.spec.ts -g "a burst shows a primary and a mist copy, shifted at most 8px and cut in three bands"`
 
 **C31** - Durante a rajada o texto principal treme até 2 px na horizontal; ao fim, título e cópias
@@ -283,6 +283,20 @@ Tests superseded (removidos ou reescritos, cada um com o check que o substitui):
   burst is deferred until the rate allows it", "burstStart never returns a time before now",
   "hovering non-stop for 10 s never changes…", "random triggers never change…" → C29, C34
 - `e2e/sections.spec.ts` "main has the nine sections in order" → C1
+- Renomeados, reescritos ou movidos (rodada 2, a partir do relatório do Verifier):
+  `e2e/theme.spec.ts` "dark scheme paints ink background and mist text" → C46; "3D scene sky
+  matches the theme background" e "far floor fades into the theme background" (claro e escuro)
+  → C22, C50, agora sobre `#notebook`; `e2e/hero-light.spec.ts` "a glowing light core with a
+  halo sits above the laptop" → C15 ("…sits at the top left of the hero"); `e2e/glitch.spec.ts`
+  "a burst shows a primary and a mist copy, shifted at most 4px and sliced" → C30;
+  `e2e/sections.spec.ts` "every section but hero has an h2 and lorem text" → C2, "faq shows
+  five closed questions" e "faq question opens and closes" movidos sem mudança para
+  `e2e/faq.spec.ts` → C37; `lib/color-tokens.test.ts` "THEME_COLORS lists exactly the
+  variables of the light theme" → renomeado "…the colour variables of the theme";
+  `lib/glitch.test.ts` "a burst ends within 600 ms and leaves the text clean", "frames with
+  copies show one copy each side" → C29; "every copy shifts at most 4px sideways and is cut to
+  a band", "clipPath keeps the band between the top and bottom insets" → C30 ("clipPath keeps
+  exactly the three bands"); "a trigger long after the last burst starts at once" → C34
 - `e2e/hero-grid.spec.ts` "grid never takes the pointer from the 3D canvas": a asserção "o alvo é
   o `<div>` que segura o canvas" vinha do `<Html>` do notebook, que deixava o canvas sem ponteiro;
   sem o notebook na Hero, o alvo é o próprio canvas. Passa a afirmar "o alvo está dentro da cena"
@@ -292,3 +306,8 @@ Build (mesmo lote, sem handoff): a primeira rodada do e2e teve 3 falhas, todas n
 ou nessa asserção: corrida ao instalar o observador do FAQ antes do mouse sair (C39), nome
 acessível lido com o "+" `aria-hidden` (C44) e a asserção acima. Corrigidos nos testes; o código
 não mudou por causa deles.
+
+Rodada 2 (achados do Verifier em `332a61e`): C22 ganhou a asserção de que o piso próximo fica
+≥ 0,005 de luminância acima de `ink` (medido ~0,016 contra ~0,0056), e não só "mais perto de
+ink que de branco"; C30 ganhou o limite inferior de 1 px no unitário e no e2e; o comentário de
+`light-drift.ts` cita T8 em vez de T6; a lista acima foi completada.
