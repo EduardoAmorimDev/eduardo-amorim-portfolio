@@ -114,14 +114,15 @@ export const NotebookScene = ({ progress, screenLive }: NotebookSceneProps) => {
       {/* why: shadow maps gave two hard shadows, one per light.
           ContactShadows renders the scene from below and blurs it into
           one soft shadow; `far` is how high it still sees the laptop, so
-          the shadow fades as the laptop floats up. */}
+          the shadow fades as the laptop floats up. 256: blurred this much,
+          it looks the same as 512 with a quarter of the pixels to draw. */}
       <ContactShadows
         position={[0, FLOOR_Y + 0.01, 0]}
         scale={12}
         far={4}
         blur={3}
         opacity={0.7}
-        resolution={512}
+        resolution={256}
       />
     </>
   )
