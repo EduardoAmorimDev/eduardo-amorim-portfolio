@@ -20,6 +20,7 @@ const SETTLE_MS = 300
 const RESUMED_PX = 12
 const AWAY_MS = 2000
 const RESUME_MS = 100
+const CLOCK_START = Date.UTC(2026, 0, 1)
 
 /**
  * Counts, from the first script on, every WebGL draw call by the canvas
@@ -134,12 +135,13 @@ test('the hero draws again when scrolled back', async ({ page }) => {
 
 test('the hero light resumes where it stopped', async ({ page }) => {
   // why: a capture takes 0.3-0.6 s, long enough for the light to drift
-  // 10-20 px under it; with time faked, nothing moves while one is taken.
-  await page.clock.install()
+  // 6-15 px under it; with time faked, nothing moves while one is taken.
+  // why: paused before the page loads, so the first capture always lands
+  // at the same 2 s of animation, with the light well off its rest point.
+  await page.clock.install({ time: CLOCK_START })
+  await page.clock.pauseAt(CLOCK_START + 100)
   await page.goto('/')
   await page.waitForLoadState('networkidle')
-  // why: an installed clock still flows in real time until paused.
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
   await page.clock.runFor(2000)
   await hideHeroCopy(page)
   const before = await coreCentre(page)

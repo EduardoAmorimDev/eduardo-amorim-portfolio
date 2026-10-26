@@ -61,8 +61,9 @@ Decisões reversíveis, registradas antes do código:
 - **C5** Voltando de `#faq` ao topo depois de 2 s fora, o centro da luz fica a ≤ 12 px de onde
   estava antes de sair (a animação retoma de onde parou; rodando o tempo todo, 2 s a moveriam
   ≥ 21,9 px — `light-drift.ts`). Proof: `e2e/offscreen.spec.ts` "the hero light resumes where it
-  stopped". O tempo da página é falso e fica parado (`page.clock.pauseAt`); o teste o avança
-  com `runFor`: 2 s antes da primeira captura, 2 s fora e 0,1 s depois de voltar.
+  stopped". O tempo da página é falso e fica parado desde antes da carga
+  (`page.clock.install` + `pauseAt`); o teste o avança com `runFor`: 2 s antes da primeira
+  captura, 2 s fora e 0,1 s depois de voltar.
 
 ### S2 - Iframe do Kune só perto do notebook (item 2) · 4 files · ~5k
 
@@ -151,8 +152,11 @@ Chromium headless com ANGLE/GL e requisições externas abortadas.
     fez 0 draw calls, e na volta a luz se moveu 3,2 px.
   - HEAD: 15/15. Base: reprova com 54,9 px. Mutante sem a restauração do relógio em
     `render-gate.tsx`: reprova 3/3 com 26,6–26,9 px.
-  - A captura "antes" acontece sempre em 2 s de animação, então o mutante é pego sempre. Isso
-    responde à observação 4 do Verifier.
+  - Rodada 3: na rodada 2, o relógio ainda corria em tempo real até o `pauseAt`. Por isso a
+    captura "antes" variava entre 2,1 e 3,5 s de animação, e a folga contra o mutante era de
+    ~1,2 s (achado do Verifier). Agora o relógio é instalado já parado, antes do `goto`. A
+    captura sempre cai em 2 s de animação, e o mutante reprova 5/5 com o mesmo valor, 27,08 px.
+    HEAD: 10/10.
 - **C7, rodada 2:** a contagem de requisições ao Kune passou a usar `expect.poll`, sem a corrida
   da leitura única.
 - **Shaders:** compilam na carga nos dois builds (22 `compileShader` no notebook). Nenhum compila
