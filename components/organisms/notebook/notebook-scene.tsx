@@ -49,10 +49,14 @@ const createFloorMask = () => {
   return new CanvasTexture(canvas)
 }
 
-type NotebookSceneProps = { progress: RefObject<number> }
+type NotebookSceneProps = {
+  progress: RefObject<number>
+  /** Whether the laptop's screen shows the live site; black otherwise. */
+  screenLive: boolean
+}
 
 /** The laptop on its floor, under two spotlights, opened by the scroll. */
-export const NotebookScene = ({ progress }: NotebookSceneProps) => {
+export const NotebookScene = ({ progress, screenLive }: NotebookSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
   const colors = useMemo(() => readSceneColors(), [])
@@ -88,7 +92,10 @@ export const NotebookScene = ({ progress }: NotebookSceneProps) => {
 
       {/* why: Suspense renders nothing until the model has loaded. */}
       <Suspense fallback={null}>
-        <Laptop progress={progress} screenUrl={SCREEN_URL} />
+        <Laptop
+          progress={progress}
+          screenUrl={screenLive ? SCREEN_URL : undefined}
+        />
       </Suspense>
 
       {/* why: a plane is vertical by default; -90° around X lays it flat

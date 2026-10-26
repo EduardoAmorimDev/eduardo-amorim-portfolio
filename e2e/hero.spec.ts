@@ -16,9 +16,9 @@ test('hero is one screen tall', async ({ page }) => {
 test('hero has no laptop', async ({ page }) => {
   await gotoHero(page)
   await expect(page.locator('#hero iframe')).toHaveCount(0)
-  // invariant: the laptop exists, just elsewhere; its screen page is the
-  // only iframe on the page.
-  await expect(page.locator('#notebook iframe')).toHaveCount(1)
+  // why: the laptop's screen page, the only iframe, loads near the notebook
+  // (offscreen.spec), so the top of the page has none at all.
+  await expect(page.locator('iframe')).toHaveCount(0)
 })
 
 test('only the cursor, atom and logo models are loaded', async ({ page }) => {

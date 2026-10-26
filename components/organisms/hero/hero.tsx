@@ -1,6 +1,7 @@
 'use client'
 import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
+import { RenderGate } from '@/components/atoms/render-gate'
 import { HeroGrid } from './hero-grid'
 import { HeroScene } from './hero-scene'
 
@@ -26,6 +27,7 @@ export const Hero = ({ id, children }: HeroProps) => (
       gl={{ alpha: true }}
       camera={{ position: [0, 1, 7], fov: 40 }}
     >
+      <RenderGate />
       <HeroScene />
     </Canvas>
     {children}

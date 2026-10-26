@@ -87,8 +87,8 @@ const findParts = (root: Object3D) => {
 
 type LaptopProps = {
   progress: RefObject<number>
-  /** Page shown live on the laptop's screen. */
-  screenUrl: string
+  /** Page shown live on the laptop's screen; without one it stays black. */
+  screenUrl?: string
 }
 
 export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
@@ -184,21 +184,23 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
                 animation) instead of the embedded site, and focus skips it.
                 scrolling="no" hides the embedded page's scrollbar, which a
                 cross-origin site cannot be styled to hide. */}
-            <iframe
-              ref={page}
-              src={screenUrl}
-              title="Preview of the Kune landing page"
-              width={PAGE_WIDTH}
-              height={PAGE_HEIGHT}
-              tabIndex={-1}
-              aria-hidden
-              sandbox="allow-scripts allow-same-origin"
-              scrolling="no"
-              className="pointer-events-none border-0 opacity-0"
-              // why: rounding the page, not its black backing, keeps the
-              // corners black like the glass instead of see-through.
-              style={{ borderRadius: PAGE_RADIUS }}
-            />
+            {screenUrl && (
+              <iframe
+                ref={page}
+                src={screenUrl}
+                title="Preview of the Kune landing page"
+                width={PAGE_WIDTH}
+                height={PAGE_HEIGHT}
+                tabIndex={-1}
+                aria-hidden
+                sandbox="allow-scripts allow-same-origin"
+                scrolling="no"
+                className="pointer-events-none border-0 opacity-0"
+                // why: rounding the page, not its black backing, keeps the
+                // corners black like the glass instead of see-through.
+                style={{ borderRadius: PAGE_RADIUS }}
+              />
+            )}
           </div>
         </Html>,
         anchor.lid

@@ -1,8 +1,15 @@
 'use client'
 import { Canvas } from '@react-three/fiber'
 import { useRef } from 'react'
+import { RenderGate } from '@/components/atoms/render-gate'
+import { useNearViewport } from '@/lib/use-near-viewport'
 import { NotebookScene } from './notebook-scene'
 import { useScrollProgress } from './use-scroll-progress'
+
+// why: the embedded site starts loading a screen before the notebook, well
+// ahead of the screen turning on, and is dropped a screen past it, so it
+// costs nothing anywhere else on the page.
+const SCREEN_LEAD = '100% 0px'
 
 type NotebookProps = { id?: string }
 
@@ -10,6 +17,7 @@ type NotebookProps = { id?: string }
 export const Notebook = ({ id }: NotebookProps) => {
   const section = useRef<HTMLElement>(null)
   const progress = useScrollProgress(section)
+  const screenLive = useNearViewport(section, SCREEN_LEAD)
 
   return (
     // why: the section is 3 screens tall to give the scroll room to drive the
@@ -34,7 +42,8 @@ export const Notebook = ({ id }: NotebookProps) => {
           gl={{ alpha: true }}
           camera={{ position: [0, 1, 7], fov: 40 }}
         >
-          <NotebookScene progress={progress} />
+          <RenderGate />
+          <NotebookScene progress={progress} screenLive={screenLive} />
         </Canvas>
       </div>
     </section>

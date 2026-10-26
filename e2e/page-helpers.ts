@@ -206,15 +206,15 @@ export const notebookEnd = (page: Page) =>
   })
 
 /**
- * Loads `/`, waits for the laptop (its screen page exists once its model
- * has loaded) and scrolls until the notebook's top meets the screen's top,
- * where its animation starts.
+ * Loads `/`, scrolls until the notebook's top meets the screen's top, where
+ * its animation starts, and waits for the laptop (its screen page exists
+ * once its model has loaded and the notebook is near).
  */
 export const gotoNotebook = async (page: Page) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
-  await page.locator('#notebook iframe').waitFor({ state: 'attached' })
   await scrollWindowTo(page, await documentTop(page.locator('#notebook')))
+  await page.locator('#notebook iframe').waitFor({ state: 'attached' })
   // why: a few frames for the laptop's damped pose to settle at the start.
   await page.waitForTimeout(1500)
 }
