@@ -106,7 +106,11 @@ const recordTransitions = (question: Locator) =>
       answer: details.querySelector('[data-answer]'),
       plus: details.querySelector('summary [aria-hidden]')
     }
-    const record: { runs: Run[]; heights: number[] } = { runs: [], heights: [] }
+    const record: { runs: Run[]; heights: number[]; open: boolean[] } = {
+      runs: [],
+      heights: [],
+      open: []
+    }
     const seen = new Set<Animation>()
     const tick = () => {
       for (const [part, element] of Object.entries(parts)) {
@@ -134,6 +138,7 @@ const recordTransitions = (question: Locator) =>
         }
       }
       record.heights.push(parts.answer?.getBoundingClientRect().height ?? -1)
+      record.open.push(details instanceof HTMLDetailsElement && details.open)
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -237,7 +242,17 @@ test('a closing answer shrinks and fades out before it hides', async ({
   expect(middle.open, 'still open halfway').toBe(true)
   expect(middle.height, 'still showing halfway').toBeGreaterThan(0)
   await expect(question).toHaveJSProperty('open', false)
-  const { runs } = await record.jsonValue()
+  const { runs, heights, open } = await record.jsonValue()
+  // invariant: 1fr to 0fr: from the answer's full height down to nothing,
+  // through heights in between, all while the question is still open.
+  const full = heights[0] ?? 0
+  expect(full).toBeGreaterThan(20)
+  const shown = heights.filter((_, index) => open[index])
+  expect(
+    shown.some(height => height > 1 && height < full - 1),
+    'shrinks gradually'
+  ).toBe(true)
+  expect(Math.min(...shown), 'down to nothing before it hides').toBeLessThan(2)
   for (const [part, property, to] of [
     ['answer', 'grid-template-rows', null],
     ['answer', 'opacity', '0'],

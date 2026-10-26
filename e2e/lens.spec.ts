@@ -232,6 +232,11 @@ test('inside the lens the title is an outline; outside it stays solid', async ({
     y: (title.top + title.bottom) / 2
   }
   await openAt(page, lens)
+  // why: the stars are drawn on their own canvas; hidden for this capture,
+  // nothing but the title's outline and the grid sits inside the letters.
+  await page.locator('[data-testid="hero-lens"]').evaluate(canvas => {
+    if (canvas instanceof HTMLElement) canvas.style.visibility = 'hidden'
+  })
   const after = await screenPixels(page, clip)
   const at = (point: { x: number; y: number }) =>
     Math.hypot(point.x + clip.x - lens.x, point.y + clip.y - lens.y)
@@ -245,7 +250,7 @@ test('inside the lens the title is an outline; outside it stays solid', async ({
   expect(
     share(inside, lum => lum < DIM),
     'fill gone inside'
-  ).toBeGreaterThan(0.9)
+  ).toBe(1)
   expect(
     share(outside, lum => lum > LIT),
     'fill kept outside'

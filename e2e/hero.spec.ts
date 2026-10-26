@@ -190,6 +190,13 @@ test.describe('at rest', () => {
     await gotoHero(page)
     await showSceneOnly(page)
     const { onGlass } = await logoBox(page)
+    // why: the layers come back before the hit test; a hidden element is
+    // skipped by it, so only with every layer shown can one be caught
+    // taking the pointer.
+    await page.evaluate(() => {
+      for (const node of document.querySelectorAll<HTMLElement>('#hero *'))
+        node.style.visibility = ''
+    })
     // why: R3F hears the pointer on the 3D canvas and leans or grows the
     // logo from there (glass-motion.test.ts); nothing laid over the scene,
     // grid, lens or copy, may take the pointer on the logo's glass.
