@@ -155,8 +155,8 @@ Chromium headless com ANGLE/GL e requisições externas abortadas.
   - Rodada 3: na rodada 2, o relógio ainda corria em tempo real até o `pauseAt`. Por isso a
     captura "antes" variava entre 2,1 e 3,5 s de animação, e a folga contra o mutante era de
     ~1,2 s (achado do Verifier). Agora o relógio é instalado já parado, antes do `goto`. A
-    captura sempre cai em 2 s de animação, e o mutante reprova 5/5 com o mesmo valor, 27,08 px.
-    HEAD: 10/10.
+    captura sempre cai no mesmo tempo de animação (~1,9 s: o primeiro quadro vem ~50 ms depois
+    do início do `runFor`), e o mutante reprova 5/5 com 27,05–27,11 px. HEAD: 10/10.
 - **C7, rodada 2:** a contagem de requisições ao Kune passou a usar `expect.poll`, sem a corrida
   da leitura única.
 - **Shaders:** compilam na carga nos dois builds (22 `compileShader` no notebook). Nenhum compila
