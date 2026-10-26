@@ -3,6 +3,10 @@ import { expect, test } from './fixtures'
 
 const LOREM = /lorem/i
 const CLOSE_MS = 300
+// why: the checklist's own numbers (C6, C7).
+const TRANSITION_MS = 300
+const EASING = 'ease-out'
+const MID_MS = 150
 // why: long enough for a stray close, which happens on the next render, to
 // have landed; well past CLOSE_MS.
 const HOLD_MS = 600
@@ -51,13 +55,13 @@ test('hovering a question opens it', async ({ page }) => {
   await expect(question.locator('p')).toHaveText(LOREM)
 })
 
-test('leaving an unpinned question closes it within 300ms', async ({
+test('leaving an unpinned question starts closing within 300ms', async ({
   page
 }) => {
   await page.goto('/')
   const question = questions(page).nth(2)
   await hover(page, question)
-  await expect(question).toHaveJSProperty('open', true)
+  await expect(question).toHaveAttribute('data-state', 'open')
 
   // why: both moments are taken in page time, so the round trips of the
   // test do not count against the 300 ms; the listeners are in place
@@ -67,18 +71,179 @@ test('leaving an unpinned question closes it within 300ms', async ({
       details.dataset.leftAt ??= String(performance.now())
     })
     new MutationObserver(() => {
-      if (!(details as HTMLDetailsElement).open)
-        details.dataset.closedAt ??= String(performance.now())
-    }).observe(details, { attributes: true, attributeFilter: ['open'] })
+      if (details.dataset.state === 'closing')
+        details.dataset.closingAt ??= String(performance.now())
+    }).observe(details, { attributes: true, attributeFilter: ['data-state'] })
   })
   await leave(page)
-  await expect(question).toHaveAttribute('data-closed-at', /\d/)
+  await expect(question).toHaveAttribute('data-closing-at', /\d/)
   const elapsed = await question.evaluate(
-    details => Number(details.dataset.closedAt) - Number(details.dataset.leftAt)
+    details =>
+      Number(details.dataset.closingAt) - Number(details.dataset.leftAt)
   )
   expect(elapsed).toBeGreaterThanOrEqual(0)
   expect(elapsed).toBeLessThanOrEqual(CLOSE_MS)
   await expect(question.locator('p')).toBeHidden()
+})
+
+type Run = {
+  part: 'answer' | 'plus'
+  property: string
+  duration: number
+  easing: string
+  from: string
+  to: string
+}
+
+/**
+ * Records, inside the page and frame by frame, every transition the answer
+ * and its "+" start, and the answer's height on each frame; the handle reads
+ * the record as it stands.
+ */
+const recordTransitions = (question: Locator) =>
+  question.evaluateHandle(details => {
+    const parts = {
+      answer: details.querySelector('[data-answer]'),
+      plus: details.querySelector('summary [aria-hidden]')
+    }
+    const record: { runs: Run[]; heights: number[] } = { runs: [], heights: [] }
+    const seen = new Set<Animation>()
+    const tick = () => {
+      for (const [part, element] of Object.entries(parts)) {
+        for (const animation of element?.getAnimations() ?? []) {
+          if (seen.has(animation) || !(animation instanceof CSSTransition))
+            continue
+          seen.add(animation)
+          const timing = animation.effect?.getTiming()
+          const frames =
+            animation.effect instanceof KeyframeEffect
+              ? animation.effect.getKeyframes()
+              : []
+          const css = animation.transitionProperty.replace(/-(.)/g, (_, c) =>
+            String(c).toUpperCase()
+          )
+          const value = (index: number) => String(frames.at(index)?.[css] ?? '')
+          record.runs.push({
+            part: part === 'answer' ? 'answer' : 'plus',
+            property: animation.transitionProperty,
+            duration: Number(timing?.duration ?? 0),
+            easing: String(timing?.easing ?? ''),
+            from: value(0),
+            to: value(-1)
+          })
+        }
+      }
+      record.heights.push(parts.answer?.getBoundingClientRect().height ?? -1)
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+    return record
+  })
+
+const OPENERS = {
+  hover: (page: Page, question: Locator) => hover(page, question),
+  click: (_: Page, question: Locator) =>
+    question.locator('summary').evaluate(summary => {
+      if (summary instanceof HTMLElement) summary.click()
+    }),
+  Enter: async (page: Page, question: Locator) => {
+    await question.locator('summary').focus()
+    await page.keyboard.press('Enter')
+  }
+}
+
+const expectOpening = (runs: Run[]) => {
+  for (const [part, property, from, to] of [
+    ['answer', 'grid-template-rows', null, null],
+    ['answer', 'opacity', '0', '1'],
+    ['plus', 'rotate', null, '45deg']
+  ] as const) {
+    const run = runs.find(
+      found => found.part === part && found.property === property
+    )
+    expect(run, `${part} ${property}`).toBeDefined()
+    expect(run?.duration).toBe(TRANSITION_MS)
+    expect(run?.easing).toBe(EASING)
+    if (from !== null) expect(run?.from).toBe(from)
+    if (to !== null) expect(run?.to).toBe(to)
+  }
+}
+
+test('an opening answer grows and fades in over 300ms, whatever opens it', async ({
+  page
+}) => {
+  for (const [name, open] of Object.entries(OPENERS)) {
+    await page.goto('/')
+    const question = questions(page).nth(1)
+    await question.locator('summary').scrollIntoViewIfNeeded()
+    const record = await recordTransitions(question)
+    await open(page, question)
+    await page.waitForTimeout(TRANSITION_MS * 2)
+    const { runs, heights } = await record.jsonValue()
+    expectOpening(runs)
+    // invariant: from nothing to the answer's height, through heights in
+    // between.
+    const full = heights.at(-1) ?? 0
+    expect(full, name).toBeGreaterThan(20)
+    expect(Math.min(...heights), name).toBeLessThan(1)
+    expect(
+      heights.some(height => height > 1 && height < full - 1),
+      `${name} grows gradually`
+    ).toBe(true)
+  }
+})
+
+test('a closing answer shrinks and fades out before it hides', async ({
+  page
+}) => {
+  await page.goto('/')
+  const question = questions(page).nth(4)
+  await OPENERS.Enter(page, question)
+  await expect(question).toHaveAttribute('data-state', 'open')
+  await page.waitForTimeout(TRANSITION_MS * 2)
+  const record = await recordTransitions(question)
+  // why: halfway through the close, measured in page time from its start;
+  // the observer is in place before the key is pressed.
+  const midway = await question.evaluateHandle((details, wait) => {
+    const found: { open?: boolean; height?: number } = {}
+    const observer = new MutationObserver(() => {
+      if (details.dataset.state !== 'closing') return
+      observer.disconnect()
+      setTimeout(() => {
+        found.open = details instanceof HTMLDetailsElement && details.open
+        found.height =
+          details.querySelector('[data-answer]')?.getBoundingClientRect()
+            .height ?? 0
+      }, wait)
+    })
+    observer.observe(details, {
+      attributes: true,
+      attributeFilter: ['data-state']
+    })
+    return found
+  }, MID_MS)
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await midway.jsonValue()).open).toBeDefined()
+  const middle = await midway.jsonValue()
+  expect(middle.open, 'still open halfway').toBe(true)
+  expect(middle.height, 'still showing halfway').toBeGreaterThan(0)
+  await expect(question).toHaveJSProperty('open', false)
+  const { runs } = await record.jsonValue()
+  for (const [part, property, to] of [
+    ['answer', 'grid-template-rows', null],
+    ['answer', 'opacity', '0'],
+    ['plus', 'rotate', null]
+  ] as const) {
+    const run = runs.find(
+      found => found.part === part && found.property === property
+    )
+    expect(run, `${part} ${property}`).toBeDefined()
+    expect(run?.duration).toBe(TRANSITION_MS)
+    expect(run?.easing).toBe(EASING)
+    if (to !== null) expect(run?.to).toBe(to)
+  }
+  const back = runs.find(run => run.part === 'plus')
+  expect(['0deg', 'none']).toContain(back?.to)
 })
 
 test('clicking a question keeps it open after the pointer leaves', async ({
@@ -174,6 +339,16 @@ test('a question exposes whether it is expanded', async ({ page }) => {
 
 test.describe('touch', () => {
   test.use({ hasTouch: true })
+
+  test('a tap opens an answer with the same transition', async ({ page }) => {
+    await page.goto('/')
+    const question = questions(page).nth(2)
+    await question.locator('summary').scrollIntoViewIfNeeded()
+    const record = await recordTransitions(question)
+    await question.locator('summary').tap()
+    await page.waitForTimeout(TRANSITION_MS * 2)
+    expectOpening((await record.jsonValue()).runs)
+  })
 
   test('a tap toggles a question without hover', async ({ page }) => {
     await page.goto('/')
