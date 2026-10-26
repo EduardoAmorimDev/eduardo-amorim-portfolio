@@ -34,6 +34,17 @@
   --text-caption--line-height: normal;
 
   --animate-float: float 9s ease-in-out infinite;
+  /* why: the backdrop lives like a sky (task cosmos, criteria 33–35): the
+     glows drift on closed paths of under 8vmax in 30–45 s and breathe ±0.1
+     in 8–12 s; dots twinkle, rings pulse, the middle shapes sway ±6°. */
+  --animate-glow-a:
+    glow-drift 38s ease-in-out infinite, glow-breathe 10s ease-in-out infinite;
+  --animate-glow-b:
+    glow-drift 44s ease-in-out infinite reverse,
+    glow-breathe 9s ease-in-out infinite;
+  --animate-twinkle: twinkle 5s ease-in-out infinite;
+  --animate-ring-pulse: ring-pulse 12s ease-in-out infinite;
+  --animate-sway: sway 14s ease-in-out infinite;
 
   @keyframes float {
     0%,
@@ -42,6 +53,62 @@
     }
     50% {
       translate: 0 -14px;
+    }
+  }
+
+  @keyframes glow-drift {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    25% {
+      translate: 6vmax -3vmax;
+    }
+    50% {
+      translate: 2vmax 5vmax;
+    }
+    75% {
+      translate: -4vmax 2vmax;
+    }
+  }
+
+  @keyframes glow-breathe {
+    0%,
+    100% {
+      opacity: calc(var(--glow-opacity) - 0.1);
+    }
+    50% {
+      opacity: calc(var(--glow-opacity) + 0.1);
+    }
+  }
+
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @keyframes ring-pulse {
+    0%,
+    100% {
+      scale: 0.95;
+    }
+    50% {
+      scale: 1.05;
+    }
+  }
+
+  @keyframes sway {
+    0%,
+    100% {
+      rotate: -6deg;
+    }
+    50% {
+      rotate: 6deg;
     }
   }
 }

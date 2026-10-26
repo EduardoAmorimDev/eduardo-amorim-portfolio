@@ -63,11 +63,20 @@ const RoundedCube = () => (
   </svg>
 )
 
-const BACK = spread(28).map((top, index) => ({
-  top,
-  left: (index * 37 + 11) % 96,
-  ring: index % 7 === 3
-}))
+// why: a fixed low-discrepancy draw per index, so every dot gets its own
+// twinkle period (3 to 8 s) and phase, the same on the server and the client.
+const draw = (index: number, step: number) => (index * step) % 1
+
+const BACK = spread(28).map((top, index) => {
+  const period = 3 + 5 * draw(index, 0.618034)
+  return {
+    top,
+    left: (index * 37 + 11) % 96,
+    ring: index % 7 === 3,
+    period,
+    phase: period * draw(index, 0.414214)
+  }
+})
 
 const MID = spread(8).map((top, index) => ({
   top,
@@ -81,21 +90,33 @@ const FRONT = spread(12).map((top, index) => ({
 }))
 
 const CONTENT: Record<ParallaxLayer, ReactNode> = {
-  back: BACK.map(({ top, left, ring }) => (
-    <span
-      key={`${top}`}
-      style={{ top: `${top * 100}%`, left: `${left}%` }}
-      className={
-        ring
-          ? 'border-steel/30 absolute size-40 rounded-full border'
-          : 'bg-steel/60 absolute size-1.5 rounded-full'
-      }
-    />
-  )),
+  back: BACK.map(({ top, left, ring, period, phase }) =>
+    ring ? (
+      <span
+        key={`${top}`}
+        data-ring
+        style={{ top: `${top * 100}%`, left: `${left}%` }}
+        className="border-steel/30 motion-safe:animate-ring-pulse absolute size-40 rounded-full border"
+      />
+    ) : (
+      <span
+        key={`${top}`}
+        data-dot
+        style={{
+          top: `${top * 100}%`,
+          left: `${left}%`,
+          animationDuration: `${period.toFixed(2)}s`,
+          animationDelay: `-${phase.toFixed(2)}s`
+        }}
+        className="bg-steel/60 motion-safe:animate-twinkle absolute size-1.5 rounded-full"
+      />
+    )
+  ),
   mid: MID.map(({ top, left, octahedron }) => (
     <div
       key={`${top}`}
-      className="absolute"
+      data-mid-shape
+      className="motion-safe:animate-sway absolute"
       style={{ top: `${top * 100}%`, left: `${left}%` }}
     >
       {octahedron ? <Octahedron /> : <RoundedCube />}
