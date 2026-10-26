@@ -1,110 +1,126 @@
-// why: the limits come from the task (T21–T22): a burst is short, never loops
-// and never flickers faster than 3 text changes in any one-second window.
+// why: the limits come from the task (T15–T17): one short burst per trigger,
+// six frames of sliced copies, then clean text, never looping.
 export const GLITCH = {
-  windowMs: 1000,
-  maxChangesPerWindow: 3,
   maxBurstMs: 600,
-  maxShiftPx: 4
+  maxShiftPx: 8,
+  maxShakePx: 2,
+  framesWithCopies: 6,
+  bandsPerCopy: 3
 } as const
 
-/** One copy of the text during a frame: shifted sideways, cut to a band. */
+/** A horizontal band of a copy, in % of the heading's height from the top. */
+export type GlitchBand = { from: number; to: number }
+
+/** One copy of the text during a frame: shifted sideways, cut to bands. */
 export type GlitchSlice = {
   /** Horizontal shift in px; negative is left. */
   x: number
-  /** Inset of the visible band from the top and bottom, in % of the height. */
-  top: number
-  bottom: number
+  bands: readonly [GlitchBand, GlitchBand, GlitchBand]
 }
 
 export type GlitchFrame = {
   /** Milliseconds after the burst starts. */
   at: number
+  /** Horizontal shift of the heading's own text in px; 0 is at rest. */
+  shake: number
   /** The two copies shown in this frame; null clears them (clean text). */
   copies: readonly [GlitchSlice, GlitchSlice] | null
 }
 
-// invariant: each frame is one change of what the text looks like, and the
-// last one clears it, so a burst is exactly BURST.length changes.
+const slice = (x: number, ...bands: [number, number][]): GlitchSlice => {
+  const [a = [0, 0], b = [0, 0], c = [0, 0]] = bands
+  return {
+    x,
+    bands: [
+      { from: a[0], to: a[1] },
+      { from: b[0], to: b[1] },
+      { from: c[0], to: c[1] }
+    ]
+  }
+}
+
+// invariant: copy 0 is --glitch-a (primary), copy 1 --glitch-b (mist); the
+// last frame clears both and the shake, so a burst always ends clean.
 export const BURST: readonly GlitchFrame[] = [
   {
     at: 0,
+    shake: -1,
     copies: [
-      { x: -3, top: 12, bottom: 52 },
-      { x: 4, top: 58, bottom: 10 }
+      slice(-6, [8, 22], [40, 52], [70, 84]),
+      slice(5, [2, 12], [30, 46], [78, 92])
+    ]
+  },
+  {
+    at: 80,
+    shake: 2,
+    copies: [
+      slice(3, [16, 30], [48, 60], [86, 96]),
+      slice(-8, [6, 18], [36, 50], [62, 74])
     ]
   },
   {
     at: 160,
+    shake: -2,
     copies: [
-      { x: 2, top: 40, bottom: 28 },
-      { x: -4, top: 6, bottom: 70 }
+      slice(-8, [0, 10], [26, 40], [56, 70]),
+      slice(7, [14, 26], [44, 58], [80, 96])
     ]
   },
-  { at: 320, copies: null }
+  {
+    at: 240,
+    shake: 1,
+    copies: [
+      slice(6, [10, 24], [34, 44], [66, 80]),
+      slice(-4, [4, 16], [50, 62], [72, 88])
+    ]
+  },
+  {
+    at: 320,
+    shake: -1,
+    copies: [
+      slice(-3, [20, 34], [46, 56], [74, 90]),
+      slice(8, [0, 14], [28, 38], [58, 72])
+    ]
+  },
+  {
+    at: 400,
+    shake: 1,
+    copies: [
+      slice(2, [6, 14], [38, 50], [84, 98]),
+      slice(-2, [18, 28], [52, 66], [76, 86])
+    ]
+  },
+  { at: 480, shake: 0, copies: null }
 ]
 
-/** The CSS clip-path that keeps only the slice's band of the copy. */
-export const clipPath = ({ top, bottom }: GlitchSlice) =>
-  `inset(${top}% 0 ${bottom}% 0)`
-
-/** True when no window of `GLITCH.windowMs` holds more allowed changes. */
-export const fitsRate = (changes: readonly number[]) => {
-  const sorted = [...changes].sort((a, b) => a - b)
-  return sorted.every((start, index) => {
-    const end = start + GLITCH.windowMs
-    let count = 0
-    for (let next = index; next < sorted.length && sorted[next] < end; next++)
-      count++
-    return count <= GLITCH.maxChangesPerWindow
-  })
-}
-
-const burstChanges = (start: number) => BURST.map(frame => start + frame.at)
-
 /**
- * The earliest time at or after `now` when a whole burst fits the rate limit
- * alongside the `changes` already made.
+ * The CSS clip-path that keeps only the slice's bands of the copy: one
+ * polygon whose bands are joined along the left edge, where the joins have
+ * no width and so draw nothing.
  */
-export const burstStart = (changes: readonly number[], now: number) => {
-  // why: the count in a window only drops when a new change passes the end
-  // of a window that opens on an old one, so those are the only candidates.
-  const candidates = [now]
-  for (const change of changes)
-    for (const frame of BURST)
-      candidates.push(change + GLITCH.windowMs - frame.at)
-  const ordered = candidates.filter(time => time >= now).sort((a, b) => a - b)
-  const fit = ordered.find(time =>
-    fitsRate([...changes, ...burstChanges(time)])
-  )
-  // invariant: a start one window after the last change always fits.
-  return fit ?? Math.max(now, ...changes) + GLITCH.windowMs
-}
+export const clipPath = ({ bands }: GlitchSlice) =>
+  `polygon(${bands
+    .map(({ from, to }) => `0% ${from}%, 100% ${from}%, 100% ${to}%, 0% ${to}%`)
+    .join(', ')})`
 
 /** What a heading remembers between triggers. */
 export type GlitchHistory = {
-  /** When the text changed, in ms; only the last window is kept. */
-  changes: readonly number[]
-  /** Until when a burst is running or waiting to start. */
+  /** Until when a burst is running. */
   busyUntil: number
 }
 
-export const IDLE_GLITCH: GlitchHistory = { changes: [], busyUntil: -Infinity }
+export const IDLE_GLITCH: GlitchHistory = { busyUntil: -Infinity }
 
 /**
  * Asks for a burst at `now` (entering the viewport, or a hover). Returns null
- * while one is running or pending; otherwise when it starts, possibly later
- * than `now` to respect the rate limit, and the updated history.
+ * while one is running; otherwise it starts at `now`, with the history that
+ * keeps the next trigger out until it ends.
  */
 export const requestBurst = (history: GlitchHistory, now: number) => {
   if (now < history.busyUntil) return null
-  const start = burstStart(history.changes, now)
-  const recent = history.changes.filter(
-    change => change > start - GLITCH.windowMs
-  )
-  const changes = [...recent, ...burstChanges(start)]
   const last = BURST[BURST.length - 1]
   return {
-    start,
-    history: { changes, busyUntil: start + (last ? last.at : 0) }
+    start: now,
+    history: { busyUntil: now + (last ? last.at : 0) }
   }
 }

@@ -47,8 +47,9 @@ export const GlitchText = ({
 
     // why: frames are written straight to the DOM from timers, so a burst
     // never re-renders React and keeps its timing under a busy render loop.
-    const paint = ({ copies: slices }: GlitchFrame) => {
+    const paint = ({ copies: slices, shake }: GlitchFrame) => {
       heading.dataset.glitch = slices ? 'on' : 'off'
+      heading.style.transform = shake ? `translateX(${shake}px)` : ''
       copies.forEach((copy, index) => {
         const slice = slices?.[index]
         copy.style.transform = slice ? `translateX(${slice.x}px)` : ''

@@ -1,141 +1,88 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import {
-  BURST,
-  GLITCH,
-  IDLE_GLITCH,
-  burstStart,
-  clipPath,
-  fitsRate,
-  requestBurst,
-  type GlitchHistory
-} from './glitch.ts'
+import { BURST, IDLE_GLITCH, clipPath, requestBurst } from './glitch.ts'
 
-// why: the checklist's own numbers (C22), fixed here so a change to the
+// why: the checklist's own numbers (C29–C31), fixed here so a change to the
 // module's constants cannot move the bar the tests hold it to.
-const MAX_CHANGES = 3
-const WINDOW_MS = 1000
+const MAX_BURST_MS = 600
+const FRAMES_WITH_COPIES = 6
+const BANDS = 3
+const MAX_SHIFT_PX = 8
+const MAX_SHAKE_PX = 2
 
-// why: replays triggers through the same policy the heading uses and returns
-// every moment the text changed on screen.
-const replay = (triggers: readonly number[]) => {
-  let history: GlitchHistory = IDLE_GLITCH
-  const changes: number[] = []
-  for (const now of triggers) {
-    const burst = requestBurst(history, now)
-    if (!burst) continue
-    history = burst.history
-    changes.push(...BURST.map(frame => burst.start + frame.at))
-  }
-  return changes
-}
+const withCopies = BURST.filter(frame => frame.copies !== null)
 
-const maxChangesInAnyWindow = (changes: readonly number[]) => {
-  const sorted = [...changes].sort((a, b) => a - b)
-  return Math.max(
-    0,
-    ...sorted.map(
-      start =>
-        sorted.filter(time => time >= start && time < start + WINDOW_MS).length
-    )
-  )
-}
-
-// why: a fixed-seed generator keeps the random trigger test reproducible.
-const seeded = (seed: number) => () => {
-  seed = (seed * 1664525 + 1013904223) % 2 ** 32
-  return seed / 2 ** 32
-}
-
-test('a burst ends within 600 ms and leaves the text clean', () => {
+test('a burst is six frames with copies, then a clean one, within 600 ms', () => {
+  assert.equal(withCopies.length, FRAMES_WITH_COPIES)
+  assert.equal(BURST.length, FRAMES_WITH_COPIES + 1)
+  assert.equal(BURST[0]?.at, 0, 'starts at once')
   const last = BURST[BURST.length - 1]
   assert.ok(last, 'the burst has frames')
-  assert.ok(last.at <= GLITCH.maxBurstMs, `ends at ${last.at} ms`)
-  assert.equal(last.copies, null)
-  assert.equal(BURST[0]?.at, 0, 'starts at once')
+  assert.equal(last.copies, null, 'the last frame is clean')
+  assert.ok(last.at <= MAX_BURST_MS, `ends at ${last.at} ms`)
+  for (let index = 1; index < BURST.length; index++)
+    assert.ok(
+      (BURST[index]?.at ?? 0) > (BURST[index - 1]?.at ?? 0),
+      'frames run forward in time'
+    )
 })
 
-test('the rate limit is 3 changes per 1000 ms', () => {
-  assert.equal(GLITCH.maxChangesPerWindow, MAX_CHANGES)
-  assert.equal(GLITCH.windowMs, WINDOW_MS)
-})
-
-test('a burst changes the text at most 3 times', () => {
-  assert.ok(BURST.length <= MAX_CHANGES)
-})
-
-test('every copy shifts at most 4px sideways and is cut to a band', () => {
-  for (const frame of BURST) {
-    for (const slice of frame.copies ?? []) {
-      assert.ok(Math.abs(slice.x) <= GLITCH.maxShiftPx, `shift ${slice.x}`)
-      assert.ok(slice.x !== 0, 'a copy is shifted')
-      assert.ok(slice.top + slice.bottom > 0, 'a copy is sliced')
-      assert.ok(slice.top + slice.bottom < 100, 'a slice is not empty')
+test('every copy is cut into three bands and shifted at most 8px', () => {
+  for (const frame of withCopies) {
+    assert.equal(frame.copies?.length, 2, `frame at ${frame.at}`)
+    for (const copy of frame.copies ?? []) {
+      assert.ok(copy.x !== 0, 'a copy is shifted')
+      assert.ok(Math.abs(copy.x) <= MAX_SHIFT_PX, `shift ${copy.x}`)
+      assert.equal(copy.bands.length, BANDS)
+      let previous = 0
+      for (const { from, to } of copy.bands) {
+        assert.ok(from >= previous, `bands do not overlap at ${from}%`)
+        assert.ok(to > from, `band ${from}–${to}% is not empty`)
+        assert.ok(to <= 100, `band ends inside the heading at ${to}%`)
+        previous = to
+      }
     }
   }
 })
 
-test('frames with copies show one copy each side', () => {
-  for (const frame of BURST.slice(0, -1)) {
-    assert.ok(frame.copies, `frame at ${frame.at} shows copies`)
-  }
+test('the text shakes at most 2px and settles at 0', () => {
+  for (const frame of BURST)
+    assert.ok(Math.abs(frame.shake) <= MAX_SHAKE_PX, `shake ${frame.shake}`)
+  assert.ok(
+    withCopies.some(frame => frame.shake !== 0),
+    'the text does shake'
+  )
+  assert.equal(BURST[BURST.length - 1]?.shake, 0)
 })
 
-test('clipPath keeps the band between the top and bottom insets', () => {
-  assert.equal(clipPath({ x: 1, top: 12, bottom: 52 }), 'inset(12% 0 52% 0)')
-})
-
-test('fitsRate rejects four changes inside one second', () => {
-  assert.equal(fitsRate([0, 100, 200]), true)
-  assert.equal(fitsRate([0, 100, 200, 999]), false)
-  assert.equal(fitsRate([0, 100, 200, 1000]), true)
+test('clipPath keeps exactly the three bands', () => {
+  assert.equal(
+    clipPath({
+      x: 1,
+      bands: [
+        { from: 10, to: 20 },
+        { from: 40, to: 50 },
+        { from: 70, to: 90 }
+      ]
+    }),
+    'polygon(0% 10%, 100% 10%, 100% 20%, 0% 20%, 0% 40%, 100% 40%, 100% 50%, 0% 50%, 0% 70%, 100% 70%, 100% 90%, 0% 90%)'
+  )
 })
 
 test('the first trigger starts a burst at once', () => {
-  const burst = requestBurst(IDLE_GLITCH, 5000)
-  assert.equal(burst?.start, 5000)
+  assert.equal(requestBurst(IDLE_GLITCH, 5000)?.start, 5000)
 })
 
 test('a trigger while a burst runs is ignored', () => {
   const first = requestBurst(IDLE_GLITCH, 0)
   assert.ok(first)
   assert.equal(requestBurst(first.history, 100), null)
+  assert.equal(requestBurst(first.history, first.history.busyUntil - 1), null)
 })
 
-test('a trigger right after a burst is deferred until the rate allows it', () => {
+test('a trigger right after a burst starts at once', () => {
   const first = requestBurst(IDLE_GLITCH, 0)
   assert.ok(first)
-  const second = requestBurst(first.history, first.history.busyUntil + 1)
-  assert.ok(second, 'deferred, not dropped')
-  assert.ok(second.start > first.history.busyUntil + 1)
-  const changes = [...first.history.changes, ...second.history.changes]
-  assert.ok(fitsRate([...new Set(changes)]))
-})
-
-test('a trigger long after the last burst starts at once', () => {
-  const first = requestBurst(IDLE_GLITCH, 0)
-  assert.ok(first)
-  assert.equal(requestBurst(first.history, 10_000)?.start, 10_000)
-})
-
-test('burstStart never returns a time before now', () => {
-  assert.ok(burstStart([0, 160, 320], 400) >= 400)
-  assert.equal(burstStart([], 7), 7)
-})
-
-test('hovering non-stop for 10 s never changes the text more than 3 times in any second', () => {
-  const triggers = Array.from({ length: 1000 }, (_, index) => index * 10)
-  const changes = replay(triggers)
-  assert.ok(changes.length > 3, 'bursts keep coming while triggered')
-  assert.ok(maxChangesInAnyWindow(changes) <= MAX_CHANGES)
-})
-
-test('random triggers never change the text more than 3 times in any second', () => {
-  const random = seeded(42)
-  for (let run = 0; run < 50; run++) {
-    let now = 0
-    const triggers = Array.from({ length: 200 }, () => (now += random() * 700))
-    const changes = replay(triggers)
-    assert.ok(maxChangesInAnyWindow(changes) <= MAX_CHANGES, `run ${run}`)
-  }
+  const now = first.history.busyUntil + 1
+  assert.equal(requestBurst(first.history, now)?.start, now)
 })
