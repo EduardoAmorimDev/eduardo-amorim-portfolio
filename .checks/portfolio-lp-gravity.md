@@ -81,6 +81,28 @@ Decisões reversíveis, registradas antes do código:
   - `transform: translateZ(0)` no `sticky`, que não muda nada (−55 px);
   - `contain: paint` no `sticky`, que corrige depois mas erra 53 px enquanto ele está grudado.
 
+Decisões reversíveis descobertas no build. Ficaram registradas depois do código, não antes; é
+um desvio do processo, anotado aqui:
+
+- **`logo` mais alto** (`GLASS_LAYOUT.anchor` de `[0.62, 0.62]` para `[0.62, 0.74]`). Com o título
+  2,5× maior, em 375×667 o `logo` cruzava a caixa do `<h1>` (C47). Rejeitado: encolher o `logo`
+  em telas estreitas, que muda o critério 15 da tarefa anterior por tamanho.
+- **Estrelas a até 130 px do centro** (`LENS.inset` 30). Espalhadas até 150 px, quase todas
+  ficariam na parte apagada da lente. Rejeitado: concentrar a máscara, que contradiz C36.
+- **Horizonte lido pela calota.** O disco inclinado cobre a parte de baixo do horizonte. Por isso
+  `horizonIn` (`e2e/black-hole-helpers.ts`) aceita uma calota de 0,6–0,8 de altura por largura e
+  a lê como o disco inteiro, pela largura e pelo topo. Rejeitado: medir o horizonte só pelo anel
+  de fótons, que o disco também cruza embaixo.
+- **Inclinação lida no lado claro do disco.** A borda externa esmaece, e mais no lado que se
+  afasta (brilho Doppler). Medir a altura pelos dois lados dava 0,18 para uma inclinação de 15°
+  (0,26). Rejeitado: endurecer a borda do disco só para a medida.
+- **Horizontais rastreadas coluna a coluna** (`traceRow` em `e2e/hero-grid.spec.ts`). As
+  verticais, inclinadas pela perspectiva, também cruzam uma coluna em trechos curtos. Na leitura
+  por coluna, elas somavam cruzamentos e deslocavam o centro onde encontram uma horizontal.
+  Rejeitado: casar por índice numa coluna só, que quebra com um cruzamento a mais.
+- **Título lido sem a cena 3D** (`captureWithoutScene` em `e2e/lens.spec.ts`). Os arcos novos do
+  buraco negro são tão claros quanto as letras e se mexem atrás do título entre duas capturas.
+
 ## Checks
 
 Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que dependem de tempo usam
@@ -155,8 +177,8 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 - **C26** (13) Um anel fino e claro está colado ao horizonte. Proof: `e2e/black-hole.spec.ts` "a
   thin bright photon ring hugs the horizon".
 - **C27** (14) O disco dá pelo menos uma volta a cada 20 s, e o padrão muda na tela em 1 s.
-  Proof: `components/organisms/hero/black-hole.test.ts` "every radius turns at least once
-  every 20 s". Proof: `e2e/black-hole.spec.ts` "the disk's pattern turns".
+  Proof: `components/organisms/hero/black-hole.test.ts` "the disk turns at least once every 20
+  s at every radius". Proof: `e2e/black-hole.spec.ts` "the disk's pattern turns".
 - **C28** (14) A inclinação oscila entre 12° e 18° (±0,1°), com período de 14 a 20 s. Proof:
   `components/organisms/hero/black-hole.test.ts` "the disk's tilt swings between 12 and 18
   degrees every 14 to 20 s".
