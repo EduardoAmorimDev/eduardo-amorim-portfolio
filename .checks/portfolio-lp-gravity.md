@@ -91,8 +91,10 @@ um desvio do processo, anotado aqui:
   ficariam na parte apagada da lente. Rejeitado: concentrar a máscara, que contradiz C36.
 - **Horizonte lido pela calota.** O disco inclinado cobre a parte de baixo do horizonte. Por isso
   `horizonIn` (`e2e/black-hole-helpers.ts`) aceita uma calota de 0,6–0,8 de altura por largura e
-  a lê como o disco inteiro, pela largura e pelo topo. Rejeitado: medir o horizonte só pelo anel
-  de fótons, que o disco também cruza embaixo.
+  a lê como o disco inteiro, pela largura e pelo topo. Só vale a região com o anel de fótons
+  claro (> 0,5) por cima: com a razão afrouxada, o buraco do próprio `logo` chegou a ser
+  escolhido em 375×667. Rejeitado: medir o horizonte só pelo anel de fótons, que o disco também
+  cruza embaixo.
 - **Inclinação lida no lado claro do disco.** A borda externa esmaece, e mais no lado que se
   afasta (brilho Doppler). Medir a altura pelos dois lados dava 0,18 para uma inclinação de 15°
   (0,26). Rejeitado: endurecer a borda do disco só para a medida.

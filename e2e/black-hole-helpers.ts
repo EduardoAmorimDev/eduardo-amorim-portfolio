@@ -115,6 +115,32 @@ const union = (regions: readonly Box[]) =>
 const isRound = ({ width, height }: Box) =>
   height / width >= ROUND.min && height / width <= ROUND.max
 
+// why: the photon ring is near white; the logo's glass, which walls in the
+// logo's own dark hole, is a deep blue far below this.
+const RING_LIT = 0.5
+const RING_REACH = 4
+
+/** Whether a bright photon ring arches over the box's top half. */
+const ringed = (pixels: Pixels, box: Box) => {
+  const radius = box.width / 2
+  const centre = { x: box.cx, y: box.y0 + radius }
+  for (let degrees = 30; degrees <= 150; degrees += 15) {
+    const angle = (degrees * Math.PI) / 180
+    let brightest = 0
+    for (let reach = -1; reach <= RING_REACH; reach += 0.5)
+      brightest = Math.max(
+        brightest,
+        luminanceAt(
+          pixels,
+          centre.x + (radius + reach) * Math.cos(angle),
+          centre.y - (radius + reach) * Math.sin(angle)
+        )
+      )
+    if (brightest <= RING_LIT) return false
+  }
+  return true
+}
+
 /** A cap's whole disc: as wide as the cap, from its top down. */
 const wholeDisc = (box: Box) =>
   box.height >= box.width * CAPPED
@@ -125,8 +151,9 @@ const wholeDisc = (box: Box) =>
  * The event horizon in a capture of the scene alone: a dark disc walled in
  * by light. The disk crossing in front may cut it into an upper and a lower
  * cap, aligned and alike, which are joined back into one box, or cover its
- * lower part, leaving the top cap, which is read as its whole disc; other
- * walled dark spots (the logo's hole) are not round and are passed over.
+ * lower part, leaving the top cap, which is read as its whole disc. Other
+ * walled dark spots (the logo's hole) have no photon ring over them and are
+ * passed over.
  */
 export const horizonIn = (pixels: Pixels, ink: readonly number[]) => {
   const regions = enclosedRegions(pixels, ink)
@@ -145,9 +172,9 @@ export const horizonIn = (pixels: Pixels, ink: readonly number[]) => {
         if (isRound(joined)) candidates.push(joined)
       }
     }
-  const found = candidates.sort(
-    (a, b) => b.width * b.height - a.width * a.height
-  )[0]
+  const found = candidates
+    .filter(box => ringed(pixels, box))
+    .sort((a, b) => b.width * b.height - a.width * a.height)[0]
   return found ? wholeDisc(found) : null
 }
 
