@@ -24,7 +24,10 @@ const POINTER_RADIUS = 180
 const HOLE_RADIUS = 280
 const HOLE_PULL = 48
 const HOLE_SINK = { min: 40, max: 80 }
-const WELL_ON_SCREEN = { up: 120, down: 148 }
+// why: the well's 280 sheet px around the resting hole, on the flat sheet
+// (tilted 50°, focus 3 × the hero's height), cross the measured column
+// (56 px right of the centre) 140.9 px above the centre and 163.9 px below.
+const WELL_ON_SCREEN = { up: 140.9, down: 163.9 }
 const NARROWER = 0.85
 // why: a well's radius is in sheet px, screen px at the middle row; the
 // sheet is nearest, and so largest, at the hero's foot, 1.2 times as large.
@@ -351,20 +354,27 @@ test.describe('black hole at rest', () => {
     const grid = await readGrid(page)
     // why: just past the horizon, where no line is cut away, against the
     // far left, where the sheet is flat.
+    // why: a horizontal crosses a neighbouring column at the same height
+    // (one may be blurred where a vertical meets it); a leaning vertical
+    // crosses both tens of px apart.
+    const neighbours = [48, 56].map(x => columnCrossings(grid, x))
     const flat = columnCrossings(grid, 40).filter(
-      y => Math.abs(y - REST.y) < HOLE_RADIUS
+      y =>
+        Math.abs(y - REST.y) < HOLE_RADIUS &&
+        neighbours.some(crossings =>
+          crossings.some(at => Math.abs(at - y) <= STRAIGHT_PX)
+        )
     )
     for (const side of [-1, 1]) {
       const start = side < 0 ? 40 : WIDTH - 40
       const shifts = sinks(grid, flat, start, REST.x + side * (HORIZON + 8))
-      // why: the well's 280 sheet px reach, at the hole's resting depth and
-      // this column, ~125 px up the screen (farther, flatter) and ~150 px
-      // down; every horizontal between passes through it.
+      // invariant: every horizontal between the well's edges on this column
+      // passes through the well.
       const inside = shifts.filter(
         ({ y }) =>
           y - REST.y > -WELL_ON_SCREEN.up && y - REST.y < WELL_ON_SCREEN.down
       )
-      expect(inside.length).toBeGreaterThanOrEqual(9)
+      expect(inside.length).toBeGreaterThanOrEqual(11)
       for (const { y, sink } of inside)
         expect(sink, `line at ${y}px`).toBeGreaterThan(0.5)
       const nearest = shifts.reduce((best, shift) =>
