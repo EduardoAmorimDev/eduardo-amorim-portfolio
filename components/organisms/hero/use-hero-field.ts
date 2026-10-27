@@ -7,7 +7,7 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import { useNearViewport } from '@/lib/use-near-viewport'
-import { holeScale, horizonRadius, restPoint } from './black-hole'
+import { holeScale, horizonAt, restPoint } from './black-hole'
 import { createWander, wanderBox, type Wander } from './black-hole-path'
 import {
   GRID,
@@ -15,6 +15,8 @@ import {
   POINTER_WELL,
   displace,
   sheet,
+  sheetScale,
+  wellsOf,
   type HoleBody,
   type Point,
   type PointerBody
@@ -72,11 +74,13 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   let frame = 0
   let last = 0
 
+  // why: the black hole sits on the sheet, so it shrinks with depth like
+  // the cells around it (task gravity, criterion 6).
   const placeHole = (at: Point) => {
     hole.current = {
       x: at.x,
       y: at.y,
-      horizon: horizonRadius(width, height),
+      horizon: horizonAt(width, height, at.y),
       scale: holeScale(width, height)
     }
   }
@@ -84,7 +88,9 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   /** A new path from where the black hole is, or rest under reduced motion. */
   const resetPath = () => {
     const rest = restPoint(width, height)
-    const box = wanderBox(width, height, horizonRadius(width, height))
+    // why: the hole is largest at the hero's foot; that size keeps it 10%
+    // clear of every edge wherever it goes.
+    const box = wanderBox(width, height, horizonAt(width, height, height))
     const { x, y } = hole.current.horizon ? hole.current : rest
     const start = {
       x: Math.min(box.right, Math.max(box.left, x)),
@@ -181,8 +187,12 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   const drawGrid = () => {
     const body = hole.current
     const pointer = well.strength > 0 ? well : null
-    const holeReach = HOLE_WELL.radius * body.scale + REACH_SLACK
-    const pointerReach = POINTER_WELL.radius + REACH_SLACK
+    const wells = wellsOf(geometry, pointer, body.horizon > 0 ? body : null)
+    // why: a well's radius is in sheet px; on screen it is widest at the
+    // hero's foot, where the sheet is nearest.
+    const nearest = sheetScale(height, height)
+    const holeReach = HOLE_WELL.radius * body.scale * nearest + REACH_SLACK
+    const pointerReach = POINTER_WELL.radius * nearest + REACH_SLACK
     const bent = (a: Point, b: Point) =>
       (body.horizon > 0 && near(a, b, body, holeReach)) ||
       (pointer !== null && near(a, b, pointer, pointerReach))
@@ -205,12 +215,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
     gridContext.beginPath()
     const trace = (points: Point[], vertical: boolean) =>
       points.forEach(({ x, y }, index) => {
-        const at = displace(
-          { x, y },
-          pointer,
-          body.horizon > 0 ? body : null,
-          vertical
-        )
+        const at = displace(geometry, { x, y }, wells, vertical)
         if (index === 0) gridContext.moveTo(at.x, at.y)
         else gridContext.lineTo(at.x, at.y)
       })

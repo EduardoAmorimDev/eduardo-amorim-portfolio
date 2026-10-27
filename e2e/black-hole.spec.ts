@@ -19,19 +19,30 @@ import {
   type Pixels
 } from './page-helpers'
 
-// why: the checklist's own numbers (C47–C52, C57, C59, C60).
+// why: the checklists' own numbers (cosmos C47–C52, C57, C59, C60; gravity
+// C10, C19–C24, C30).
 const HORIZON_PX = 96
 const HORIZON_SLACK = 0.1
 const RING_REACH_PX = 8
 const RING_MIN = 0.5
-const DISK_SPAN = { min: 340, max: 460 }
-const DISK_AT_PX = 150
-const DISK_MAX_THICK = 30
-// why: in horizon diameters from the centre: the disk's inner part and its
-// outer stretch, short of where it fades out.
-const DISK_HEART = 0.85
-const DISK_EDGE = 1.8
-const DISK_FADE = 0.2
+const DISK_SPAN = { min: 360, max: 440 }
+const INCLINED = { min: 0.2, max: 0.32 }
+const NEAR_HALF = { from: 0.3, to: 0.7 }
+const OVER = { from: 20, to: 160, step: 10 }
+const BRIGHTER_SIDE = 1.5
+const TILT_CHANGE = 0.03
+const TILT_GAP_MS = 4000
+// why: the disk's ellipse is read at three quarters of its half width,
+// clear of the arcs (which keep within 1.65 horizon radii) and of the
+// disk's fading rim.
+const COLUMN = 0.75
+// why: in horizon radii from the centre, past the photon ring and short of
+// where the top arc fades out; the arcs are told by luminance.
+const ARC_REACH = { from: 1.1, to: 1.6 }
+const ARC_SEEN = 0.04
+// why: the disk spans 1.5–4.2 horizon radii; its halves are compared there,
+// and within this many radii of the centre row.
+const DISK_REACH = { from: 1.6, to: 4.0, rows: 1.2 }
 const MIN_WANDER_PX = 30
 // why: the arcs of a disk that does not turn, aligned within a few px,
 // changed by 6.3 levels at most in 1 s (measured on a build with the turn
@@ -45,9 +56,6 @@ const ALIGN_PX = 3
 // the brand blue, bright but of low luminance, so it is told by colour.
 const LIT_GAP = 24
 const ARC_LIT = 0.1
-// why: the disk is drawn at the horizon's centre row band, a little below
-// the centre; a few rows cover it.
-const BAND_ROWS = 18
 // why: the band is the only thing lit near the horizontal through the
 // centre; the photon ring is read away from it.
 const BAND_ANGLE = Math.PI / 7
@@ -60,30 +68,55 @@ const inkOf = async (page: Page) => channels(await tokenRgb(page, 'ink'))
 const isLit = (pixels: Pixels, ink: readonly number[], x: number, y: number) =>
   channelGap(pixelAt(pixels, x, y), ink) > LIT_GAP
 
-/** The longest lit run along row `y` through `x`, as [from, to]. */
-const litRun = (
-  pixels: Pixels,
-  ink: readonly number[],
-  x: number,
-  y: number
-) => {
-  let from = Math.round(x)
-  let to = Math.round(x)
-  while (from > 0 && isLit(pixels, ink, from - 1, y)) from--
-  while (to < pixels.width - 1 && isLit(pixels, ink, to + 1, y)) to++
-  return [from, to] as const
+/** The disk's lit span along the row through the horizon's centre. */
+const diskSpan = (pixels: Pixels, ink: readonly number[], horizon: Box) => {
+  const row = Math.round(horizon.cy)
+  const reach = DISK_SPAN.max
+  let left = Infinity
+  let right = -Infinity
+  for (let x = horizon.cx - reach; x <= horizon.cx + reach; x++)
+    for (let dy = -2; dy <= 2; dy++)
+      if (isLit(pixels, ink, x, row + dy)) {
+        left = Math.min(left, x)
+        right = Math.max(right, x)
+      }
+  return { left, right, width: right - left + 1 }
 }
 
-/** The row of the band through the horizon: the most lit one across it. */
-const bandRow = (pixels: Pixels, horizon: Box) => {
-  let best = { y: horizon.cy, lit: -1 }
-  for (let y = horizon.cy - BAND_ROWS; y <= horizon.cy + BAND_ROWS; y++) {
-    let lit = 0
-    for (let x = horizon.x0; x <= horizon.x1; x++)
-      lit += luminanceAt(pixels, x, y)
-    if (lit > best.lit) best = { y, lit }
-  }
-  return best.y
+/**
+ * How tall the disk's ellipse is over how wide, read on its brighter side,
+ * where its edge is plainest: its half width from the horizon's centre and
+ * its height at a column three quarters of the way out.
+ */
+const inclination = (pixels: Pixels, ink: readonly number[], horizon: Box) => {
+  const span = diskSpan(pixels, ink, horizon)
+  const sides = [
+    { sign: -1, reach: horizon.cx - span.left },
+    { sign: 1, reach: span.right - horizon.cx }
+  ]
+  const { sign, reach } = sides.reduce((a, b) => (b.reach > a.reach ? b : a))
+  const row = Math.round(horizon.cy)
+  const x = Math.round(horizon.cx + sign * COLUMN * reach)
+  let top = row
+  let bottom = row
+  while (isLit(pixels, ink, x, top - 1)) top--
+  while (isLit(pixels, ink, x, bottom + 1)) bottom++
+  // invariant: an ellipse of half width a is 2·b·√(1 − c²) tall at c·a.
+  return (bottom - top + 1) / (2 * reach * Math.sqrt(1 - COLUMN * COLUMN))
+}
+
+/** Luminance along the vertical through the centre, `from`–`to` radii out. */
+const vertical = (
+  pixels: Pixels,
+  horizon: Box,
+  side: -1 | 1,
+  reach: { from: number; to: number }
+) => {
+  const radius = horizon.width / 2
+  const values: number[] = []
+  for (let r = reach.from * radius; r <= reach.to * radius; r++)
+    values.push(luminanceAt(pixels, horizon.cx, horizon.cy + side * r))
+  return values
 }
 
 test.describe('at rest', () => {
@@ -129,7 +162,19 @@ test.describe('at rest', () => {
     }
   })
 
-  test('an edge-on disk about 400px wide crosses the horizon', async ({
+  test('the disk is about 400px wide', async ({ page }) => {
+    await gotoHero(page)
+    await showSceneOnly(page)
+    const pixels = await firstScreen(page)
+    const ink = await inkOf(page)
+    const horizon = horizonIn(pixels, ink)
+    if (!horizon) throw new Error('no event horizon on screen')
+    const { width } = diskSpan(pixels, ink, horizon)
+    expect(width).toBeGreaterThanOrEqual(DISK_SPAN.min)
+    expect(width).toBeLessThanOrEqual(DISK_SPAN.max)
+  })
+
+  test('the disk is inclined: 0.2 to 0.32 as tall as wide', async ({
     page
   }) => {
     await gotoHero(page)
@@ -138,51 +183,74 @@ test.describe('at rest', () => {
     const ink = await inkOf(page)
     const horizon = horizonIn(pixels, ink)
     if (!horizon) throw new Error('no event horizon on screen')
-    const row = bandRow(pixels, horizon)
-    // invariant: inside the horizon, the band's row is lit, in front of it.
+    const ratio = inclination(pixels, ink, horizon)
+    expect(ratio).toBeGreaterThanOrEqual(INCLINED.min)
+    expect(ratio).toBeLessThanOrEqual(INCLINED.max)
+  })
+
+  test('the near half of the disk crosses in front of the horizon', async ({
+    page
+  }) => {
+    await gotoHero(page)
+    await showSceneOnly(page)
+    const pixels = await firstScreen(page)
+    const ink = await inkOf(page)
+    const horizon = horizonIn(pixels, ink)
+    if (!horizon) throw new Error('no event horizon on screen')
+    const radius = horizon.width / 2
+    let lit = 0
+    let rows = 0
     for (
-      let x = horizon.cx - horizon.width / 4;
-      x <= horizon.cx + horizon.width / 4;
-      x++
-    )
-      expect(isLit(pixels, ink, x, row), `inside at ${x}`).toBe(true)
-    const [from, to] = litRun(pixels, ink, horizon.cx, row)
-    expect(to - from + 1).toBeGreaterThanOrEqual(DISK_SPAN.min)
-    expect(to - from + 1).toBeLessThanOrEqual(DISK_SPAN.max)
-    // invariant: the disk is mist at its heart and the brand blue at its
-    // edge: red over blue falls from mist's ~0.95 towards primary's ~0.26.
-    const redOverBlue = (offset: number) => {
-      let red = 0
-      let blue = 0
-      for (const side of [-1, 1])
-        for (let dx = -4; dx <= 4; dx++) {
-          const [r = 0, , b = 0] = pixelAt(
-            pixels,
-            horizon.cx + side * offset + dx,
-            row
-          )
-          red += r
-          blue += b
-        }
-      return red / blue
+      let y = horizon.cy + NEAR_HALF.from * radius;
+      y <= horizon.cy + NEAR_HALF.to * radius;
+      y++
+    ) {
+      rows++
+      if (isLit(pixels, ink, horizon.cx, y)) lit++
     }
-    const heart = redOverBlue(horizon.width * DISK_HEART)
-    const edge = redOverBlue(horizon.width * DISK_EDGE)
-    expect(heart, `heart ${heart}, edge ${edge}`).toBeGreaterThan(
-      edge + DISK_FADE
-    )
-    for (const x of [horizon.cx - DISK_AT_PX, horizon.cx + DISK_AT_PX]) {
-      let top = row
-      let bottom = row
-      while (isLit(pixels, ink, x, top - 1)) top--
-      while (isLit(pixels, ink, x, bottom + 1)) bottom++
-      expect(bottom - top + 1, `thickness at ${x}`).toBeLessThanOrEqual(
-        DISK_MAX_THICK
-      )
+    expect(lit, `${lit} of ${rows} rows lit`).toBeGreaterThanOrEqual(rows / 2)
+  })
+
+  test('the far half arches over the top of the horizon', async ({ page }) => {
+    await gotoHero(page)
+    await showSceneOnly(page)
+    const pixels = await firstScreen(page)
+    const horizon = horizonIn(pixels, await inkOf(page))
+    if (!horizon) throw new Error('no event horizon on screen')
+    const radius = horizon.width / 2
+    for (let degrees = OVER.from; degrees <= OVER.to; degrees += OVER.step) {
+      const angle = (degrees * Math.PI) / 180
+      let brightest = 0
+      for (let r = ARC_REACH.from; r <= ARC_REACH.to; r += 0.02)
+        brightest = Math.max(
+          brightest,
+          luminanceAt(
+            pixels,
+            horizon.cx + r * radius * Math.cos(angle),
+            horizon.cy - r * radius * Math.sin(angle)
+          )
+        )
+      expect(brightest, `arc at ${degrees}°`).toBeGreaterThan(ARC_LIT)
     }
   })
 
-  test('the back of the disk arches over and under the horizon', async ({
+  test('a thinner, fainter arc runs under the horizon', async ({ page }) => {
+    await gotoHero(page)
+    await showSceneOnly(page)
+    const pixels = await firstScreen(page)
+    const horizon = horizonIn(pixels, await inkOf(page))
+    if (!horizon) throw new Error('no event horizon on screen')
+    const over = vertical(pixels, horizon, -1, ARC_REACH)
+    const under = vertical(pixels, horizon, 1, ARC_REACH)
+    const seen = (values: number[]) =>
+      values.filter(value => value > ARC_SEEN).length
+    const label = `over ${seen(over)}px at ${Math.max(...over)}, under ${seen(under)}px at ${Math.max(...under)}`
+    expect(seen(under), label).toBeGreaterThanOrEqual(2)
+    expect(seen(under), label).toBeLessThan(seen(over))
+    expect(Math.max(...under), label).toBeLessThan(Math.max(...over))
+  })
+
+  test('one side of the disk is at least 1.5 times brighter', async ({
     page
   }) => {
     await gotoHero(page)
@@ -190,20 +258,31 @@ test.describe('at rest', () => {
     const pixels = await firstScreen(page)
     const horizon = horizonIn(pixels, await inkOf(page))
     if (!horizon) throw new Error('no event horizon on screen')
-    const reach = horizon.width / 4
-    const peak = (from: number, to: number) => {
-      let best = 0
-      for (let y = from; y <= to; y++)
-        best = Math.max(best, luminanceAt(pixels, horizon.cx, y))
-      return best
+    const radius = horizon.width / 2
+    const side = (sign: -1 | 1) => {
+      let sum = 0
+      let count = 0
+      for (
+        let dy = -DISK_REACH.rows * radius;
+        dy <= DISK_REACH.rows * radius;
+        dy++
+      )
+        for (
+          let dx = DISK_REACH.from * radius;
+          dx <= DISK_REACH.to * radius;
+          dx++
+        ) {
+          sum += luminanceAt(pixels, horizon.cx + sign * dx, horizon.cy + dy)
+          count++
+        }
+      return sum / count
     }
-    // why: past the photon ring, within a quarter diameter of the horizon.
-    expect(peak(horizon.y0 - reach, horizon.y0 - 4), 'over').toBeGreaterThan(
-      ARC_LIT
-    )
-    expect(peak(horizon.y1 + 4, horizon.y1 + reach), 'under').toBeGreaterThan(
-      ARC_LIT
-    )
+    const left = side(-1)
+    const right = side(1)
+    expect(
+      Math.max(left, right) / Math.min(left, right),
+      `left ${left}, right ${right}`
+    ).toBeGreaterThanOrEqual(BRIGHTER_SIDE)
   })
 
   test('the black hole is drawn in cool blues only', async ({ page }) => {
@@ -329,6 +408,25 @@ test("the disk's pattern turns", async ({ page }) => {
     for (let dy = -ALIGN_PX; dy <= ALIGN_PX; dy++)
       least = Math.min(least, change(dx, dy))
   expect(least).toBeGreaterThan(TURNED_LEVELS)
+})
+
+test("the disk's tilt changes on screen", async ({ page }) => {
+  await gotoStopped(page, 500)
+  await showSceneOnly(page)
+  const ink = await inkOf(page)
+  const read = async () => {
+    const pixels = await firstScreen(page)
+    const horizon = horizonIn(pixels, ink)
+    if (!horizon) throw new Error('no event horizon on screen')
+    return inclination(pixels, ink, horizon)
+  }
+  const before = await read()
+  await page.clock.runFor(TILT_GAP_MS)
+  const after = await read()
+  expect(
+    Math.abs(after - before),
+    `${before} then ${after}`
+  ).toBeGreaterThanOrEqual(TILT_CHANGE)
 })
 
 test('the notebook shows no black hole', async ({ page }) => {

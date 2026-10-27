@@ -5,6 +5,8 @@ import { isBlank, readCanvas, readGrid, sweepPointer } from './grid-helpers'
 import {
   channels,
   documentTop,
+  pixelAt,
+  screenPixels,
   gotoHero,
   gotoNotebook,
   gotoStopped,
@@ -26,6 +28,11 @@ const REST_SLACK = 4
 const STILL_PX = 1
 // why: two frames at 60 Hz; an animated close would take 300 ms.
 const AT_ONCE_MS = 50
+// why: the checklist's own numbers (gravity C32): the disk and its arcs
+// reach 4.2 and 1.65 horizon radii, 48 px each at rest.
+const DISK_BOX = { x: 210, y: 80 }
+const STILL_LEVELS = 1
+const STILL_MS = 2000
 
 test.use({ reducedMotion: 'reduce' })
 
@@ -117,6 +124,30 @@ test('the black hole rests at the centre, 32% down', async ({ page }) => {
   expect(
     Math.hypot(second.cx - first.cx, second.cy - first.cy)
   ).toBeLessThanOrEqual(STILL_PX)
+})
+
+test('the disk holds still under reduced motion', async ({ page }) => {
+  await gotoHero(page)
+  await showSceneOnly(page)
+  const clip = {
+    x: REST.x - DISK_BOX.x,
+    y: REST.y - DISK_BOX.y,
+    width: 2 * DISK_BOX.x,
+    height: 2 * DISK_BOX.y
+  }
+  const first = await screenPixels(page, clip)
+  await page.waitForTimeout(STILL_MS)
+  const second = await screenPixels(page, clip)
+  let sum = 0
+  for (let y = 0; y < first.height; y++)
+    for (let x = 0; x < first.width; x++) {
+      const a = pixelAt(first, x, y)
+      const b = pixelAt(second, x, y)
+      for (let channel = 0; channel < 3; channel++)
+        sum += Math.abs((a[channel] ?? 0) - (b[channel] ?? 0))
+    }
+  const mean = sum / (first.width * first.height * 3)
+  expect(mean, 'mean change per channel').toBeLessThanOrEqual(STILL_LEVELS)
 })
 
 test('faq answers open and close without animation', async ({ page }) => {
