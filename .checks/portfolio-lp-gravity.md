@@ -282,5 +282,5 @@ parênteses):
   - "a 120px lens with a faint mist ring follows the mouse within 100ms" (por C34, C37);
   - "the lens shows 6 to 10 stars and nothing outside its circle" (por C38);
   - "inside the lens the title is an outline; outside it stays solid" (por C39);
-  - "the lens is gone within 300ms of leaving", que passa a medir a saída da Hero pelo título
-    (C35 cobre a saída do título).
+  - "the lens is gone within 300ms of leaving", que vira "the lens is gone within 300ms of
+    leaving the hero" e abre a lente pelo título (C35 cobre a saída do título).

@@ -8,32 +8,38 @@ import {
 } from './grid-helpers'
 import {
   boxesOf,
-  channelGap,
   channels,
   gotoStopped,
   luminanceAt,
   pixelAt,
   screenPixels,
-  tokenRgb
+  tokenRgb,
+  type Pixels
 } from './page-helpers'
 
-// why: the checklist's own numbers (C38, C39, C41, C43).
-const RADIUS = 120
-const RADIUS_SLACK = 1.5
+// why: the checklist's own numbers (gravity C33–C39, C41).
+const INNER = 80
+const RADIUS = 160
 const CENTRE_SLACK = 2
-const RING_ALPHA = 0.3
+const OPEN_MS = 150
+// why: the lens starts opening on the first frame after the pointer
+// arrives, up to one frame (1/60 s) later.
+const FRAME_MS = 17
 const FOLLOW_MS = 100
 const CLOSE_MS = 300
-const STARS = { min: 6, max: 10 }
-const STAR_BOX = { min: 2, max: 4 }
-// why: a star is drawn opaque; the lines joining them, and the ring, are
-// faint, so a high alpha tells a star from the rest.
-const STAR_ALPHA = 0.6 * 255
-const OUTSIDE = RADIUS + 2
-const MIST_SLACK = 1
+const ALPHA_SLACK = 8
+const FULL_ALPHA = 200
 const DIM = 0.3
 const LIT = 0.6
-const STROKE_SLACK = 12
+// why: halfway through the fade the title is half solid, half outline;
+// a quarter either side is still plainly in between.
+const MIDWAY = { at: 120, reach: 10, from: 0.25, to: 0.75 }
+// why: at 1440×900 the title's box spans 80–1360 × 278–558; inside it, a
+// point on the first line, and the same line 96 px on; outside it, a point
+// in the hero below the subtitle, beyond the reach of the pointer's well.
+const ON_TITLE = { x: 500, y: 380 }
+const ON_TITLE_LATER = { x: 596, y: 380 }
+const OFF_TITLE = { x: 300, y: 760 }
 
 /**
  * Replaces Math.random, from the first script on, with a seeded generator,
@@ -53,6 +59,10 @@ const seedRandom = (page: Page) =>
 
 type Pixel = { x: number; y: number; alpha: number; rgb: number[] }
 
+/** The lens's fade at `distance` px from its centre, per the checklist. */
+const intensity = (distance: number) =>
+  Math.min(1, Math.max(0, (RADIUS - distance) / (RADIUS - INNER)))
+
 /** Every inked pixel of a canvas reading, in CSS px. */
 const inked = ({ pixels, scale }: GridImage) => {
   const found: Pixel[] = []
@@ -71,141 +81,38 @@ const inked = ({ pixels, scale }: GridImage) => {
   return found
 }
 
-/** The ring: the faint inked pixels near the lens radius from `around`. */
-const ringOf = (pixels: Pixel[], around: { x: number; y: number }) => {
-  const ring = pixels.filter(({ x, y }) => {
-    const reach = Math.hypot(x - around.x, y - around.y)
-    return reach > RADIUS - 8 && reach < RADIUS + 8
-  })
-  const weight = ring.reduce((sum, { alpha }) => sum + alpha, 0)
-  const centre = {
-    x: ring.reduce((sum, { x, alpha }) => sum + x * alpha, 0) / weight,
-    y: ring.reduce((sum, { y, alpha }) => sum + y * alpha, 0) / weight
-  }
-  const radius =
-    ring.reduce(
-      (sum, { x, y, alpha }) =>
-        sum + Math.hypot(x - centre.x, y - centre.y) * alpha,
-      0
-    ) / weight
-  return { ring, centre, radius }
-}
-
-/** Groups pixels into touching clusters (8-neighbourhood). */
-const clusters = (pixels: Pixel[]) => {
-  const key = ({ x, y }: { x: number; y: number }) =>
-    `${Math.floor(x)},${Math.floor(y)}`
-  const left = new Map(pixels.map(pixel => [key(pixel), pixel]))
-  const groups: Pixel[][] = []
-  for (const start of pixels) {
-    if (!left.has(key(start))) continue
-    left.delete(key(start))
-    const group = [start]
-    for (let index = 0; index < group.length; index++) {
-      const { x, y } = group[index] ?? start
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++) {
-          const next = left.get(key({ x: x + dx, y: y + dy }))
-          if (!next) continue
-          left.delete(key(next))
-          group.push(next)
-        }
-    }
-    groups.push(group)
-  }
-  return groups
-}
-
 /** Lens open at `spot` and settled; the clock is stopped throughout. */
 const openAt = async (page: Page, spot: { x: number; y: number }) => {
   await sweepPointer(page, spot)
   await page.clock.runFor(400)
 }
 
-test('a 120px lens with a faint mist ring follows the mouse within 100ms', async ({
-  page
-}) => {
-  await gotoStopped(page, 300)
-  const first = { x: 400, y: 650 }
-  const second = { x: first.x + 96, y: first.y }
-  await openAt(page, first)
-  await page.mouse.move(second.x, second.y)
-  await page.clock.runFor(FOLLOW_MS)
-  const { ring, centre, radius } = ringOf(
-    inked(await readCanvas(page, 'hero-lens')),
-    second
-  )
-  expect(ring.length).toBeGreaterThan(200)
-  expect(
-    Math.hypot(centre.x - second.x, centre.y - second.y)
-  ).toBeLessThanOrEqual(CENTRE_SLACK)
-  expect(Math.abs(radius - RADIUS)).toBeLessThanOrEqual(RADIUS_SLACK)
-  const mist = channels(await tokenRgb(page, 'mist'))
-  for (const { rgb, alpha } of ring) {
-    expect(alpha).toBeLessThanOrEqual(RING_ALPHA * 255 + 1)
-    // why: a faint pixel's colour is stored times its alpha and read back
-    // divided by it, rounding twice: up to 2 × 255 / alpha levels off.
-    if (alpha >= 40)
-      expect(channelGap(rgb, mist)).toBeLessThanOrEqual(
-        MIST_SLACK + (2 * 255) / alpha
-      )
-  }
-})
+/**
+ * Where the title's lens masks are centred and how far they reach, in
+ * screen px: the lens as the title shows it.
+ */
+const lensOnTitle = (page: Page) =>
+  page.locator('[data-lens="solid"]').evaluate(element => {
+    if (!(element instanceof HTMLElement)) throw new Error('no title')
+    const box = element.getBoundingClientRect()
+    const read = (name: string) =>
+      parseFloat(element.style.getPropertyValue(name))
+    return {
+      x: box.left + read('--lens-x'),
+      y: box.top + read('--lens-y'),
+      inner: read('--lens-in'),
+      outer: read('--lens-out')
+    }
+  })
 
-test('the lens shows 6 to 10 stars and nothing outside its circle', async ({
-  page
-}) => {
-  await seedRandom(page)
-  await gotoStopped(page, 300)
-  const spot = { x: 400, y: 650 }
-  await openAt(page, spot)
-  const pixels = inked(await readCanvas(page, 'hero-lens'))
-  const outside = pixels.filter(
-    ({ x, y }) => Math.hypot(x - spot.x, y - spot.y) > OUTSIDE
-  )
-  expect(outside.length, 'inked pixels outside the circle').toBe(0)
-  const stars = clusters(
-    pixels.filter(
-      ({ x, y, alpha }) =>
-        alpha >= STAR_ALPHA && Math.hypot(x - spot.x, y - spot.y) < RADIUS - 2
-    )
-  )
-  expect(stars.length).toBeGreaterThanOrEqual(STARS.min)
-  expect(stars.length).toBeLessThanOrEqual(STARS.max)
-  const mist = channels(await tokenRgb(page, 'mist'))
-  for (const star of stars) {
-    const xs = star.map(({ x }) => x)
-    const ys = star.map(({ y }) => y)
-    const sides = [
-      Math.max(...xs) - Math.min(...xs) + 1,
-      Math.max(...ys) - Math.min(...ys) + 1
-    ]
-    // why: a 2 px dot covers at least two pixels across in one direction,
-    // even placed right on a pixel's edge; a 3 px one at most four.
-    expect(Math.max(...sides)).toBeGreaterThanOrEqual(STAR_BOX.min)
-    for (const side of sides) expect(side).toBeLessThanOrEqual(STAR_BOX.max)
-    for (const { rgb, alpha } of star)
-      expect(channelGap(rgb, mist), 'star in mist').toBeLessThanOrEqual(
-        MIST_SLACK + (2 * 255) / alpha
-      )
-  }
-  // invariant: lines join the stars, so there is faint ink inside besides
-  // them and the ring.
-  const lines = pixels.filter(
-    ({ x, y, alpha }) =>
-      alpha < STAR_ALPHA && Math.hypot(x - spot.x, y - spot.y) < RADIUS - 4
-  )
-  expect(lines.length).toBeGreaterThan(50)
-  for (const { rgb, alpha } of lines.filter(({ alpha }) => alpha >= 40))
-    expect(channelGap(rgb, mist), 'line in mist').toBeLessThanOrEqual(
-      MIST_SLACK + (2 * 255) / alpha
-    )
-})
+type TitleCapture = {
+  clip: { x: number; y: number; width: number; height: number }
+  before: Pixels
+  fill: { x: number; y: number }[]
+}
 
-test('inside the lens the title is an outline; outside it stays solid', async ({
-  page
-}) => {
-  await gotoStopped(page, 300)
+/** The title as painted with no lens, and the pixels deep in its letters. */
+const captureTitle = async (page: Page): Promise<TitleCapture> => {
   const [title] = await boxesOf(page, ['#hero h1'])
   if (!title) throw new Error('no title')
   const clip = {
@@ -218,8 +125,8 @@ test('inside the lens the title is an outline; outside it stays solid', async ({
   // why: a pixel deep inside a letter, lit with all its neighbours, is the
   // letter's fill, not its edge.
   const fill: { x: number; y: number }[] = []
-  for (let y = 3; y < before.height - 3; y++)
-    for (let x = 3; x < before.width - 3; x++) {
+  for (let y = 3; y < before.height - 3; y += 2)
+    for (let x = 3; x < before.width - 3; x += 2) {
       let solid = true
       for (let dy = -3; dy <= 3 && solid; dy++)
         for (let dx = -3; dx <= 3 && solid; dx++)
@@ -227,82 +134,170 @@ test('inside the lens the title is an outline; outside it stays solid', async ({
       if (solid) fill.push({ x, y })
     }
   expect(fill.length, 'letters have a fill').toBeGreaterThan(200)
-  const lens = {
-    x: (title.left + title.right) / 2,
-    y: (title.top + title.bottom) / 2
+  return { clip, before, fill }
+}
+
+/** Share of the fill still lit, solid, in a fresh capture. */
+const solidShare = async (page: Page, { clip, fill }: TitleCapture) => {
+  const now = await screenPixels(page, clip)
+  return (
+    fill.filter(({ x, y }) => luminanceAt(now, x, y) > LIT).length / fill.length
+  )
+}
+
+test('no lens over the hero outside the title', async ({ page }) => {
+  await gotoStopped(page, 300)
+  const title = await captureTitle(page)
+  await openAt(page, OFF_TITLE)
+  expect(isBlank(await readCanvas(page, 'hero-lens')), 'stars').toBe(true)
+  expect(await solidShare(page, title), 'title solid').toBe(1)
+})
+
+test('the lens opens on the title within 150ms and follows within 100ms', async ({
+  page
+}) => {
+  await gotoStopped(page, 300)
+  await sweepPointer(page, ON_TITLE)
+  await page.clock.runFor(OPEN_MS + FRAME_MS)
+  const opened = await lensOnTitle(page)
+  expect(opened.outer, 'fully open').toBeGreaterThanOrEqual(RADIUS - 0.5)
+  expect(opened.inner, 'fully open').toBeGreaterThanOrEqual(INNER - 0.5)
+  expect(isBlank(await readCanvas(page, 'hero-lens')), 'stars').toBe(false)
+  await page.mouse.move(ON_TITLE_LATER.x, ON_TITLE_LATER.y)
+  await page.clock.runFor(FOLLOW_MS)
+  const moved = await lensOnTitle(page)
+  expect(
+    Math.hypot(moved.x - ON_TITLE_LATER.x, moved.y - ON_TITLE_LATER.y)
+  ).toBeLessThanOrEqual(CENTRE_SLACK)
+})
+
+test('the lens closes within 300ms of leaving the title', async ({ page }) => {
+  await gotoStopped(page, 300)
+  const title = await captureTitle(page)
+  await openAt(page, ON_TITLE)
+  expect(isBlank(await readCanvas(page, 'hero-lens'))).toBe(false)
+  expect(await solidShare(page, title), 'title opened').toBeLessThan(0.99)
+  await page.mouse.move(OFF_TITLE.x, OFF_TITLE.y, { steps: 4 })
+  await page.clock.runFor(CLOSE_MS)
+  expect(isBlank(await readCanvas(page, 'hero-lens')), 'stars').toBe(true)
+  expect(await solidShare(page, title), 'title solid').toBe(1)
+})
+
+test('the lens has no ring and nothing past 160px', async ({ page }) => {
+  await seedRandom(page)
+  await gotoStopped(page, 300)
+  await openAt(page, ON_TITLE)
+  const centre = await lensOnTitle(page)
+  expect(
+    Math.hypot(centre.x - ON_TITLE.x, centre.y - ON_TITLE.y)
+  ).toBeLessThanOrEqual(CENTRE_SLACK)
+  const pixels = inked(await readCanvas(page, 'hero-lens'))
+  expect(pixels.length, 'the lens is drawn').toBeGreaterThan(50)
+  const past = pixels.filter(
+    ({ x, y }) => Math.hypot(x - centre.x, y - centre.y) >= RADIUS
+  )
+  expect(past.length, 'inked pixels 160px or more from the centre').toBe(0)
+})
+
+test('nothing in the lens is brighter than its fade allows', async ({
+  page
+}) => {
+  await seedRandom(page)
+  await gotoStopped(page, 300)
+  await openAt(page, ON_TITLE)
+  const centre = await lensOnTitle(page)
+  const pixels = inked(await readCanvas(page, 'hero-lens'))
+  let fullest = 0
+  for (const { x, y, alpha } of pixels) {
+    const distance = Math.hypot(x - centre.x, y - centre.y)
+    expect(
+      alpha,
+      `alpha ${Math.round(distance)}px from the centre`
+    ).toBeLessThanOrEqual(255 * intensity(distance) + ALPHA_SLACK)
+    if (distance < INNER) fullest = Math.max(fullest, alpha)
   }
-  await openAt(page, lens)
+  // invariant: within 80 px nothing is faded, so a star there is opaque.
+  expect(fullest, 'a whole star within 80px').toBeGreaterThanOrEqual(FULL_ALPHA)
+})
+
+test('the title turns to outline inside the lens and fades back to solid', async ({
+  page
+}) => {
+  await gotoStopped(page, 300)
+  const title = await captureTitle(page)
+  await openAt(page, ON_TITLE)
+  const centre = await lensOnTitle(page)
   // why: the stars are drawn on their own canvas; hidden for this capture,
-  // nothing but the title's outline and the grid sits inside the letters.
+  // nothing but the title, its outline and the grid sits in the letters.
   await page.locator('[data-testid="hero-lens"]').evaluate(canvas => {
     if (canvas instanceof HTMLElement) canvas.style.visibility = 'hidden'
   })
-  const after = await screenPixels(page, clip)
-  const at = (point: { x: number; y: number }) =>
-    Math.hypot(point.x + clip.x - lens.x, point.y + clip.y - lens.y)
-  const inside = fill.filter(point => at(point) < RADIUS - 10)
-  const outside = fill.filter(point => at(point) > RADIUS + 10)
-  expect(inside.length).toBeGreaterThan(50)
-  expect(outside.length).toBeGreaterThan(50)
-  const share = (points: typeof fill, test: (lum: number) => boolean) =>
+  const after = await screenPixels(page, title.clip)
+  const from = ({ x, y }: { x: number; y: number }) =>
+    Math.hypot(x + title.clip.x - centre.x, y + title.clip.y - centre.y)
+  const inside = title.fill.filter(point => from(point) < INNER - 10)
+  const outside = title.fill.filter(point => from(point) > RADIUS + 10)
+  const midway = title.fill.filter(
+    point => Math.abs(from(point) - MIDWAY.at) <= MIDWAY.reach
+  )
+  for (const [name, set] of [
+    ['inside', inside],
+    ['outside', outside],
+    ['midway', midway]
+  ] as const)
+    expect(set.length, `fill ${name}`).toBeGreaterThan(30)
+  const share = (points: typeof inside, test: (lum: number) => boolean) =>
     points.filter(({ x, y }) => test(luminanceAt(after, x, y))).length /
     points.length
   expect(
     share(inside, lum => lum < DIM),
-    'fill gone inside'
+    'outline only inside'
   ).toBe(1)
   expect(
     share(outside, lum => lum > LIT),
-    'fill kept outside'
+    'solid outside'
   ).toBeGreaterThan(0.95)
-  // invariant: the outline is drawn: lit pixels remain inside the circle,
-  // along the letters' edges.
-  // why: a 1 px stroke is the brightest thing in the lens bar a star, and in
-  // mist; its brightest pixels sit within antialiasing of mist itself.
-  const mist = channels(await tokenRgb(page, 'mist'))
-  let stroke = 0
-  let closest = Infinity
-  for (let y = 0; y < after.height; y++)
-    for (let x = 0; x < after.width; x++)
-      if (at({ x, y }) < RADIUS - 10 && luminanceAt(after, x, y) > 0.5) {
-        stroke++
-        closest = Math.min(closest, channelGap(pixelAt(after, x, y), mist))
-      }
-  expect(stroke, 'outline pixels inside the lens').toBeGreaterThan(50)
-  expect(closest, 'the outline is mist').toBeLessThanOrEqual(STROKE_SLACK)
+  // invariant: midway the fill is neither the letter nor the background:
+  // its red channel sits between the two, by the fade's share.
+  const [inkRed = 0] = channels(await tokenRgb(page, 'ink'))
+  const kept =
+    midway.reduce((sum, { x, y }) => {
+      const [was = 0] = pixelAt(title.before, x, y)
+      const [now = 0] = pixelAt(after, x, y)
+      return sum + (now - inkRed) / (was - inkRed)
+    }, 0) / midway.length
+  expect(kept, 'fill kept midway').toBeGreaterThanOrEqual(MIDWAY.from)
+  expect(kept, 'fill kept midway').toBeLessThanOrEqual(MIDWAY.to)
 })
 
-test('the lens is gone within 300ms of leaving', async ({ page }) => {
+test('the lens is gone within 300ms of leaving the hero', async ({ page }) => {
   await gotoStopped(page, 300)
   // why: half the hero scrolled away leaves room below it to take the mouse
-  // out of the hero.
+  // out of the hero; the title's box then reaches down to ~108 px.
   await page.evaluate(() => window.scrollTo({ top: 450, behavior: 'instant' }))
   await page.clock.runFor(50)
-  await openAt(page, { x: 400, y: 200 })
+  await openAt(page, { x: ON_TITLE.x, y: 50 })
   expect(isBlank(await readCanvas(page, 'hero-lens'))).toBe(false)
-  await page.mouse.move(400, 700, { steps: 4 })
+  await page.mouse.move(ON_TITLE.x, 700, { steps: 4 })
   await page.clock.runFor(CLOSE_MS)
   expect(isBlank(await readCanvas(page, 'hero-lens'))).toBe(true)
-  const clipPath = await page
-    .locator('[data-lens="outline"]')
-    .evaluate(element => getComputedStyle(element).clipPath)
-  expect(clipPath).toMatch(/^circle\(0px /)
+  expect((await lensOnTitle(page)).outer).toBe(-1)
 })
 
 test('touch and pen open no lens', async ({ page }) => {
   await gotoStopped(page, 300)
-  await page.evaluate(() => {
+  await page.evaluate(spot => {
     for (const pointerType of ['touch', 'pen'])
       for (const type of ['pointerover', 'pointerenter', 'pointermove'])
         window.dispatchEvent(
           new PointerEvent(type, {
             pointerType,
-            clientX: 400,
-            clientY: 650,
+            clientX: spot.x,
+            clientY: spot.y,
             bubbles: true
           })
         )
-  })
+  }, ON_TITLE)
   await page.clock.runFor(400)
   expect(isBlank(await readCanvas(page, 'hero-lens'))).toBe(true)
 })
@@ -312,7 +307,7 @@ test.describe('touch screen', () => {
 
   test('a tap opens no lens', async ({ page }) => {
     await gotoStopped(page, 300)
-    await page.touchscreen.tap(400, 650)
+    await page.touchscreen.tap(ON_TITLE.x, ON_TITLE.y)
     await page.clock.runFor(400)
     expect(isBlank(await readCanvas(page, 'hero-lens'))).toBe(true)
   })

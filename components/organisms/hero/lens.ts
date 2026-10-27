@@ -1,13 +1,14 @@
 import type { Point } from './grid-motion.ts'
 
-// why: the task's numbers (cosmos, criteria 24–27): a 120 px circle with a
-// faint mist ring, 6 to 10 stars of 2 to 3 px joined by 1 px lines, drifting
-// at most 10 px/s; it trails the pointer by under 100 ms and closes in under
-// 300 ms.
+// why: the task's numbers (gravity, criteria 16–21; cosmos, 25 and 27): no
+// ring; full up to 80 px from the centre, fading to nothing at 160 px; 6 to
+// 10 stars of 2 to 3 px joined by 1 px lines, drifting at most 10 px/s; it
+// trails the pointer by under 100 ms, opens in 150 ms, closes under 300 ms.
 export const LENS = {
-  radius: 120,
-  ringAlpha: 0.3,
-  ringWidth: 1,
+  /** Where the fade ends: nothing of the lens shows past it. */
+  radius: 160,
+  /** Where the fade starts: the lens is whole within it. */
+  inner: 80,
   lineWidth: 1,
   lineAlpha: 0.35,
   minStars: 6,
@@ -16,14 +17,28 @@ export const LENS = {
   maxStarSize: 3,
   minDrift: 3,
   maxDrift: 10,
-  /** Stars keep this far inside the ring, so none touches it. */
-  inset: 10,
+  /** Stars keep this far inside the fade's end, where they still show. */
+  inset: 30,
   /** How fast the lens closes the gap to the pointer, per second. */
   follow: 60,
   /** Time to open fully and to close fully, in ms. */
   openMs: 150,
   closeMs: 250
 } as const
+
+/**
+ * How much of the lens shows at `distance` px from its centre: 1 within
+ * `inner`, 0 from `radius` out, falling linearly between, so no edge shows.
+ */
+export const lensIntensity = (
+  distance: number,
+  radius: number = LENS.radius,
+  inner: number = LENS.inner
+) => {
+  if (distance <= inner) return 1
+  if (distance >= radius) return 0
+  return (radius - distance) / (radius - inner)
+}
 
 /** A star, relative to the lens centre, with its drift in px/s. */
 export type Star = Point & { vx: number; vy: number; size: number }

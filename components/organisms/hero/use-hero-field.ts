@@ -53,6 +53,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   const lensColor = readColorToken('mist')
   const solid = section.querySelector<HTMLElement>('[data-lens="solid"]')
   const outline = section.querySelector<HTMLElement>('[data-lens="outline"]')
+  const title = solid?.querySelector<HTMLElement>('h1') ?? null
 
   let width = 0
   let height = 0
@@ -62,6 +63,9 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   let wander: Wander | null = null
   let client: Point | null = null
   let target: Point | null = null
+  // why: the lens opens only over the title (task gravity, criterion 16);
+  // the pointer's well keeps the whole hero.
+  let onTitle: Point | null = null
   const well: PointerBody = { x: 0, y: 0, strength: 0 }
   const view = { x: 0, y: 0, open: 0, stars: createStars(Math.random) }
   let running = false
@@ -120,6 +124,18 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
       : null
   }
 
+  /** The pointer, in hero px, if it is over the title's box. */
+  const locateOnTitle = (at: Point | null) => {
+    const box = title?.getBoundingClientRect()
+    if (!at || !client || !box) return null
+    return client.x >= box.left &&
+      client.x <= box.right &&
+      client.y >= box.top &&
+      client.y <= box.bottom
+      ? at
+      : null
+  }
+
   const advance = (seconds: number) => {
     placeHole(
       wander && !still ? wander.step(seconds) : restPoint(width, height)
@@ -133,17 +149,18 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
         1,
         well.strength + (seconds * 1000) / WELL.riseMs
       )
-      if (view.open === 0) Object.assign(view, aim)
-      view.x = damp(view.x, aim.x, LENS.follow, seconds)
-      view.y = damp(view.y, aim.y, LENS.follow, seconds)
-      view.open = Math.min(1, view.open + (seconds * 1000) / LENS.openMs)
-    } else {
+    } else
       well.strength = Math.max(
         0,
         well.strength - (seconds * 1000) / WELL.fadeMs
       )
-      view.open = Math.max(0, view.open - (seconds * 1000) / LENS.closeMs)
-    }
+    const lensAim = still ? null : onTitle
+    if (lensAim) {
+      if (view.open === 0) Object.assign(view, lensAim)
+      view.x = damp(view.x, lensAim.x, LENS.follow, seconds)
+      view.y = damp(view.y, lensAim.y, LENS.follow, seconds)
+      view.open = Math.min(1, view.open + (seconds * 1000) / LENS.openMs)
+    } else view.open = Math.max(0, view.open - (seconds * 1000) / LENS.closeMs)
     if (view.open > 0) driftStars(view.stars, seconds)
   }
 
@@ -239,7 +256,9 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
     lensContext.clearRect(0, 0, width, height)
     const titleBox = solid?.getBoundingClientRect()
     const heroBox = section.getBoundingClientRect()
-    const radius = LENS.radius * (1 - (1 - view.open) ** 3)
+    const scale = 1 - (1 - view.open) ** 3
+    const radius = LENS.radius * scale
+    const inner = LENS.inner * scale
     for (const element of [solid, outline]) {
       if (!element || !titleBox) continue
       element.style.setProperty(
@@ -251,7 +270,11 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
         `${view.y + heroBox.top - titleBox.top}px`
       )
       element.style.setProperty(
-        '--lens-r',
+        '--lens-in',
+        view.open > 0 ? `${inner}px` : '-1px'
+      )
+      element.style.setProperty(
+        '--lens-out',
         view.open > 0 ? `${radius}px` : '-1px'
       )
     }
@@ -261,17 +284,6 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
     lensContext.save()
     lensContext.strokeStyle = lensColor
     lensContext.fillStyle = lensColor
-    lensContext.lineWidth = LENS.ringWidth
-    lensContext.globalAlpha = LENS.ringAlpha * view.open
-    lensContext.beginPath()
-    lensContext.arc(view.x, view.y, radius, 0, 2 * Math.PI)
-    lensContext.stroke()
-    // invariant: stars and lines are clipped inside the ring (criterion 25),
-    // and scale with it while it opens.
-    lensContext.beginPath()
-    lensContext.arc(view.x, view.y, Math.max(0, radius - 1), 0, 2 * Math.PI)
-    lensContext.clip()
-    const scale = radius / LENS.radius
     const at = (index: number) => {
       const star = view.stars[index]
       return star
@@ -297,6 +309,23 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
       lensContext.arc(point.x, point.y, star.size / 2, 0, 2 * Math.PI)
       lensContext.fill()
     })
+    // invariant: the lens has no edge (criterion 18): whatever was drawn
+    // keeps the share lensIntensity gives it, whole within `inner`, linear
+    // down to nothing at `radius`, the same fade the title's masks use.
+    const fade = lensContext.createRadialGradient(
+      view.x,
+      view.y,
+      inner,
+      view.x,
+      view.y,
+      Math.max(radius, inner + 1e-3)
+    )
+    fade.addColorStop(0, '#000')
+    fade.addColorStop(1, 'transparent')
+    lensContext.globalAlpha = 1
+    lensContext.globalCompositeOperation = 'destination-in'
+    lensContext.fillStyle = fade
+    lensContext.fillRect(0, 0, width, height)
     lensContext.restore()
   }
 
@@ -320,7 +349,8 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
 
   const follow = () => {
     target = locate()
-    if (!target && view.open === 0) view.stars = createStars(Math.random)
+    onTitle = locateOnTitle(target)
+    if (!onTitle && view.open === 0) view.stars = createStars(Math.random)
     wake()
   }
 
