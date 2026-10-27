@@ -129,15 +129,16 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 
 ### S2 - Os corpos pesam na malha · (mesmos arquivos de S1)
 
-- **C6** (4) Com o buraco negro em repouso, as horizontais que passam pelo poço descem na tela.
+- **C6** (4) Com o buraco negro em repouso, toda horizontal que passa pelo poço desce na tela.
   Medido logo além do horizonte (56 px do centro, onde nenhuma linha é cortada), dos dois lados:
-  - toda horizontal a até 90 px do centro na tela desce mais de 0,5 px;
+  - toda horizontal entre 120 px acima e 148 px abaixo do centro desce mais de 0,5 px. É a
+    extensão do poço nessa coluna: 280 px de raio na folha, na profundidade de repouso (mais
+    achatado acima, onde a folha está mais longe);
   - a que passa mais perto do centro desce de 40 a 80 px.
-    Reformulado na rodada 2 do Verifier. A versão anterior, "toda horizontal a menos de 280 px",
-    ia além do critério 4 da tarefa ("as que passam pelo poço"). Também não era mensurável: a
-    280 px na tela, acima do buraco negro, a linha já está fora do poço na folha, e perto da borda
-    o afundamento é de frações de pixel. Proof: `e2e/hero-grid.spec.ts` "horizontals through the
-    black hole's well sink, 40 to 80px at its centre".
+    Reformulado nas rodadas 2 e 3 do Verifier. A primeira versão ("toda horizontal a menos de
+    280 px") media 280 px na tela, além do poço. A segunda cortava em 90 px e deixava de fora 4
+    das 11 linhas do poço. Proof: `e2e/hero-grid.spec.ts` "horizontals through the black hole's
+    well sink, 40 to 80px at its centre".
 - **C7** (4) As verticais de cada lado do buraco negro se curvam na direção dele. Proof:
   `e2e/hero-grid.spec.ts` "lines near the black hole bend towards it".
 - **C8** (5) O poço do buraco negro, a 25% da altura, curva uma faixa no máximo 0,85 vez tão
@@ -287,6 +288,14 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   Proof: `e2e/offscreen.spec.ts` "the screen page loads a screen before the notebook". Proof:
   `e2e/offscreen.spec.ts` "the screen page unloads far past the notebook".
 
+- **C60** (27) Com a rolagem, o laptop abre, endireita e a página aparece aos poucos:
+  - no meio da janela de ligar (77,5% da rolagem), a opacidade da página fica entre 0,2 e 0,8;
+  - do início ao fim, a borda de cima do laptop sobe pelo menos 25% da altura dele aberto (a
+    tampa se levanta);
+  - no fim, a página pintada preenche pelo menos 97% da própria caixa (retângulo de frente para
+    a câmera).
+    Proof: `e2e/notebook.spec.ts` "the laptop opens, straightens and fades its page in with the
+    scroll".
 - **C58** (27, 29) A página do laptop não recebe ponteiro (`pointer-events: none`) nem foco
   (`tabindex="-1"`), tem `aria-hidden="true"`, e nada dela aparece na árvore de acessibilidade de
   `#notebook`. Proof: `e2e/notebook.spec.ts` "the screen page takes no pointer or focus and is
@@ -318,6 +327,10 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 - observability: n/a - o projeto não tem telemetria; custo de quadro coberto por C54
 
 ## Handoff
+
+Rodada 3 do Verifier (FAIL na rodada 2: C6 baixava o critério 4, e "aparece aos poucos",
+"endireita" e "abre", do critério 27, não tinham check). C6 agora cobre o poço inteiro na coluna
+medida, e C60 cobre o critério 27 por inteiro.
 
 Rodada 2 do Verifier (FAIL na rodada 1, 55 de 57). As provas ficaram mais fortes em C5, C7
 (ambos os lados), C10, C13 (ponteiro fora do `<h1>`), C26 e C50. C6 foi reformulado para o
