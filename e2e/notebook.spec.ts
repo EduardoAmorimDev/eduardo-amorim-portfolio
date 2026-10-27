@@ -28,6 +28,17 @@ const GLASS_DARK = 10
 // why: each wheel notch scrolls ~120 px, and Lenis glides to it in well
 // under this.
 const WHEEL_PX = 120
+// why: the checklist's own numbers (C60): halfway through the power-on
+// window the page is neither off nor on; opening, the lid lifts the
+// laptop's top edge by a quarter of its open height or more; upright, the
+// page fills 97% of its box.
+const POWER_MIDWAY = 0.775
+const FADE = { from: 0.2, to: 0.8 }
+const LID_RISE = 0.25
+const SQUARE_FILL = 0.97
+// why: the laptop's lit parts reach well past this channel level; the
+// spotlit floor and the sky stay below it.
+const LAPTOP_LEVEL = 100
 const WHEEL_SETTLE_MS = 700
 
 type Rect = { left: number; top: number; right: number; bottom: number }
@@ -57,6 +68,16 @@ const paintedBox = (
           }
         : { left: x, top: y, right: x + 1, bottom: y + 1 }
     }
+  return box
+}
+
+/** Box of the laptop's lit parts on screen. */
+const laptopBox = (pixels: Pixels) => {
+  const box = paintedBox(
+    pixels,
+    ([r = 0, g = 0, b = 0]) => Math.max(r, g, b) > LAPTOP_LEVEL
+  )
+  if (!box) throw new Error('no laptop on screen')
   return box
 }
 
@@ -373,4 +394,42 @@ test('the screen page takes no pointer or focus and is hidden from assistive tec
   // invariant: nothing of the embedded page reaches the accessibility tree.
   const tree = await page.locator('#notebook').ariaSnapshot()
   expect(tree).not.toMatch(/iframe|document/i)
+})
+
+test('the laptop opens, straightens and fades its page in with the scroll', async ({
+  page
+}) => {
+  await page.route(`https://${SCREEN_HOST}/**`, route =>
+    route.fulfill({ contentType: 'text/html', body: SYNTHETIC_PAGE })
+  )
+  await gotoNotebook(page)
+  const start = laptopBox(await viewportPixels(page))
+  const top = await documentTop(page.locator('#notebook'))
+  const end = await notebookEnd(page)
+  // why: midway through the power-on window (60–95% of the scroll), the
+  // screen is half on.
+  await scrollWindowTo(page, top + POWER_MIDWAY * (end - top))
+  await page.waitForTimeout(1500)
+  const midway = await screenOpacity(page)
+  expect(midway, 'fading in').toBeGreaterThan(FADE.from)
+  expect(midway, 'fading in').toBeLessThan(FADE.to)
+  await scrollWindowTo(page, end)
+  await page.waitForTimeout(2000)
+  const pixels = await viewportPixels(page)
+  const open = laptopBox(pixels)
+  // invariant: the lid stands up as it opens, so the laptop's top edge
+  // rises by a good share of its open height.
+  expect(start.top - open.top, 'opens').toBeGreaterThanOrEqual(
+    LID_RISE * (open.bottom - open.top)
+  )
+  // invariant: square to the camera, the page is painted as an upright
+  // rectangle that fills its own box.
+  const box = paintedBox(pixels, isPage)
+  if (!box) throw new Error('the page is not painted')
+  let filled = 0
+  for (let y = box.top; y < box.bottom; y++)
+    for (let x = box.left; x < box.right; x++)
+      if (isPage(pixelAt(pixels, x, y))) filled++
+  const area = (box.right - box.left) * (box.bottom - box.top)
+  expect(filled / area, 'straightened').toBeGreaterThanOrEqual(SQUARE_FILL)
 })

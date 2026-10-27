@@ -24,6 +24,7 @@ const POINTER_RADIUS = 180
 const HOLE_RADIUS = 280
 const HOLE_PULL = 48
 const HOLE_SINK = { min: 40, max: 80 }
+const WELL_ON_SCREEN = { up: 120, down: 148 }
 const NARROWER = 0.85
 // why: a well's radius is in sheet px, screen px at the middle row; the
 // sheet is nearest, and so largest, at the hero's foot, 1.2 times as large.
@@ -356,10 +357,14 @@ test.describe('black hole at rest', () => {
     for (const side of [-1, 1]) {
       const start = side < 0 ? 40 : WIDTH - 40
       const shifts = sinks(grid, flat, start, REST.x + side * (HORIZON + 8))
-      // why: within 90 px on screen a line is well inside the well, whose
-      // sink fades to under a pixel near its rim.
-      const inside = shifts.filter(({ y }) => Math.abs(y - REST.y) < 90)
-      expect(inside.length).toBeGreaterThanOrEqual(4)
+      // why: the well's 280 sheet px reach, at the hole's resting depth and
+      // this column, ~125 px up the screen (farther, flatter) and ~150 px
+      // down; every horizontal between passes through it.
+      const inside = shifts.filter(
+        ({ y }) =>
+          y - REST.y > -WELL_ON_SCREEN.up && y - REST.y < WELL_ON_SCREEN.down
+      )
+      expect(inside.length).toBeGreaterThanOrEqual(9)
       for (const { y, sink } of inside)
         expect(sink, `line at ${y}px`).toBeGreaterThan(0.5)
       const nearest = shifts.reduce((best, shift) =>
