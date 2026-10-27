@@ -167,8 +167,12 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
         // occlude="blending" hides it per pixel behind the 3D geometry (the
         // closed lid), instead of all-or-nothing. +90° on X turns the page,
         // which faces +z, to face the screen's -y.
+        // hazard: once the sticky parent stops sticking, Chrome paints this
+        // CSS-3D page ~55 px off its own layout box; a compositing layer of
+        // its own (will-change) keeps the paint on the laptop.
         <Html
           transform
+          wrapperClass="will-change-transform"
           occlude="blending"
           distanceFactor={DISTANCE_FACTOR}
           position={[x, y - SCREEN_GAP, z - PAGE_DROP]}
