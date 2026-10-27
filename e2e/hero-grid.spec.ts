@@ -11,7 +11,7 @@ import {
   sweepPointer,
   type GridImage
 } from './grid-helpers'
-import { gotoHero, gotoStopped } from './page-helpers'
+import { boxesOf, gotoHero, gotoStopped } from './page-helpers'
 
 // why: the checklists' own numbers (cosmos C24–C37; gravity C1–C17), at
 // 1440×900.
@@ -311,7 +311,12 @@ test.describe('black hole at rest', () => {
       const off = Math.abs(line.at(REST.y) - REST.x)
       return off >= 175 && off <= 235
     })
-    expect(near.length).toBeGreaterThanOrEqual(2)
+    for (const side of [-1, 1])
+      expect(
+        near.filter(({ line }) => Math.sign(line.at(REST.y) - REST.x) === side)
+          .length,
+        `lines on the ${side < 0 ? 'left' : 'right'}`
+      ).toBeGreaterThanOrEqual(1)
     const rows = readableRows(grid, REST.y - 12, REST.y + 12, 1)
     expect(rows.length).toBeGreaterThan(0)
     for (const { line } of near) {
@@ -372,7 +377,28 @@ test('lines far from the pointer and the black hole stay straight', async ({
   await gotoStopped(page, 300)
   const pointer = { x: 240, y: 640 }
   await pointAt(page, pointer, 300)
-  expectStraight(await readGrid(page), farFrom(pointer, drift(600)))
+  const grid = await readGrid(page)
+  expectStraight(grid, farFrom(pointer, drift(600)))
+  // invariant: the horizontals are straight too. Right of 1100 px both
+  // wells are out of reach: the black hole's reaches ~340 px across where
+  // the sheet is nearest, from at most drift(600) off 720 px. Each is
+  // followed across, and no stretch of it leaves its row by over 1 px.
+  // why: a horizontal crosses neighbouring columns at the same height; a
+  // vertical, leaning, crosses them tens of px apart.
+  const neighbours = [WIDTH - 48, WIDTH - 56].map(x => columnCrossings(grid, x))
+  const rows = columnCrossings(grid, WIDTH - 40).filter(y =>
+    neighbours.every(crossings =>
+      crossings.some(at => Math.abs(at - y) <= STRAIGHT_PX)
+    )
+  )
+  expect(rows.length, 'horizontals measured').toBeGreaterThan(15)
+  for (const row of rows) {
+    let run = 0
+    for (const { x, y } of traceRow(grid, row, WIDTH - 40, 1100)) {
+      run = Math.abs(y - row) > STRAIGHT_PX ? run + 1 : 0
+      expect(run, `horizontal at ${row}px, at ${x}px`).toBeLessThan(SUSTAINED)
+    }
+  }
 })
 
 test('the pointer pulls the nearest verticals 6 to 20px towards it', async ({
@@ -380,6 +406,11 @@ test('the pointer pulls the nearest verticals 6 to 20px towards it', async ({
 }) => {
   await gotoStopped(page, 300)
   const rest = between(await readGrid(page), 240, 640)
+  const [title] = await boxesOf(page, ['#hero h1'])
+  // invariant: the pointer's well works off the title too (gravity, 16).
+  expect(title && 640 > title.bottom, 'the pointer is outside the title').toBe(
+    true
+  )
   const gap = rest.right - rest.left
   for (const [share, nearest] of [
     [0.5, 'both'],

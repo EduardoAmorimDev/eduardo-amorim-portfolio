@@ -25,6 +25,11 @@ const HORIZON_PX = 96
 const HORIZON_SLACK = 0.1
 const RING_REACH_PX = 8
 const RING_MIN = 0.5
+// why: thin: the ring's bright part spans no more than this across.
+const RING_THIN_PX = 4
+// why: the photon ring sits at 1.04 horizon radii; its peaks above and below
+// the centre are that much more than a diameter apart.
+const RING_AT = 1.04
 const DISK_SPAN = { min: 360, max: 440 }
 const INCLINED = { min: 0.2, max: 0.32 }
 const NEAR_HALF = { from: 0.3, to: 0.7 }
@@ -126,10 +131,31 @@ test.describe('at rest', () => {
     await gotoHero(page)
     await showSceneOnly(page)
     const horizon = await findHorizon(page, await inkOf(page))
-    for (const side of [horizon.width, horizon.height])
-      expect(Math.abs(side - HORIZON_PX)).toBeLessThanOrEqual(
-        HORIZON_PX * HORIZON_SLACK
-      )
+    expect(Math.abs(horizon.width - HORIZON_PX), 'width').toBeLessThanOrEqual(
+      HORIZON_PX * HORIZON_SLACK
+    )
+    // invariant: the disk covers the horizon's lower part, so its height is
+    // read between the photon ring's peaks over and under it.
+    const pixels = await firstScreen(page)
+    const peak = (from: number, to: number) => {
+      let best = { y: from, lum: -1 }
+      for (let y = from; y <= to; y++) {
+        const lum = luminanceAt(pixels, horizon.cx, y)
+        if (lum > best.lum) best = { y, lum }
+      }
+      return best.y
+    }
+    const reach = horizon.width * 0.15
+    const top = peak(horizon.y0 - reach, horizon.y0 + reach)
+    const bottom = peak(
+      horizon.y0 + horizon.width - reach,
+      horizon.y0 + horizon.width + reach
+    )
+    const height = (bottom - top) / RING_AT
+    expect(
+      Math.abs(height - HORIZON_PX),
+      `height ${height}`
+    ).toBeLessThanOrEqual(HORIZON_PX * HORIZON_SLACK)
   })
 
   test('a thin bright photon ring hugs the horizon', async ({ page }) => {
@@ -145,20 +171,25 @@ test.describe('at rest', () => {
         Math.abs(Math.sin(angle - Math.PI))
       )
       if (fromBand < Math.sin(BAND_ANGLE)) continue
-      let brightest = 0
-      for (let reach = -1; reach <= RING_REACH_PX; reach += 0.5)
-        brightest = Math.max(
-          brightest,
-          luminanceAt(
-            pixels,
-            horizon.cx + (radius + reach) * Math.cos(angle),
-            horizon.cy + (radius + reach) * Math.sin(angle)
-          )
+      const at = (reach: number) =>
+        luminanceAt(
+          pixels,
+          horizon.cx + (radius + reach) * Math.cos(angle),
+          horizon.cy + (radius + reach) * Math.sin(angle)
         )
-      expect(
-        brightest,
-        `ring at ${Math.round((angle * 180) / Math.PI)}°`
-      ).toBeGreaterThan(RING_MIN)
+      let peak = -1
+      for (let reach = -1; reach <= RING_REACH_PX; reach += 0.5)
+        if (at(reach) > at(peak)) peak = reach
+      const label = `ring at ${Math.round((angle * 180) / Math.PI)}°`
+      expect(at(peak), label).toBeGreaterThan(RING_MIN)
+      // invariant: thin: the bright run through the peak is a few px across.
+      let inner = peak
+      let outer = peak
+      while (at(inner - 0.5) > RING_MIN && peak - inner < 2 * RING_THIN_PX)
+        inner -= 0.5
+      while (at(outer + 0.5) > RING_MIN && outer - peak < 2 * RING_THIN_PX)
+        outer += 0.5
+      expect(outer - inner, `${label}: width`).toBeLessThanOrEqual(RING_THIN_PX)
     }
   })
 

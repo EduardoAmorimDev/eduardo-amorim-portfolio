@@ -1,10 +1,13 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import {
+  channelGap,
+  channels,
   documentTop,
   gotoNotebook,
   notebookEnd,
   pixelAt,
+  tokenRgb,
   screenPixels,
   scrollWindowTo,
   type Pixels
@@ -19,6 +22,9 @@ const FRAME_PX = 16
 // frame, colours nothing else on the page uses, so its painted pixels can
 // be told from the laptop and the sections around it.
 const SYNTHETIC_PAGE = `<html><body style="margin:0;height:100vh;box-sizing:border-box;background:#f00;border:${FRAME_PX}px solid #0f0"></body></html>`
+// why: with the page hidden, the hole the laptop leaves for it shows the
+// section's ink background; the bezel around the glass is far lighter.
+const GLASS_DARK = 10
 // why: each wheel notch scrolls ~120 px, and Lenis glides to it in well
 // under this.
 const WHEEL_PX = 120
@@ -105,6 +111,57 @@ const placement = async (
     bottom: reference.painted.bottom + dy
   }
   return { pixels, expected, painted: paintedBox(pixels, isFrame) }
+}
+
+/**
+ * The glass on screen, as the 3D laptop draws it: with the page hidden, the
+ * dark region walled in by the bezel around `inside`. Edges cut by the
+ * screen's edge are reported there.
+ */
+const glassBox = async (page: Page, inside: { x: number; y: number }) => {
+  const ink = channels(await tokenRgb(page, 'ink'))
+  const screen = page.locator('#notebook iframe')
+  await screen.evaluate(frame => {
+    const backing = frame.parentElement
+    if (backing) backing.style.visibility = 'hidden'
+  })
+  await page.waitForTimeout(100)
+  const pixels = await viewportPixels(page)
+  await screen.evaluate(frame => {
+    const backing = frame.parentElement
+    if (backing) backing.style.visibility = ''
+  })
+  const { width, height } = pixels
+  const dark = (x: number, y: number) =>
+    channelGap(pixelAt(pixels, x, y), ink) <= GLASS_DARK
+  const seen = new Uint8Array(width * height)
+  const start = { x: Math.round(inside.x), y: Math.round(inside.y) }
+  if (!dark(start.x, start.y)) throw new Error('the glass is not dark')
+  const stack = [start]
+  seen[start.y * width + start.x] = 1
+  const box = { left: start.x, top: start.y, right: start.x, bottom: start.y }
+  while (stack.length) {
+    const { x, y } = stack.pop() ?? start
+    box.left = Math.min(box.left, x)
+    box.right = Math.max(box.right, x + 1)
+    box.top = Math.min(box.top, y)
+    box.bottom = Math.max(box.bottom, y + 1)
+    for (const [nx, ny] of [
+      [x + 1, y],
+      [x - 1, y],
+      [x, y + 1],
+      [x, y - 1]
+    ] as const) {
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
+      if (seen[ny * width + nx] || !dark(nx, ny)) continue
+      seen[ny * width + nx] = 1
+      stack.push({ x: nx, y: ny })
+    }
+  }
+  // invariant: walled in: the glass never runs out to the screen's sides.
+  expect(box.left, 'glass walled in on the left').toBeGreaterThan(0)
+  expect(box.right, 'glass walled in on the right').toBeLessThan(width)
+  return box
 }
 
 const reference = async (page: Page) => {
@@ -201,7 +258,7 @@ test("the page stays on the laptop's glass as the section scrolls away", async (
   for (const past of PAST_END) {
     await scrollWindowTo(page, end + past)
     await page.waitForTimeout(300)
-    const { expected, painted } = await placement(page, start)
+    const { expected, painted, pixels } = await placement(page, start)
     const height = page.viewportSize()?.height ?? 0
     const label = `${past}px past the end`
     if (expected.bottom <= 0) {
@@ -209,6 +266,38 @@ test("the page stays on the laptop's glass as the section scrolls away", async (
       continue
     }
     if (!painted) throw new Error(`${label}: the page is not painted`)
+    // invariant: the page, red and green, fills the glass the laptop draws,
+    // edge for edge, wherever the edge is on screen.
+    const before = paintedBox(pixels, isPage)
+    if (!before) throw new Error(`${label}: the page is not painted`)
+    const glass = await glassBox(page, {
+      x: (before.left + before.right) / 2,
+      y: (Math.max(before.top, 0) + before.bottom) / 2
+    })
+    // why: the laptop bobs a few px a second; the page painted just before
+    // and just after the glass, averaged, is where it was with the glass.
+    const after = paintedBox(await viewportPixels(page), isPage) ?? before
+    const shown = {
+      left: (before.left + after.left) / 2,
+      top: (before.top + after.top) / 2,
+      right: (before.right + after.right) / 2,
+      bottom: (before.bottom + after.bottom) / 2
+    }
+    for (const edge of ['left', 'right'] as const)
+      expect(
+        Math.abs(shown[edge] - glass[edge]),
+        `${label}: ${edge} edge on the glass`
+      ).toBeLessThanOrEqual(ALIGN_PX)
+    if (glass.top > 0)
+      expect(
+        Math.abs(shown.top - glass.top),
+        `${label}: top edge on the glass`
+      ).toBeLessThanOrEqual(ALIGN_PX)
+    if (glass.bottom < height)
+      expect(
+        Math.abs(shown.bottom - glass.bottom),
+        `${label}: bottom edge on the glass`
+      ).toBeLessThanOrEqual(ALIGN_PX)
     expect(Math.abs(painted.left - expected.left), label).toBeLessThanOrEqual(
       ALIGN_PX
     )
@@ -271,4 +360,17 @@ test('the page moves with the laptop under the wheel', async ({ page }) => {
     ).toBeLessThanOrEqual(ALIGN_PX)
   }
   expect(steps, 'wheel steps while the page was on screen').toBeGreaterThan(3)
+})
+
+test('the screen page takes no pointer or focus and is hidden from assistive tech', async ({
+  page
+}) => {
+  await gotoNotebook(page)
+  const frame = page.locator('#notebook iframe')
+  await expect(frame).toHaveAttribute('aria-hidden', 'true')
+  await expect(frame).toHaveAttribute('tabindex', '-1')
+  await expect(frame).toHaveCSS('pointer-events', 'none')
+  // invariant: nothing of the embedded page reaches the accessibility tree.
+  const tree = await page.locator('#notebook').ariaSnapshot()
+  expect(tree).not.toMatch(/iframe|document/i)
 })

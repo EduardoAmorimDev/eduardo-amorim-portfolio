@@ -179,3 +179,20 @@ test("the black hole's well is narrower higher up", () => {
   const low = band(HEIGHT * 0.75)
   assert.ok(high <= NARROWER * low, `${high}px high, ${low}px low`)
 })
+
+test("the pointer's well reaches 180px at the middle", () => {
+  const offCourse = (x: number) => {
+    const point = { x, y: HEIGHT / 2 }
+    const wells = wellsOf(
+      grid,
+      { x: WIDTH / 2, y: HEIGHT / 2, strength: 1 },
+      null
+    )
+    const drawn = displace(grid, point, wells, false)
+    return Math.hypot(drawn.x - point.x, drawn.y - point.y)
+  }
+  for (const side of [-1, 1]) {
+    assert.ok(offCourse(WIDTH / 2 + side * 170) > 0)
+    assert.equal(offCourse(WIDTH / 2 + side * 190), 0)
+  }
+})
