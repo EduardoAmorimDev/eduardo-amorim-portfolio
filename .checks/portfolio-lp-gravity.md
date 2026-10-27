@@ -131,14 +131,21 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 
 - **C6** (4) Com o buraco negro em repouso, toda horizontal que passa pelo poço desce na tela.
   Medido logo além do horizonte (56 px do centro, onde nenhuma linha é cortada), dos dois lados:
-  - toda horizontal entre 120 px acima e 148 px abaixo do centro desce mais de 0,5 px. É a
-    extensão do poço nessa coluna: 280 px de raio na folha, na profundidade de repouso (mais
-    achatado acima, onde a folha está mais longe);
+  - toda horizontal entre 140,9 px acima e 163,9 px abaixo do centro desce mais de 0,5 px.
+    São as bordas do poço nessa coluna: o círculo de 280 px da folha em volta do ponto de
+    repouso, projetado na folha plana (50°, foco de 3 × a altura da Hero). Acima ele é mais
+    achatado, porque a folha está mais longe;
   - a que passa mais perto do centro desce de 40 a 80 px.
-    Reformulado nas rodadas 2 e 3 do Verifier. A primeira versão ("toda horizontal a menos de
-    280 px") media 280 px na tela, além do poço. A segunda cortava em 90 px e deixava de fora 4
-    das 11 linhas do poço. Proof: `e2e/hero-grid.spec.ts` "horizontals through the black hole's
-    well sink, 40 to 80px at its centre".
+
+  Reformulado três vezes, a partir dos achados do Verifier:
+  - a primeira versão ("toda horizontal a menos de 280 px") media 280 px na tela, além do poço;
+  - a segunda cortava em 90 px e deixava de fora 4 das 11 linhas do poço;
+  - a terceira usava 120/148 px, ajustados às linhas e não à geometria, e deixava de fora a
+    linha a −120,5 px.
+
+  Proof: `e2e/hero-grid.spec.ts` "horizontals through the black hole's
+  well sink, 40 to 80px at its centre".
+
 - **C7** (4) As verticais de cada lado do buraco negro se curvam na direção dele. Proof:
   `e2e/hero-grid.spec.ts` "lines near the black hole bend towards it".
 - **C8** (5) O poço do buraco negro, a 25% da altura, curva uma faixa no máximo 0,85 vez tão
@@ -327,6 +334,15 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 - observability: n/a - o projeto não tem telemetria; custo de quadro coberto por C54
 
 ## Handoff
+
+Depois da rodada 3 (FAIL, 60 de 60 provados como escritos; C6 não cumpria o critério 4):
+
+- os limites de C6 passaram a ser as bordas do poço tiradas da geometria (140,9 / 163,9 px);
+- as verticais inclinadas lidas como linhas a 40 px saíram do filtro;
+- a prova passou 2 vezes seguidas.
+  Essa correção não foi verificada por um Verifier independente: as três rodadas acabaram, e a
+  quarta depende do usuário. Fica aberto também o achado menor da rodada 3: o C60 não mede a pose
+  torta do início, só a final.
 
 Rodada 3 do Verifier (FAIL na rodada 2: C6 baixava o critério 4, e "aparece aos poucos",
 "endireita" e "abre", do critério 27, não tinham check). C6 agora cobre o poço inteiro na coluna
