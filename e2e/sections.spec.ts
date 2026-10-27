@@ -99,6 +99,16 @@ test('hero copy fits the first screen at 375x667', async ({ page }) => {
   await expectHeroCopyOnFirstScreen(page)
 })
 
+test('hero copy fits the first screen at 1024x768', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 })
+  await expectHeroCopyOnFirstScreen(page)
+})
+
+test('hero copy fits the first screen at 768x1024', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await expectHeroCopyOnFirstScreen(page)
+})
+
 test('hero CTA scrolls to contato', async ({ page }) => {
   await page.goto('/')
   await page.locator('#hero').getByRole('link', { name: LOREM }).click()

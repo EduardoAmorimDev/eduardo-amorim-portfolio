@@ -1,23 +1,42 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { holeShift, pointerShift, sheet } from './grid-motion.ts'
+import {
+  displace,
+  holeShift,
+  pointerShift,
+  sheet,
+  sheetScale,
+  wellsOf,
+  type HoleBody
+} from './grid-motion.ts'
 
-// why: the checklist's own numbers (C26, C28, C33).
+// why: the checklists' own numbers (cosmos C26, C28, C33; gravity C1–C3,
+// C8, C9).
 const SPACING = 48
-const TOP_TO_BOTTOM = 0.8
-const TILT = Math.PI / 6
+const MIDDLE_ASPECT = { min: 0.55, max: 0.7 }
+const TOP_ASPECT = 0.55
+const TOP_TO_BOTTOM = 0.75
 const POINTER_RADIUS = 180
 const HOLE_RADIUS = 280
 const HOLE_PULL = 48
 const HORIZON = 48
+const NARROWER = 0.85
 
 const WIDTH = 1440
 const HEIGHT = 900
-const hole = { x: 720, y: 288, horizon: HORIZON, scale: 1 }
-const pointer = { x: 300, y: 600, strength: 1 }
+const grid = sheet(WIDTH, HEIGHT)
+const holeBody = { u: 0, v: 200 }
+const pointerBody = { u: -400, v: -150 }
 
-test('a 30° tilt: straight verticals, 48px apart at the middle, closer at the top', () => {
-  const grid = sheet(WIDTH, HEIGHT)
+/** The black hole on screen at `y`, the horizon sized for that depth. */
+const holeAt = (x: number, y: number): HoleBody => ({
+  x,
+  y,
+  horizon: (HORIZON * sheetScale(HEIGHT, y)) / sheetScale(HEIGHT, 288),
+  scale: 1
+})
+
+test('a 50° sheet: straight verticals, 48px apart at the middle, flat cells far off', () => {
   const gaps = (y: number) =>
     grid.verticals
       .slice(1)
@@ -32,12 +51,20 @@ test('a 30° tilt: straight verticals, 48px apart at the middle, closer at the t
     top <= TOP_TO_BOTTOM * bottom,
     `${top} at the top, ${bottom} at the bottom`
   )
-  // invariant: near the midline a 48 px step up the sheet shows as
-  // 48·cos(tilt) on screen, whatever the depth; this pins the tilt at 30°.
-  const above = grid.rows.filter(y => y < HEIGHT / 2).at(-1) ?? NaN
-  const below = grid.rows.find(y => y > HEIGHT / 2) ?? NaN
-  const tilt = Math.acos((below - above) / SPACING)
-  assert.ok(Math.abs(tilt - TILT) < 0.005, `tilt ${(tilt * 180) / Math.PI}°`)
+  // invariant: a cell's height over its width, read from the rows around a
+  // screen height and the vertical spacing there.
+  const aspect = (y: number) => {
+    const below = grid.rows.findIndex(row => row > y)
+    const a = grid.rows[Math.max(0, below - 1)] ?? NaN
+    const b = grid.rows[Math.max(1, below)] ?? NaN
+    return (b - a) / (gaps((a + b) / 2)[0] ?? NaN)
+  }
+  const middle = aspect(HEIGHT / 2)
+  assert.ok(
+    middle >= MIDDLE_ASPECT.min && middle <= MIDDLE_ASPECT.max,
+    `${middle} at the middle`
+  )
+  assert.ok(aspect(0) <= TOP_ASPECT, `${aspect(0)} at the top`)
   // invariant: a straight line has the same slope between any two rows.
   for (const u of grid.verticals) {
     const slope = (a: number, b: number) =>
@@ -52,65 +79,120 @@ test('a 30° tilt: straight verticals, 48px apart at the middle, closer at the t
   assert.ok((grid.rows.at(-1) ?? -Infinity) >= HEIGHT - SPACING)
 })
 
+test('a flat sheet point is drawn where it was found', () => {
+  for (let y = 0; y <= HEIGHT; y += 37)
+    for (let x = 0; x <= WIDTH; x += 61) {
+      const back = grid.toScreen(grid.toSheet({ x, y }), 0)
+      assert.ok(Math.hypot(back.x - x, back.y - y) < 1e-9, `${x},${y}`)
+    }
+})
+
 test('no displacement beyond either well', () => {
   for (let angle = 0; angle < 2 * Math.PI; angle += 0.05)
     for (const extra of [1e-6, 1, 40, 400]) {
-      const far = (body: { x: number; y: number }, radius: number) => ({
-        x: body.x + (radius + extra) * Math.cos(angle),
-        y: body.y + (radius + extra) * Math.sin(angle)
+      const far = (body: { u: number; v: number }, radius: number) => ({
+        u: body.u + (radius + extra) * Math.cos(angle),
+        v: body.v + (radius + extra) * Math.sin(angle)
       })
-      assert.deepEqual(pointerShift(far(pointer, POINTER_RADIUS), pointer), {
-        x: 0,
-        y: 0
-      })
-      assert.deepEqual(holeShift(far(hole, HOLE_RADIUS), hole), { x: 0, y: 0 })
+      assert.deepEqual(
+        pointerShift(far(pointerBody, POINTER_RADIUS), pointerBody, 1),
+        { u: 0, depth: 0 }
+      )
+      assert.deepEqual(
+        holeShift(far(holeBody, HOLE_RADIUS), holeBody, HORIZON, 1),
+        { u: 0, depth: 0 }
+      )
     }
-  assert.deepEqual(
-    pointerShift({ x: 310, y: 610 }, { ...pointer, strength: 0 }),
-    {
-      x: 0,
-      y: 0
-    }
-  )
+  assert.deepEqual(pointerShift({ u: -390, v: -140 }, pointerBody, 0), {
+    u: 0,
+    depth: 0
+  })
 })
 
 test('the hole pulls towards its centre, by at most 48px, within 280px', () => {
   let strongest = 0
   for (let distance = 0.5; distance < HOLE_RADIUS; distance += 0.5)
     for (let angle = 0; angle < 2 * Math.PI; angle += 0.3) {
-      const point = {
-        x: hole.x + distance * Math.cos(angle),
-        y: hole.y + distance * Math.sin(angle)
+      const du = distance * Math.cos(angle)
+      const at = {
+        u: holeBody.u + du,
+        v: holeBody.v + distance * Math.sin(angle)
       }
-      const shift = holeShift(point, hole)
-      const size = Math.hypot(shift.x, shift.y)
-      strongest = Math.max(strongest, size)
-      assert.ok(size <= HOLE_PULL + 1e-9, `${size}px at ${distance}px`)
-      assert.ok(size > 0, `the well reaches ${distance}px`)
+      const shift = holeShift(at, holeBody, HORIZON, 1)
+      strongest = Math.max(strongest, Math.abs(shift.u))
+      assert.ok(Math.abs(shift.u) <= HOLE_PULL + 1e-9, `at ${distance}px`)
+      assert.ok(shift.depth > 0, `the well reaches ${distance}px`)
       // invariant: towards the centre, and never past it.
-      const after = { x: point.x + shift.x, y: point.y + shift.y }
-      const before = Math.hypot(point.x - hole.x, point.y - hole.y)
-      const now = Math.hypot(after.x - hole.x, after.y - hole.y)
-      assert.ok(now < before, `closer at ${distance}px`)
-      const along =
-        (after.x - hole.x) * (point.x - hole.x) +
-        (after.y - hole.y) * (point.y - hole.y)
-      assert.ok(along >= -1e-9, `not past the centre at ${distance}px`)
+      if (Math.abs(du) > 1e-9) {
+        assert.ok(Math.sign(shift.u) === -Math.sign(du), `at ${distance}px`)
+        assert.ok(Math.abs(shift.u) <= Math.abs(du) + 1e-9, `at ${distance}px`)
+      }
     }
   assert.ok(strongest > HOLE_PULL - 1, `the well reaches ${strongest}px`)
 })
 
 test('the pointer pulls lines sideways towards it and sinks them, by at most 20px', () => {
-  for (let dx = -179; dx <= 179; dx += 3)
-    for (let dy = -179; dy <= 179; dy += 3) {
-      if (Math.hypot(dx, dy) >= POINTER_RADIUS || dx === 0) continue
+  for (let du = -179; du <= 179; du += 3)
+    for (let dv = -179; dv <= 179; dv += 3) {
+      if (Math.hypot(du, dv) >= POINTER_RADIUS || du === 0) continue
       const shift = pointerShift(
-        { x: pointer.x + dx, y: pointer.y + dy },
-        pointer
+        { u: pointerBody.u + du, v: pointerBody.v + dv },
+        pointerBody,
+        1
       )
-      assert.ok(Math.sign(shift.x) === -Math.sign(dx), `towards at ${dx},${dy}`)
-      assert.ok(Math.abs(shift.x) < Math.abs(dx), `not past it at ${dx},${dy}`)
-      assert.ok(shift.y > 0, `down at ${dx},${dy}`)
-      assert.ok(Math.hypot(shift.x, shift.y) <= 20, `${dx},${dy}`)
+      assert.ok(Math.sign(shift.u) === -Math.sign(du), `towards at ${du},${dv}`)
+      assert.ok(Math.abs(shift.u) < Math.abs(du), `not past it at ${du},${dv}`)
+      assert.ok(shift.depth > 0, `down at ${du},${dv}`)
+      assert.ok(Math.hypot(shift.u, shift.depth) <= 20, `${du},${dv}`)
     }
+})
+
+/** How far a horizontal line through screen (x, y) is drawn off its course. */
+const offCourse = (x: number, y: number, hole: HoleBody) => {
+  const drawn = displace(grid, { x, y }, wellsOf(grid, null, hole), false)
+  return Math.hypot(drawn.x - x, drawn.y - y)
+}
+
+test("the black hole's well reaches 280px at the middle", () => {
+  const hole = holeAt(WIDTH / 2, HEIGHT / 2)
+  for (const side of [-1, 1]) {
+    assert.ok(offCourse(WIDTH / 2 + side * 270, HEIGHT / 2, hole) > 0)
+    assert.equal(offCourse(WIDTH / 2 + side * 290, HEIGHT / 2, hole), 0)
+  }
+})
+
+test("the black hole's well is narrower higher up", () => {
+  // invariant: the band is read along the hole's own row, where a line
+  // leaves its course by more than 1 px.
+  const band = (y: number) => {
+    const hole = holeAt(WIDTH / 2, y)
+    let from = Infinity
+    let to = -Infinity
+    for (let x = 0; x <= WIDTH; x += 0.5)
+      if (offCourse(x, y, hole) > 1) {
+        from = Math.min(from, x)
+        to = Math.max(to, x)
+      }
+    return to - from
+  }
+  const high = band(HEIGHT * 0.25)
+  const low = band(HEIGHT * 0.75)
+  assert.ok(high <= NARROWER * low, `${high}px high, ${low}px low`)
+})
+
+test("the pointer's well reaches 180px at the middle", () => {
+  const offCourse = (x: number) => {
+    const point = { x, y: HEIGHT / 2 }
+    const wells = wellsOf(
+      grid,
+      { x: WIDTH / 2, y: HEIGHT / 2, strength: 1 },
+      null
+    )
+    const drawn = displace(grid, point, wells, false)
+    return Math.hypot(drawn.x - point.x, drawn.y - point.y)
+  }
+  for (const side of [-1, 1]) {
+    assert.ok(offCourse(WIDTH / 2 + side * 170) > 0)
+    assert.equal(offCourse(WIDTH / 2 + side * 190), 0)
+  }
 })

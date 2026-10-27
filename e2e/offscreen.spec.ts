@@ -114,9 +114,10 @@ const screenRequests = (page: Page) => {
 test('only the hero draws at the top of the page', async ({ page }) => {
   await recordDraws(page)
   await gotoHero(page)
-  // why: the lens draws only under the mouse, so the mouse is put there; the
-  // counts below then show each hero layer is counted while it draws.
-  await page.mouse.move(400, 650, { steps: 4 })
+  // why: the lens draws only with the mouse over the title, so the mouse is
+  // put there; the counts below then show each hero layer is counted while
+  // it draws.
+  await page.mouse.move(500, 380, { steps: 4 })
   const draws = await drawsNow(page)
   expect(draws.hero).toBeGreaterThan(0)
   expect(draws.grid).toBeGreaterThan(0)

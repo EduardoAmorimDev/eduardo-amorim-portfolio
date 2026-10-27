@@ -13,7 +13,7 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
-import { DISK, HOLE } from './black-hole'
+import { DISK, HOLE, diskPose } from './black-hole'
 import { HERO_CAMERA } from './glass-motion'
 import type { HoleBody } from './grid-motion'
 
@@ -37,9 +37,10 @@ const vertexShader = /* glsl */ `
   }
 `
 
-// why: the disk, its bent back and the photon ring are drawn in one pass on
-// a camera-facing quad, in units of the horizon radius; colours are mist,
-// the brand blue and ink only, so nothing warm appears (criterion 28).
+// why: one pass on a camera-facing quad, in horizon radii: a ring seen
+// uTilt above its plane, axis leaning uRoll, its near half in front of the
+// horizon, its far half past it and bent over the top and, faintly, under
+// it, so the hole reads as a sphere; mist, primary and ink only (gravity 13).
 const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec3 uInk;
@@ -47,6 +48,8 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uPrimary;
   uniform float uInnerTurn;
   uniform float uOuterTurn;
+  uniform float uTilt;
+  uniform float uRoll;
   varying vec2 vUv;
 
   #define TAU 6.283185307179586
@@ -54,12 +57,12 @@ const fragmentShader = /* glsl */ `
   const float DISK_IN = ${DISK.inner.toFixed(2)};
   const float DISK_OUT = ${DISK.outer.toFixed(2)};
   const float ARC_OUT = ${HOLE.halfHeight.toFixed(2)};
-  const float ARC_IN = 1.1;
+  const float ARC_IN = 1.08;
   const float RING = 1.04;
-  // The disk's apparent height over its width (nearly edge-on) and its own
-  // thickness, both in horizon radii.
-  const float SQUASH = 0.05;
-  const float THICK = 0.12;
+  // The disk's own thickness, in horizon radii, and how much brighter its
+  // approaching (left) side is than its receding one: 1 ± BEAM.
+  const float THICK = 0.1;
+  const float BEAM = 0.45;
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -89,18 +92,26 @@ const fragmentShader = /* glsl */ `
     return 0.15 + 1.25 * pow(streak, 1.8);
   }
 
-  // The disk's light at p: x for its near half, in front of the horizon, y
-  // for its far half, behind it. A few rows around p give it thickness.
-  vec2 disk(vec2 p) {
+  // Doppler beaming: the side turning towards the viewer (cos < 0, the
+  // left) is brighter than the side turning away.
+  float beam(float cosine) {
+    return 1.0 - BEAM * cosine;
+  }
+
+  // The disk's light at q (disk-aligned screen coordinates): x for its near
+  // half, in front of the horizon, y for its far half, behind it. A few
+  // rows around q give it thickness.
+  vec2 disk(vec2 q, float lean) {
     vec2 lit = vec2(0.0);
     for (int k = -2; k <= 2; k++) {
-      float y = p.y + float(k) * THICK * 0.5;
-      vec2 onDisk = vec2(p.x, y / SQUASH);
+      float y = q.y + float(k) * THICK * 0.5;
+      vec2 onDisk = vec2(q.x, y / lean);
       float radius = length(onDisk);
       float band = smoothstep(DISK_IN - 0.05, DISK_IN + 0.2, radius)
-        * (1.0 - smoothstep(DISK_OUT - 0.8, DISK_OUT, radius));
-      float heat = 0.8 * pow(DISK_IN / max(radius, DISK_IN), 1.2);
+        * (1.0 - smoothstep(DISK_OUT - 0.45, DISK_OUT, radius));
+      float heat = 0.85 * pow(DISK_IN / max(radius, DISK_IN), 1.1);
       float light = band * heat * gas(radius, atan(onDisk.y, onDisk.x))
+        * beam(onDisk.x / max(radius, 1e-4))
         * (1.0 - abs(float(k)) * 0.22);
       if (y < 0.0) lit.x = max(lit.x, light);
       else lit.y = max(lit.y, light);
@@ -110,20 +121,31 @@ const fragmentShader = /* glsl */ `
 
   void main() {
     vec2 p = (vUv - 0.5) * 2.0 * SPAN;
-    float r = length(p);
-    float theta = atan(p.y, p.x);
+    float c = cos(uRoll);
+    float s = sin(uRoll);
+    // The screen point in the disk's own axes, its lean undone.
+    vec2 q = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+    float lean = max(sin(uTilt), 0.02);
+    float r = length(q);
+    float theta = atan(q.y, q.x);
 
-    vec2 lit = disk(p);
-    float depth = smoothstep(DISK_IN, DISK_OUT - 0.6, length(vec2(p.x, p.y / SQUASH)));
+    vec2 lit = disk(q, lean);
+    float depth = smoothstep(DISK_IN, DISK_OUT - 0.6, length(vec2(q.x, q.y / lean)));
     vec3 diskColor = mix(uMist, uPrimary, depth);
 
-    // The back of the disk, bent by gravity over the top and under the
-    // bottom of the horizon.
-    float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.1, r)
-      * (1.0 - smoothstep(ARC_OUT - 0.4, ARC_OUT, r));
-    float arcRadius = mix(DISK_IN, DISK_OUT * 0.7, clamp((r - ARC_IN) / (ARC_OUT - ARC_IN), 0.0, 1.0));
-    float arc = arcBand * pow(abs(sin(theta)), 1.4) * pow(ARC_IN / r, 3.0)
-      * gas(arcRadius, theta) * 1.1;
+    // The far half, bent over the top of the horizon from side to side.
+    float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.08, r)
+      * (1.0 - smoothstep(ARC_OUT - 0.35, ARC_OUT, r));
+    float arcRadius = mix(DISK_IN, DISK_OUT * 0.7,
+      clamp((r - ARC_IN) / (ARC_OUT - ARC_IN), 0.0, 1.0));
+    float over = arcBand * smoothstep(-0.05, 0.3, sin(theta))
+      * pow(ARC_IN / r, 2.2) * gas(arcRadius, theta) * beam(cos(theta)) * 1.15;
+    // Under the bottom: a thin, faint image just past the near half's edge.
+    float edge = DISK_OUT * lean;
+    float underBand = smoothstep(edge + 0.04, edge + 0.1, r)
+      * (1.0 - smoothstep(edge + 0.14, edge + 0.22, r));
+    float under = underBand * smoothstep(0.2, 0.75, -sin(theta))
+      * gas(DISK_IN + 0.4, theta) * beam(cos(theta)) * 0.42;
     vec3 arcColor = mix(uMist, uPrimary, smoothstep(ARC_IN, ARC_OUT, r));
 
     float ring = exp(-pow((r - RING) / 0.028, 2.0)) * 1.4;
@@ -132,7 +154,7 @@ const fragmentShader = /* glsl */ `
 
     float outside = smoothstep(0.99, 1.01, r);
     vec3 light = uPrimary * glow + uMist * ring
-      + (arcColor * arc + diskColor * lit.y) * outside
+      + (arcColor * (over + under) + diskColor * lit.y) * outside
       + diskColor * lit.x;
     float alpha = clamp(max(max(light.r, light.g), light.b), 0.0, 1.0);
     vec3 shown = min(light / max(alpha, 1e-4), vec3(1.0));
@@ -150,8 +172,8 @@ type BlackHoleProps = {
 
 /**
  * The black hole that wanders over the hero's grid: a camera-facing quad
- * with the horizon, photon ring and edge-on disk, and a point light of the
- * disk's colour that lights the glass logo. Its place and size come from
+ * with the horizon, photon ring and a tilted, rocking disk, and a point
+ * light of the disk's colour that lights the glass logo. Its place and size come from
  * the hero's field (use-hero-field.ts), which also bends the grid around it;
  * the disk turns unless reduced motion is on.
  */
@@ -177,7 +199,9 @@ export const BlackHole = ({ hole }: BlackHoleProps) => {
       uMist: { value: colors.mist },
       uPrimary: { value: colors.primary },
       uInnerTurn: { value: DISK.innerTurn },
-      uOuterTurn: { value: DISK.outerTurn }
+      uOuterTurn: { value: DISK.outerTurn },
+      uTilt: { value: diskPose(0, true).tilt },
+      uRoll: { value: 0 }
     }),
     [colors]
   )
@@ -219,8 +243,15 @@ export const BlackHole = ({ hole }: BlackHoleProps) => {
       camera instanceof PerspectiveCamera ? camera.fov : HERO_CAMERA.fov
     const focal = size.height / (2 * Math.tan((fov * Math.PI) / 360))
     body.scale.setScalar((horizon * DEPTH) / focal)
-    const time = material.current?.uniforms.uTime
-    if (time && !still.current) time.value += delta
+    const shader = material.current?.uniforms
+    const time = shader?.uTime
+    if (!shader || !time) return
+    if (!still.current) time.value += delta
+    const pose = diskPose(time.value, still.current)
+    const tilt = shader.uTilt
+    const roll = shader.uRoll
+    if (tilt) tilt.value = pose.tilt
+    if (roll) roll.value = pose.roll
   })
 
   return (
