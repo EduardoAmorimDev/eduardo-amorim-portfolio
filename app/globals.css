@@ -17,6 +17,10 @@
 @theme {
   --text-display: 3.9375rem;
   --text-display--line-height: 0.89;
+  /* why: the hero title (task gravity, criteria 22–23): 2.5 × display
+     (157.5 px) at 1440 px wide, shrinking with the window down to 72 px. */
+  --text-hero: clamp(4.5rem, 10.9375vw, 9.84375rem);
+  --text-hero--line-height: 0.89;
   --text-title-lg: 3rem;
   --text-title-lg--line-height: 1.2;
   --text-title-lg--letter-spacing: -0.02em;

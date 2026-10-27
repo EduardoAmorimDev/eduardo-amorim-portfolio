@@ -2,7 +2,7 @@ import { GlitchText } from '@/components/atoms/glitch-text'
 
 const TITLE = 'Lorem ipsum dolor sit amet'
 // why: shared by the title and its outline, so both wrap into the same lines.
-const TITLE_TYPE = 'font-display text-title-lg lg:text-display'
+const TITLE_TYPE = 'font-display text-hero'
 
 /**
  * The hero's title, subtitle and CTA, centred over the 3D scene. The title
@@ -15,7 +15,7 @@ export const HeroCopy = () => (
   // why: the top padding sets the block a little low, so the title's centre
   // lands between 40% and 55% of the hero with the CTA still on screen.
   <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-6 pt-[10svh] text-center lg:px-16">
-    <div className="relative w-full max-w-4xl">
+    <div className="relative w-full max-w-7xl">
       <div data-lens="solid" className="lens-solid">
         <GlitchText
           as="h1"

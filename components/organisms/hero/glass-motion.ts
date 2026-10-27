@@ -15,11 +15,12 @@ export type GlassLayout = {
 }
 
 // why: the title holds the centre and the black hole wanders around it, so
-// the logo floats alone at the top right, clear of the title and the CTA.
+// the logo floats alone at the top right, clear of the title and the CTA;
+// high enough to clear the title's box at 2.5× (task gravity, 24).
 export const GLASS_LAYOUT: readonly GlassLayout[] = [
   {
     name: 'logo',
-    anchor: [0.62, 0.62],
+    anchor: [0.62, 0.74],
     depth: 0,
     size: 0.95,
     pose: [0.2, 0.4, 0]

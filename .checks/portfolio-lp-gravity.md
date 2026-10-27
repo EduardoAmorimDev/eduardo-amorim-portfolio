@@ -215,8 +215,8 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 - **C46** (24) Título, subtítulo e CTA cabem inteiros na primeira tela nos quatro tamanhos.
   Proof: `e2e/sections.spec.ts` "hero copy fits the first screen at <w>x<h>" (as quatro
   variantes).
-- **C47** (24) O `logo` não cruza a caixa do `<h1>` nem a do CTA. Proof: `e2e/hero.spec.ts` "the
-  logo clears the title and the CTA".
+- **C47** (24) O `logo` não cruza a caixa do `<h1>` nem a do CTA, em 1440×900 e 375×667. Proof:
+  `e2e/hero.spec.ts` "the logo clears the title and the CTA at <w>x<h>" (as duas variantes).
 - **C48** (24) Nenhuma palavra do `<h1>` é partida entre linhas, nos quatro tamanhos. Proof:
   `e2e/hero.spec.ts` "no word of the title breaks at <w>x<h>".
 - **C49** (24) Sem rolagem horizontal em 375 px. Proof: `e2e/sections.spec.ts` "no horizontal
