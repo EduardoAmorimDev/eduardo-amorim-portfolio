@@ -105,6 +105,26 @@ const lensOnTitle = (page: Page) =>
     }
   })
 
+/**
+ * Captures `clip` with the 3D scene hidden: the black hole's ring and arcs
+ * are as bright as the letters and move under them; without them, only the
+ * title, its outline and the faint grid are left.
+ */
+const captureWithoutScene = async (
+  page: Page,
+  clip: { x: number; y: number; width: number; height: number }
+) => {
+  const scene = page.locator('[data-testid="hero-scene"]')
+  await scene.evaluate(node => {
+    if (node instanceof HTMLElement) node.style.visibility = 'hidden'
+  })
+  const pixels = await screenPixels(page, clip)
+  await scene.evaluate(node => {
+    if (node instanceof HTMLElement) node.style.visibility = ''
+  })
+  return pixels
+}
+
 type TitleCapture = {
   clip: { x: number; y: number; width: number; height: number }
   before: Pixels
@@ -121,7 +141,7 @@ const captureTitle = async (page: Page): Promise<TitleCapture> => {
     width: Math.ceil(title.right - title.left),
     height: Math.ceil(title.bottom - title.top)
   }
-  const before = await screenPixels(page, clip)
+  const before = await captureWithoutScene(page, clip)
   // why: a pixel deep inside a letter, lit with all its neighbours, is the
   // letter's fill, not its edge.
   const fill: { x: number; y: number }[] = []
@@ -139,7 +159,7 @@ const captureTitle = async (page: Page): Promise<TitleCapture> => {
 
 /** Share of the fill still lit, solid, in a fresh capture. */
 const solidShare = async (page: Page, { clip, fill }: TitleCapture) => {
-  const now = await screenPixels(page, clip)
+  const now = await captureWithoutScene(page, clip)
   return (
     fill.filter(({ x, y }) => luminanceAt(now, x, y) > LIT).length / fill.length
   )
@@ -232,7 +252,7 @@ test('the title turns to outline inside the lens and fades back to solid', async
   await page.locator('[data-testid="hero-lens"]').evaluate(canvas => {
     if (canvas instanceof HTMLElement) canvas.style.visibility = 'hidden'
   })
-  const after = await screenPixels(page, title.clip)
+  const after = await captureWithoutScene(page, title.clip)
   const from = ({ x, y }: { x: number; y: number }) =>
     Math.hypot(x + title.clip.x - centre.x, y + title.clip.y - centre.y)
   const inside = title.fill.filter(point => from(point) < INNER - 10)
