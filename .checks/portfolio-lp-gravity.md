@@ -28,8 +28,8 @@ Hero, `RenderGate`, `useNearViewport`, `readColorToken`, `prefersReducedMotion` 
 auxiliares de pixel de `e2e/`. Nenhuma dependência nova.
 
 | One-way door | Literal shape | Alternative rejected |
-| --- | --- | --- |
-| None | - | - |
+| ------------ | ------------- | -------------------- |
+| None         | -             | -                    |
 
 - Nada aqui é difícil de reverter: nada persiste, nenhum contrato é consumido por fora e nenhuma
   dependência entra (29).
@@ -41,21 +41,21 @@ Decisões reversíveis, registradas antes do código:
   com altura/largura `cos 50° ≈ 0,64` no meio da Hero, `≈ 0,51` no topo e `≈ 0,77` embaixo. O
   espaço entre verticais no topo fica em `≈ 0,67` do de baixo, como na referência (0,5 · 0,64 ·
   0,78 e 0,7). Os corpos ficam em coordenadas da folha: o ponto da tela é desprojetado para `(u,
-  v)`. A partir dali:
+v)`. A partir dali:
   - as horizontais afundam ao longo da normal da folha, por uma profundidade `D(r)`, e são
     reprojetadas;
   - as verticais recebem só o puxão lateral em `u`;
   - o raio e as amplitudes ficam em px da folha, que valem px da tela na linha do meio.
-  Assim o poço encolhe e achata com a profundidade sem regra extra.
-  Rejeitado: malha em WebGL, que perde a leitura exata de pixels do canvas 2D usada pelas provas.
-  Rejeitado também: deslocar em px de tela, como hoje, que não acompanha a perspectiva (critério
-  3 da tarefa).
+    Assim o poço encolhe e achata com a profundidade sem regra extra.
+    Rejeitado: malha em WebGL, que perde a leitura exata de pixels do canvas 2D usada pelas provas.
+    Rejeitado também: deslocar em px de tela, como hoje, que não acompanha a perspectiva (critério
+    3 da tarefa).
 - **Separação por família mantida.** As horizontais só afundam e as verticais só são puxadas de
   lado, pelo mesmo motivo registrado em `portfolio-lp-cosmos`: as verticais inclinadas pela
   perspectiva sairiam assimétricas. O afundamento 3D também empurra os pontos para o centro de
   fuga, ~2 px, o que poderia virar uma vertical "para longe" do ponteiro.
 - **Tamanho do buraco negro pela escala da folha.** `horizon(y) = horizonRadius(w, h) · s(y) /
-  s(rest.y)`, com `s(y) = 1 − (cy − y)·tan(tilt)/foco`, a largura de uma célula sobre 48. A caixa
+s(rest.y)`, com `s(y) = 1 − (cy − y)·tan(tilt)/foco`, a largura de uma célula sobre 48. A caixa
   do caminho usa o horizonte do pé da Hero, o maior, para manter a margem de 10%.
 - **Disco inclinado no mesmo quad voltado à câmera.** O shader passa a desenhar a elipse do disco
   (razão `sen i`), com a metade próxima à frente do horizonte e a distante só fora dele. Desenha
@@ -67,8 +67,8 @@ Decisões reversíveis, registradas antes do código:
 - **Lente: máscara linear de 80 a 160 px**, por uma `radial-gradient`:
   - no canvas, com `destination-in` depois de desenhar estrelas e linhas;
   - no título, como `mask-image` no sólido e no contorno.
-  Sem anel. Abre só com o ponteiro dentro da caixa do `<h1>`. Rejeitado: alfa por estrela, que
-  deixaria as linhas com uma opacidade só ao longo do comprimento.
+    Sem anel. Abre só com o ponteiro dentro da caixa do `<h1>`. Rejeitado: alfa por estrela, que
+    deixaria as linhas com uma opacidade só ao longo do comprimento.
 - **H1 por token fluido:** `--text-hero: clamp(4.5rem, 10.9375vw, 9.84375rem)`, com
   `line-height` 0,89, em `@theme`. Dá 157,5 px em 1440, 112 px em 1024 e 72 px em 375. Rejeitado:
   um tamanho por breakpoint, que salta (critério 23).
@@ -77,7 +77,7 @@ Decisões reversíveis, registradas antes do código:
   - o DOM da página é pintado 55 px acima do próprio `getBoundingClientRect` logo que o `sticky`
     solta (Δ = 50 px) e assim continua;
   - com a raiz do `<Html>` numa camada própria, o erro fica em −2 px, igual ao do fim da seção.
-  Rejeitados:
+    Rejeitados:
   - `transform: translateZ(0)` no `sticky`, que não muda nada (−55 px);
   - `contain: paint` no `sticky`, que corrige depois mas erra 53 px enquanto ele está grudado.
 
@@ -122,14 +122,22 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   `e2e/hero-grid.spec.ts` "verticals at the top are at most 0.75 as far apart as at the bottom".
 - **C4** (2) Os quatro cantos de 64×64 px da Hero têm tinta da malha. Proof:
   `e2e/hero-grid.spec.ts` "the grid reaches every corner".
-- **C5** (3) Fora do raio de cada poço, nenhuma vertical se desvia mais de 1 px da reta. Proof:
-  `e2e/hero-grid.spec.ts` "lines far from the pointer and the black hole stay straight".
+- **C5** (3) Fora do raio de cada poço, nenhuma linha se desvia mais de 1 px da reta: nem as
+  verticais, nem as horizontais, seguidas coluna a coluna à direita de 1100 px, sem trecho de
+  8 px fora da reta. Proof: `e2e/hero-grid.spec.ts` "lines far from the pointer and the black
+  hole stay straight".
 
 ### S2 - Os corpos pesam na malha · (mesmos arquivos de S1)
 
-- **C6** (4) Com o buraco negro em repouso, toda horizontal que passa a menos de 280 px dele desce
-  na tela, e a mais próxima do centro desce de 40 a 80 px. Proof: `e2e/hero-grid.spec.ts`
-  "horizontals through the black hole's well sink, 40 to 80px at its centre".
+- **C6** (4) Com o buraco negro em repouso, as horizontais que passam pelo poço descem na tela.
+  Medido logo além do horizonte (56 px do centro, onde nenhuma linha é cortada), dos dois lados:
+  - toda horizontal a até 90 px do centro na tela desce mais de 0,5 px;
+  - a que passa mais perto do centro desce de 40 a 80 px.
+    Reformulado na rodada 2 do Verifier. A versão anterior, "toda horizontal a menos de 280 px",
+    ia além do critério 4 da tarefa ("as que passam pelo poço"). Também não era mensurável: a
+    280 px na tela, acima do buraco negro, a linha já está fora do poço na folha, e perto da borda
+    o afundamento é de frações de pixel. Proof: `e2e/hero-grid.spec.ts` "horizontals through the
+    black hole's well sink, 40 to 80px at its centre".
 - **C7** (4) As verticais de cada lado do buraco negro se curvam na direção dele. Proof:
   `e2e/hero-grid.spec.ts` "lines near the black hole bend towards it".
 - **C8** (5) O poço do buraco negro, a 25% da altura, curva uma faixa no máximo 0,85 vez tão
@@ -138,8 +146,9 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 - **C9** (5) Na linha do meio da Hero, o poço do buraco negro alcança 280 px (escala de projeto):
   desvio > 0 a 270 px e 0 a 290 px. Proof: `components/organisms/hero/grid-motion.test.ts` "the
   black hole's well reaches 280px at the middle".
-- **C10** (6) Em repouso, o horizonte mede 96 px (±10%). Proof: `e2e/black-hole.spec.ts` "a 96px
-  event horizon".
+- **C10** (6) Em repouso, o horizonte mede 96 px (±10%) de largura e de altura. A altura é lida
+  entre os picos do anel de fótons acima e abaixo do centro, divididos por 1,04, porque o disco
+  cobre a parte de baixo do horizonte. Proof: `e2e/black-hole.spec.ts` "a 96px event horizon".
 - **C11** (6) O diâmetro do horizonte é proporcional à largura de uma célula na altura dele
   (±10%). Proof: `components/organisms/hero/black-hole.test.ts` "the horizon follows the
   sheet's scale".
@@ -156,7 +165,11 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   `e2e/hero-grid.spec.ts` "the well fades within 800ms after the pointer leaves".
 - **C17** (9) Nenhuma linha dentro do horizonte. Proof: `e2e/hero-grid.spec.ts` "no grid line
   inside the event horizon".
-- **C18** (9) Sob movimento reduzido, o ponteiro não move a malha. Proof:
+- **C59** (8) Na linha do meio da Hero, o poço do ponteiro alcança 180 px: desvio > 0 a 170 px e
+  0 a 190 px. Proof: `components/organisms/hero/grid-motion.test.ts` "the pointer's well
+  reaches 180px at the middle".
+- **C18** (9) Sob movimento reduzido, nem o ponteiro nem o buraco negro movem a malha: ela fica
+  idêntica, pixel a pixel, por 2 s, com o ponteiro passando por três pontos dela. Proof:
   `e2e/reduced-motion.spec.ts` "the grid holds still under reduced motion".
 
 ### S3 - Buraco negro com volume · 5 files · ~30 KB · ~8k
@@ -176,8 +189,9 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   `e2e/black-hole.spec.ts` "one side of the disk is at least 1.5 times brighter".
 - **C25** (13) Nada quente: em todo pixel aceso, azul ≥ vermelho e azul ≥ verde − 2. Proof:
   `e2e/black-hole.spec.ts` "the black hole is drawn in cool blues only".
-- **C26** (13) Um anel fino e claro está colado ao horizonte. Proof: `e2e/black-hole.spec.ts` "a
-  thin bright photon ring hugs the horizon".
+- **C26** (13) Um anel fino e claro está colado ao horizonte: luminância > 0,5 a até 8 px da borda,
+  numa faixa clara de no máximo 4 px de largura. Proof: `e2e/black-hole.spec.ts` "a thin bright
+  photon ring hugs the horizon".
 - **C27** (14) O disco dá pelo menos uma volta a cada 20 s, e o padrão muda na tela em 1 s.
   Proof: `components/organisms/hero/black-hole.test.ts` "the disk turns at least once every 20
   s at every radius". Proof: `e2e/black-hole.spec.ts` "the disk's pattern turns".
@@ -202,7 +216,8 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   título fica inteiro sólido. Proof: `e2e/lens.spec.ts` "no lens over the hero outside the
   title".
 - **C34** (17) Ao entrar no `<h1>`, a lente abre em até 150 ms e segue o ponteiro com até 100 ms
-  de atraso. Proof: `e2e/lens.spec.ts` "the lens opens on the title within 150ms and follows
+  de atraso. A prova lê a abertura a 167 ms, porque a lente começa a abrir no primeiro quadro
+  depois da chegada do ponteiro, até 1/60 s depois. Proof: `e2e/lens.spec.ts` "the lens opens on the title within 150ms and follows
   within 100ms".
 - **C35** (17) Ao sair da caixa do `<h1>` sem sair da Hero, a lente some em até 300 ms. Proof:
   `e2e/lens.spec.ts` "the lens closes within 300ms of leaving the title".
@@ -216,7 +231,9 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   "a constellation has 6 to 10 stars". Proof: `e2e/lens.spec.ts` "nothing in the lens is
   brighter than its fade allows".
 - **C39** (20) Sobre o `<h1>`, o título é só contorno a menos de 80 px do centro e sólido a mais de
-  160 px, com uma passagem gradual entre os dois (cobertura intermediária a 120 px). Proof:
+  160 px, com uma passagem gradual entre os dois (cobertura intermediária a 120 px). A prova
+  mede a menos de 70 px e a mais de 170 px, com 10 px de folga para a borda suavizada da letra,
+  e aceita 95% do miolo sólido fora. Proof:
   `e2e/lens.spec.ts` "the title turns to outline inside the lens and fades back to solid".
 - **C40** (20) O nome acessível do `<h1>` é o título, lido uma vez. Proof: `e2e/a11y.spec.ts`
   "decorations are hidden and each title is read once".
@@ -249,10 +266,16 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 ### S6 - A página não sai da tela do laptop · 3 files · ~14 KB · ~4k
 
 - **C50** (25) Com uma página sintética no `iframe` (fundo vermelho, moldura verde de 16 px), a 0,
-  150, 300, 450 e 600 px depois do fim de `#notebook`, a moldura pintada fica a até 3 px da
-  posição que o laptop dá a ela. A referência é a posição pintada no fim da seção, deslocada pela
-  rolagem e corrigida pelo `getBoundingClientRect` do `iframe`, que segue o laptop. Proof:
-  `e2e/notebook.spec.ts` "the page stays on the laptop's glass as the section scrolls away".
+  150, 300, 450 e 600 px depois do fim de `#notebook`, as bordas pintadas da página que estão na
+  tela ficam a até 3 px das bordas do vidro.
+  - **Vidro:** a região escura cercada pela moldura do laptop, com a página escondida.
+  - **Página:** a média das capturas antes e depois do vidro, porque o laptop oscila alguns px
+    por segundo.
+  - **Moldura de 16 px, não 4:** a página é 3,75% maior que o vidro (`SCREEN_BLEED`), e uma
+    moldura de 4 px ficaria escondida sob a moldura do laptop.
+    A mesma prova confere que a moldura pintada acompanha a posição do fim da seção, deslocada
+    pelo `getBoundingClientRect` do `iframe`. Proof: `e2e/notebook.spec.ts` "the page stays on the
+    laptop's glass as the section scrolls away".
 - **C51** (25) Nas mesmas posições, nenhum pixel vermelho ou verde aparece fora do retângulo do
   vidro (a caixa da página no fim da seção, deslocada como em C50, mais 3 px). Proof:
   `e2e/notebook.spec.ts` "no page pixel shows outside the glass".
@@ -264,10 +287,17 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
   Proof: `e2e/offscreen.spec.ts` "the screen page loads a screen before the notebook". Proof:
   `e2e/offscreen.spec.ts` "the screen page unloads far past the notebook".
 
+- **C58** (27, 29) A página do laptop não recebe ponteiro (`pointer-events: none`) nem foco
+  (`tabindex="-1"`), tem `aria-hidden="true"`, e nada dela aparece na árvore de acessibilidade de
+  `#notebook`. Proof: `e2e/notebook.spec.ts` "the screen page takes no pointer or focus and is
+  hidden from assistive tech".
+
 ### Desempenho e regras herdadas
 
 - **C54** (28) Com o topo de `#sobre` ou de `#faq` no topo da janela, a Hero faz 0 draw calls em
-  1 s. Proof: `e2e/offscreen.spec.ts` "no scene draws while both are off screen".
+  1 s. Proof: `e2e/offscreen.spec.ts` "no scene draws while both are off screen". Proof:
+  `e2e/offscreen.spec.ts` "only the hero draws at the top of the page" (o contador registra os
+  quadros da cena, da malha e da lente quando eles desenham).
 - **C55** (28) O buraco negro retoma a até 12 px de onde parou. Proof: `e2e/offscreen.spec.ts`
   "the black hole resumes where it stopped".
 - **C56** (29) `package.json` sem dependência nova: `git diff 3de27ef -- package.json` vazio.
@@ -281,13 +311,18 @@ Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que depend
 - failure modes: C50, C51 (a página fora do vidro é o modo de falha que esta tarefa corrige)
 - idempotency: n/a - nada é enviado nem gravado
 - authorization: n/a - página pública
-- concurrency: C52 (página e laptop em passo a cada passo da rolagem); existing - `BEFORE_HTML` em `laptop.tsx:73`; C55 (pausa e retomada)
+- concurrency: C52 (página e laptop em passo a cada passo da rolagem); existing - `BEFORE_HTML` em `components/organisms/notebook/laptop.tsx:74`, usado em `:152`; C55 (pausa e retomada)
 - data lifecycle: n/a - nada persiste
 - dependency failure: n/a - nos testes o site embutido é bloqueado ou trocado por página sintética (`e2e/fixtures.ts`)
 - state transitions: C16, C34, C35
 - observability: n/a - o projeto não tem telemetria; custo de quadro coberto por C54
 
 ## Handoff
+
+Rodada 2 do Verifier (FAIL na rodada 1, 55 de 57). As provas ficaram mais fortes em C5, C7
+(ambos os lados), C10, C13 (ponteiro fora do `<h1>`), C26 e C50. C6 foi reformulado para o
+critério 4 da tarefa, e C18 descreve o que a prova já mede. Os checks C58 e C59 cobrem os
+critérios 27, 29 e 8, que não tinham prova.
 
 Os seis slices somam ~37k tokens de leitura (`wc -c` dos arquivos tocados ÷ 4), abaixo de 150k.
 Por isso vai tudo num lote só, sem handoff. O Verifier roda depois sobre `3de27ef..HEAD`, com

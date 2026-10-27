@@ -152,8 +152,8 @@ Medidas em CSS px numa janela de 1440×900, salvo quando indicado. "Movimento re
     outra cor. Nas posições de rolagem 0, 150, 300, 450 e 600 px depois do fim de `#notebook`:
     - as quatro bordas da moldura ficam a até 3 px das bordas do vidro no screenshot;
     - nenhum pixel da página aparece fora do vidro.
-    Medido nos pixels, não em `getBoundingClientRect`, porque ele dá a posição certa enquanto a
-    imagem está errada.
+      Medido nos pixels, não em `getBoundingClientRect`, porque ele dá a posição certa enquanto a
+      imagem está errada.
 26. Quando o usuário rola com a roda do mouse (Lenis ativo) do fim de `#notebook` até a página sair
     da tela, a moldura (25) continua a até 3 px das bordas do vidro em cada quadro capturado. A
     página não salta: entre dois quadros seguidos, ela se move o mesmo que o laptop, com até 3 px
@@ -189,22 +189,22 @@ Medidas em CSS px numa janela de 1440×900, salvo quando indicado. "Movimento re
 
 ## Observable
 
-| Surface | Decision | Landing |
-| --- | --- | --- |
-| tela `/` › `#hero` | em repouso, sem ponteiro | 1, 2, 3, 4, 6, 10, 11, 12, 13 |
-| tela `/` › `#hero` | ponteiro fora do `<h1>` | 7, 8, 16 |
-| tela `/` › `#hero` | ponteiro sobre o `<h1>` | 17, 18, 19, 20 |
-| tela `/` › `#hero` | ponteiro sai da Hero | 9, 17 |
-| tela `/` › `#hero` | carregando (modelo do `logo` chegando) | existing - `Suspense` sem fallback; malha e buraco negro desenham antes |
-| tela `/` › `#hero` | erro (sem WebGL) | n/a - herdado, Unresolved 2 de `portfolio-lp-cosmos` |
-| tela `/` › `#hero` | toque, sem hover | 21; sem poço do ponteiro (7 exige mouse) |
-| tela `/` › `#hero` | movimento reduzido | 9, 15, 21 |
-| tela `/` › `#hero` | densidade e ordem | 22, 23, 24 |
-| tela `/` › `#hero` | janela estreita (375×667) | 23, 24 |
-| tela `/` › `#notebook` | saída da seção pela rolagem | 25, 26 |
-| tela `/` › `#notebook` | página embutida ainda não carregada | existing - fundo `ink` atrás do `iframe`, que aparece aos poucos (27) |
-| tela `/` | ação destrutiva | n/a - não há |
-| tela `/` | não autorizado | n/a - página pública, sem login |
+| Surface                | Decision                               | Landing                                                                 |
+| ---------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| tela `/` › `#hero`     | em repouso, sem ponteiro               | 1, 2, 3, 4, 6, 10, 11, 12, 13                                           |
+| tela `/` › `#hero`     | ponteiro fora do `<h1>`                | 7, 8, 16                                                                |
+| tela `/` › `#hero`     | ponteiro sobre o `<h1>`                | 17, 18, 19, 20                                                          |
+| tela `/` › `#hero`     | ponteiro sai da Hero                   | 9, 17                                                                   |
+| tela `/` › `#hero`     | carregando (modelo do `logo` chegando) | existing - `Suspense` sem fallback; malha e buraco negro desenham antes |
+| tela `/` › `#hero`     | erro (sem WebGL)                       | n/a - herdado, Unresolved 2 de `portfolio-lp-cosmos`                    |
+| tela `/` › `#hero`     | toque, sem hover                       | 21; sem poço do ponteiro (7 exige mouse)                                |
+| tela `/` › `#hero`     | movimento reduzido                     | 9, 15, 21                                                               |
+| tela `/` › `#hero`     | densidade e ordem                      | 22, 23, 24                                                              |
+| tela `/` › `#hero`     | janela estreita (375×667)              | 23, 24                                                                  |
+| tela `/` › `#notebook` | saída da seção pela rolagem            | 25, 26                                                                  |
+| tela `/` › `#notebook` | página embutida ainda não carregada    | existing - fundo `ink` atrás do `iframe`, que aparece aos poucos (27)   |
+| tela `/`               | ação destrutiva                        | n/a - não há                                                            |
+| tela `/`               | não autorizado                         | n/a - página pública, sem login                                         |
 
 ## Swept
 
@@ -220,23 +220,23 @@ Medidas em CSS px numa janela de 1440×900, salvo quando indicado. "Movimento re
 
 ## Impact
 
-| Front | What changes |
-|---|---|
-| domain | termo existente: `sheet` / `GRID` (`grid-motion.ts`, inclinação de 30°, foco 1,6 h) passa a uma perspectiva mais forte (1); quem depende: `use-hero-field.ts`, `grid-motion.test.ts`, `e2e/grid-helpers.ts`, `e2e/hero-grid.spec.ts` ("the grid recedes…") |
-| domain | termo existente: `pointerShift` / `holeShift` / `displace` deslocam pontos no plano da tela; passam a afundar o plano em profundidade, e o tamanho do poço depende da altura (4–8). Quem depende: `use-hero-field.ts`, `grid-motion.test.ts`, `e2e/hero-grid.spec.ts` (os testes de ponteiro e de buraco negro) |
-| domain | termo existente: `HoleBody.horizon` e `holeScale` (`black-hole.ts`) têm hoje um tamanho só para a Hero toda; passam a variar com a profundidade (6). Quem depende: `black-hole-mesh.tsx`, `black-hole-path.ts` (`wanderBox` usa o raio para a margem de 10%), `e2e/black-hole.spec.ts` ("a 96px event horizon", "the horizon shrinks…"), `e2e/reduced-motion.spec.ts` ("rests at the centre, 32% down") |
-| domain | termo existente: o shader de `black-hole-mesh.tsx` (`SQUASH` 0,05, disco de perfil num quad voltado à câmera) passa a desenhar um disco inclinado e oscilante (10–15); quem depende: `e2e/black-hole.spec.ts` ("an edge-on disk about 400px wide…", "the back of the disk arches…", "the disk's pattern turns") |
-| domain | termo existente: a lente (`lens.ts`, `LENS.radius` 120, `ringAlpha` 0,3; `lens-solid` e `lens-outline` em `app/globals.css`, máscara e recorte de borda dura) passa a abrir só no `<h1>` e a ter borda suave (16–20); quem depende: `use-hero-field.ts`, `lens.test.ts`, `e2e/lens.spec.ts` (os 6 testes), `e2e/reduced-motion.spec.ts` ("no lens…") |
-| layout | `hero-copy.tsx` (`TITLE_TYPE`, `max-w-4xl`) com o título 2,5× maior em `lg` (22); o `logo` em `GLASS_LAYOUT` pode ter de se mover para manter o 15. Quem depende: `e2e/hero.spec.ts` ("the hero copy is centred…", "the logo clears the title…"), `e2e/sections.spec.ts` ("hero copy fits the first screen…") |
-| teste | o defeito do laptop não aparece no projeto Playwright atual (Chromium headless, sem pintar o `iframe`) nem em `getBoundingClientRect`. A prova de 25–26 precisa de um modo de navegador que o reproduza antes da correção, comparando pixels, e de uma página sintética no lugar do site, porque `e2e/fixtures.ts` bloqueia a rede (constituição VI). Hipótese, não verificada: composição do `<Html transform>` do drei (CSS 3D) dentro do contêiner `sticky` quando ele deixa de grudar |
-| tarefa anterior | `.tasks/portfolio-lp-cosmos.md` recebe no topo a lista do que esta substitui: 16 (exceto "borda a borda"), 17, 18, 20, 24, 25, 26, a forma do disco no 28 e o diâmetro fixo do horizonte no 28 |
-| stored data | nothing to migrate - nada persiste |
+| Front           | What changes                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| domain          | termo existente: `sheet` / `GRID` (`grid-motion.ts`, inclinação de 30°, foco 1,6 h) passa a uma perspectiva mais forte (1); quem depende: `use-hero-field.ts`, `grid-motion.test.ts`, `e2e/grid-helpers.ts`, `e2e/hero-grid.spec.ts` ("the grid recedes…")                                                                                                                                                                                                                                |
+| domain          | termo existente: `pointerShift` / `holeShift` / `displace` deslocam pontos no plano da tela; passam a afundar o plano em profundidade, e o tamanho do poço depende da altura (4–8). Quem depende: `use-hero-field.ts`, `grid-motion.test.ts`, `e2e/hero-grid.spec.ts` (os testes de ponteiro e de buraco negro)                                                                                                                                                                           |
+| domain          | termo existente: `HoleBody.horizon` e `holeScale` (`black-hole.ts`) têm hoje um tamanho só para a Hero toda; passam a variar com a profundidade (6). Quem depende: `black-hole-mesh.tsx`, `black-hole-path.ts` (`wanderBox` usa o raio para a margem de 10%), `e2e/black-hole.spec.ts` ("a 96px event horizon", "the horizon shrinks…"), `e2e/reduced-motion.spec.ts` ("rests at the centre, 32% down")                                                                                   |
+| domain          | termo existente: o shader de `black-hole-mesh.tsx` (`SQUASH` 0,05, disco de perfil num quad voltado à câmera) passa a desenhar um disco inclinado e oscilante (10–15); quem depende: `e2e/black-hole.spec.ts` ("an edge-on disk about 400px wide…", "the back of the disk arches…", "the disk's pattern turns")                                                                                                                                                                           |
+| domain          | termo existente: a lente (`lens.ts`, `LENS.radius` 120, `ringAlpha` 0,3; `lens-solid` e `lens-outline` em `app/globals.css`, máscara e recorte de borda dura) passa a abrir só no `<h1>` e a ter borda suave (16–20); quem depende: `use-hero-field.ts`, `lens.test.ts`, `e2e/lens.spec.ts` (os 6 testes), `e2e/reduced-motion.spec.ts` ("no lens…")                                                                                                                                      |
+| layout          | `hero-copy.tsx` (`TITLE_TYPE`, `max-w-4xl`) com o título 2,5× maior em `lg` (22); o `logo` em `GLASS_LAYOUT` pode ter de se mover para manter o 15. Quem depende: `e2e/hero.spec.ts` ("the hero copy is centred…", "the logo clears the title…"), `e2e/sections.spec.ts` ("hero copy fits the first screen…")                                                                                                                                                                             |
+| teste           | o defeito do laptop não aparece no projeto Playwright atual (Chromium headless, sem pintar o `iframe`) nem em `getBoundingClientRect`. A prova de 25–26 precisa de um modo de navegador que o reproduza antes da correção, comparando pixels, e de uma página sintética no lugar do site, porque `e2e/fixtures.ts` bloqueia a rede (constituição VI). Hipótese, não verificada: composição do `<Html transform>` do drei (CSS 3D) dentro do contêiner `sticky` quando ele deixa de grudar |
+| tarefa anterior | `.tasks/portfolio-lp-cosmos.md` recebe no topo a lista do que esta substitui: 16 (exceto "borda a borda"), 17, 18, 20, 24, 25, 26, a forma do disco no 28 e o diâmetro fixo do horizonte no 28                                                                                                                                                                                                                                                                                            |
+| stored data     | nothing to migrate - nada persiste                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Decided
 
-| Decision | Shape | Alternative rejected |
-|---|---|---|
-| None - tudo aqui é reversível: nenhum dado persistido, nenhum contrato consumido por fora, nenhuma dependência nova (29). Onde a malha passa a ser desenhada (canvas 2D com projeção própria ou na cena WebGL junto do buraco negro), como o disco ganha volume (geometria ou shader) e como o laptop deixa de vazar se decidem no build e ficam no `Landing` do checklist | - | - |
+| Decision                                                                                                                                                                                                                                                                                                                                                                   | Shape | Alternative rejected |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------- |
+| None - tudo aqui é reversível: nenhum dado persistido, nenhum contrato consumido por fora, nenhuma dependência nova (29). Onde a malha passa a ser desenhada (canvas 2D com projeção própria ou na cena WebGL junto do buraco negro), como o disco ganha volume (geometria ou shader) e como o laptop deixa de vazar se decidem no build e ficam no `Landing` do checklist | -     | -                    |
 
 ## Sources
 
@@ -289,8 +289,8 @@ This task is the record of decision. If a linked document diverges, ask before b
 
 ## Unresolved
 
-| # | Kind | Question | Until answered |
-|---|---|---|---|
-| 1 | open | Números novos assumidos, sem confirmação do usuário: proporções das células (1); curva do H1 e piso de 72 px (23); afundamento e encolhimento dos poços (4, 5, 8); inclinação, oscilação e brilho do disco (10, 12, 14, 15); faixa de 80 a 160 px da lente (18, 20). | Escritos como estão. Ajuste fino depois de ver no navegador, como nas rodadas anteriores. |
-| 2 | open | "O vazado do título vai delimitar": as estrelas também ficam presas às letras, ou só somem aos poucos no disco suave? | Escrito 19: elas somem aos poucos no disco suave, sem recorte nas letras. Só o contorno do título (20) desenha uma forma. |
-| 3 | blocks go-live | Destino real dos CTAs e conteúdo real (herdado de `portfolio-lp-cosmos`, Unresolved 1). | A Hero continua com lorem, e o CTA leva a `#contato`. |
+| #   | Kind           | Question                                                                                                                                                                                                                                                             | Until answered                                                                                                            |
+| --- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | open           | Números novos assumidos, sem confirmação do usuário: proporções das células (1); curva do H1 e piso de 72 px (23); afundamento e encolhimento dos poços (4, 5, 8); inclinação, oscilação e brilho do disco (10, 12, 14, 15); faixa de 80 a 160 px da lente (18, 20). | Escritos como estão. Ajuste fino depois de ver no navegador, como nas rodadas anteriores.                                 |
+| 2   | open           | "O vazado do título vai delimitar": as estrelas também ficam presas às letras, ou só somem aos poucos no disco suave?                                                                                                                                                | Escrito 19: elas somem aos poucos no disco suave, sem recorte nas letras. Só o contorno do título (20) desenha uma forma. |
+| 3   | blocks go-live | Destino real dos CTAs e conteúdo real (herdado de `portfolio-lp-cosmos`, Unresolved 1).                                                                                                                                                                              | A Hero continua com lorem, e o CTA leva a `#contato`.                                                                     |
