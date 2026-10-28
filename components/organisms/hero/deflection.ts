@@ -87,9 +87,9 @@ const rings = new Map<number, number>()
 // 1.92 horizon radii, as a liquid round a cylinder; both 1.2 times wider
 // than before (task black-hole-wide, 9–10).
 export const FIELD = { exponent: 0 } as const
-// why: the flow acts only past the radial lens, fading in from 2.4 to 3.6
-// horizon radii, so the lens near the shadow stays circular (task
-// black-hole-alive, 1).
+// why: a second radial push, a²/r outwards, past the first lens, fading in
+// from 2.4 to 3.6 horizon radii; the flow round a cylinder it replaces left
+// points of distortion at the sides (task black-hole-alive, 12).
 export const FLOW = { radius: 1.92, from: 2.4, to: 3.6 } as const
 
 /** How much of the flow acts `theta` horizon radii out: 0 to 1, smooth. */
@@ -118,7 +118,7 @@ export const sourceRadiusAt = (theta: number, angle: number, bend: number) => {
 /**
  * The point behind the black hole that the screen point (x, y) shows, both
  * in horizon radii from its centre, x to the right and y up: the dipole
- * lens, radial, plus the flow round the circle, a²·(x, −y)/r².
+ * lens, radial, plus a second radial push past it, a²·(x, y)/r².
  */
 export const behindPoint = (x: number, y: number, bend: number) => {
   const r2 = x * x + y * y
@@ -127,7 +127,7 @@ export const behindPoint = (x: number, y: number, bend: number) => {
   const flow = (flowShare(theta) * FLOW.radius * FLOW.radius) / r2
   return {
     x: (x * beta) / theta + flow * x,
-    y: (y * beta) / theta - flow * y
+    y: (y * beta) / theta + flow * y
   }
 }
 

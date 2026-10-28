@@ -1,11 +1,13 @@
 'use client'
 import { MeshTransmissionMaterial, useGLTF } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import {
   CanvasTexture,
   Mesh,
   SRGBColorSpace,
+  Vector3,
+  type Group,
   type BufferGeometry,
   type Matrix4,
   type Texture
@@ -18,6 +20,11 @@ import {
   anchorToWorld,
   type GlassLayout
 } from './glass-motion'
+import type { HoleBody } from './grid-motion'
+
+// why: the logo leans this many px towards the black hole, as if pulled by
+// it (task black-hole-alive, 11).
+const PULL = 5
 
 // why: the models come from canvas-lab (assets/glass/<name>.glb); each is
 // centred on its origin with its largest side at 1 unit. Only their geometry
@@ -111,9 +118,11 @@ const GlassPart = ({ part, backdrop, layer }: GlassPartProps) => (
 type GlassElementProps = {
   layout: GlassLayout
   backdrop: Texture
+  /** When given, the icon leans PULL px towards the black hole. */
+  hole?: RefObject<HoleBody>
 }
 
-const GlassElement = ({ layout, backdrop }: GlassElementProps) => {
+const GlassElement = ({ layout, backdrop, hole }: GlassElementProps) => {
   const { scene } = useGLTF(modelUrl(layout.name), false)
   // why: the view at the icon's own depth, so anchors reach the visible edges
   // at that distance; the selectors re-render only on resize.
@@ -124,6 +133,23 @@ const GlassElement = ({ layout, backdrop }: GlassElementProps) => {
   const home = anchorToWorld(layout.anchor, view)
   // invariant: never above 1, so wide screens keep the designed size.
   const fit = Math.min(1, viewport.width / LAYOUT_WIDTH)
+  const group = useRef<Group>(null)
+  const onScreen = useMemo(() => new Vector3(), [])
+
+  useFrame(() => {
+    const body = group.current
+    const black = hole?.current
+    if (!body || !black?.horizon || !size.width) return
+    onScreen.set(home.x, home.y, layout.depth).project(camera)
+    const x = ((onScreen.x + 1) / 2) * size.width
+    const y = ((1 - onScreen.y) / 2) * size.height
+    const dx = black.x - x
+    const dy = black.y - y
+    const gap = Math.hypot(dx, dy) || 1
+    // invariant: px to world units at the icon's depth.
+    const unit = (PULL * view.width) / size.width / gap
+    body.position.set(home.x + dx * unit, home.y - dy * unit, layout.depth)
+  })
 
   // why: each mesh is re-rendered with its transform baked into one matrix,
   // so the model's own material and nested groups are never mutated.
@@ -143,6 +169,7 @@ const GlassElement = ({ layout, backdrop }: GlassElementProps) => {
     // why: only the black hole moves in the hero (task black-hole-apple,
     // 1–2): every icon holds its resting pose and ignores the pointer.
     <group
+      ref={group}
       position={[home.x, home.y, layout.depth]}
       rotation={[...layout.pose]}
       scale={layout.size * fit}
@@ -178,4 +205,22 @@ export const GlassElements = () => {
   )
 }
 
-for (const { name } of GLASS_LAYOUT) useGLTF.preload(modelUrl(name), false)
+// why: only the logo is in the hero now (task black-hole-alive, 11).
+useGLTF.preload(modelUrl('logo'), false)
+
+type GlassLogoProps = {
+  /** Where the hero's field puts the black hole, in hero px. */
+  hole: RefObject<HoleBody>
+}
+
+/**
+ * The glass logo alone, in front of the black hole and behind the copy,
+ * leaning PULL px towards the black hole (task black-hole-alive, 11).
+ */
+export const GlassLogo = ({ hole }: GlassLogoProps) => {
+  const backdrop = useMemo(() => createBackdrop(), [])
+  useEffect(() => () => backdrop.dispose(), [backdrop])
+  const logo = GLASS_LAYOUT.find(layout => layout.name === 'logo')
+  if (!logo) return null
+  return <GlassElement layout={logo} backdrop={backdrop} hole={hole} />
+}

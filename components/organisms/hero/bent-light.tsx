@@ -68,11 +68,11 @@ const fragmentShader = /* glsl */ `
     // hazard: pow(0, 0) is undefined in GLSL; a radial lens has share 1.
     float share = ${FIELD.exponent > 0 ? `pow(sine2, ${(FIELD.exponent / 2).toFixed(2)})` : '1.0'};
     float beta = share > 1e-6 ? theta - uBend * bentBy(theta / share) : theta;
-    // invariant: as behindPoint (deflection.ts); with y down the flow keeps
-    // its form, a²·(x, −y)/r².
+    // invariant: as behindPoint (deflection.ts): the second push is radial,
+    // a²·(x, y)/r², the same with y up or down.
     vec2 lensed = q * (beta / theta)
       + smoothstep(${FLOW.from.toFixed(2)}, ${FLOW.to.toFixed(2)}, theta)
-        * uFlow * uFlow * vec2(q.x, -q.y) / (theta * theta);
+        * uFlow * uFlow * vec2(q.x, q.y) / (theta * theta);
     vec2 from = (uCentre + lensed * uHorizon) / uSize;
     vec2 layer = 0.5 + (vec2(from.x, 1.0 - from.y) - 0.5) / ${OVERSCAN.toFixed(1)};
     if (any(lessThan(layer, vec2(0.0))) || any(greaterThan(layer, vec2(1.0))))
