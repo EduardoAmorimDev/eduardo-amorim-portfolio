@@ -1,17 +1,18 @@
-import { HOLE } from './black-hole.ts'
+import { HOLE, LIFT, horizonAt } from './black-hole.ts'
 import type { Point } from './grid-motion.ts'
 
-// why: the task's limits (cosmos, criterion 29): 20 to 60 px/s, a new turn
-// every 4 to 10 s, never more than 4 px in one frame, never stopping.
+// why: the tasks' limits (cosmos 29, black-hole-scale 12): 10 to 30 px/s,
+// half the first pace, a new turn every 4 to 10 s, never more than 4 px in
+// one frame, never stopping.
 export const WANDER = {
-  minSpeed: 20,
-  maxSpeed: 60,
+  minSpeed: 10,
+  maxSpeed: 30,
   /** Seconds each leg of the path takes. */
   minLeg: 4,
   maxLeg: 10,
   /** Largest change of speed from one leg to the next, in px/s. */
-  maxSpeedStep: 8,
-  /** Longest frame the path advances by; 60 px/s × 1/15 s = 4 px. */
+  maxSpeedStep: 4,
+  /** Longest frame the path advances by; 30 px/s × 1/15 s = 2 px. */
   maxFrame: 1 / 15,
   /** The turn at each waypoint, so every leg really changes direction. */
   minTurn: Math.PI / 12,
@@ -24,6 +25,11 @@ export const WANDER = {
   /** Shortest hop between waypoints, in multiples of minSpeed × minLeg. */
   minHop: 1.25,
   /**
+   * Longest hop between waypoints, in multiples of maxSpeed × maxLeg: a leg
+   * runs about a hop, so a longer one could not fit maxLeg at maxSpeed.
+   */
+  maxHop: 0.9,
+  /**
    * Slack kept inside every limit, so a leg sampled as a polyline and cut
    * into whole frames still lands within it.
    */
@@ -35,18 +41,27 @@ export const WANDER = {
 export type Box = { left: number; top: number; right: number; bottom: number }
 
 /**
- * The box the centre must stay in for the whole body (disk and arcs) to
- * keep HOLE.margin clear of every edge of a `width` × `height` hero.
+ * The box the centre must stay in for the sphere and its arcs (HOLE.
+ * halfHeight horizon radii around it) to keep HOLE.margin clear of every
+ * edge of a `width` × `height` hero, for a horizon of radius `horizon`. The
+ * disk, wider, may run past the edges (task black-hole-scale, criterion 3).
  */
 export const wanderBox = (
   width: number,
   height: number,
   horizon: number
 ): Box => {
-  const x = width * HOLE.margin + HOLE.halfWidth * horizon
+  const x = width * HOLE.margin + HOLE.halfHeight * horizon
   const y = height * HOLE.margin + HOLE.halfHeight * horizon
   return { left: x, top: y, right: width - x, bottom: height - y }
 }
+
+/**
+ * The black hole's box in a `width` × `height` hero: sized for its largest
+ * look, at the hero's foot, where the sheet is nearest, and fully risen.
+ */
+export const holeBox = (width: number, height: number) =>
+  wanderBox(width, height, horizonAt(width, height, height) * LIFT.highest)
 
 /** One leg: a quadratic curve from `from` towards `via`, ending at `to`. */
 type Leg = {
@@ -108,6 +123,16 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
     x: box.left + random() * (box.right - box.left),
     y: box.top + random() * (box.bottom - box.top)
   })
+  const longest = WANDER.maxHop * WANDER.maxSpeed * WANDER.maxLeg
+  /** A random point of the box within WANDER.maxHop of `from`. */
+  const near = (from: Point) => {
+    for (let attempt = 0; attempt < WANDER.tries; attempt++) {
+      const point = anywhere()
+      if (Math.hypot(point.x - from.x, point.y - from.y) <= longest)
+        return point
+    }
+    return anywhere()
+  }
 
   /**
    * The next leg from `from` towards `via`, or null if none fits. `relax` 1
@@ -119,7 +144,7 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
   const plan = (from: Point, via: Point, speed: number, relax: 0 | 1 | 2) => {
     let fallback: { leg: Leg; next: Point; stray: number } | null = null
     for (let attempt = 0; attempt < WANDER.tries; attempt++) {
-      const next = anywhere()
+      const next = near(via)
       const to = midpoint(via, next)
       const lengths = measure({ from, via, to })
       const length = lengths[WANDER.samples] ?? 0
@@ -185,7 +210,7 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
   const firstSpeed =
     WANDER.minSpeed +
     (0.25 + random() * 0.5) * (WANDER.maxSpeed - WANDER.minSpeed)
-  let planned = nextLeg(start, anywhere(), firstSpeed)
+  let planned = nextLeg(start, near(start), firstSpeed)
   let leg = planned.leg
   let travelled = 0
   let index = 0

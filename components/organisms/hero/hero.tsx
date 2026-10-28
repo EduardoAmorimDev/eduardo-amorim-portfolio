@@ -23,7 +23,13 @@ export const Hero = ({ id, children }: HeroProps) => {
   const lens = useRef<HTMLCanvasElement>(null)
   // why: the field writes the black hole's place here every frame and the
   // 3D scene reads it, so the hole and the well it digs never drift apart.
-  const hole = useRef<HoleBody>({ x: 0, y: 0, horizon: 0, scale: 1 })
+  const hole = useRef<HoleBody>({
+    x: 0,
+    y: 0,
+    horizon: 0,
+    scale: 1,
+    strength: 1
+  })
   useHeroField({ section, grid, lens, hole })
 
   return (

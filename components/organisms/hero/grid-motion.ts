@@ -24,15 +24,15 @@ export const POINTER_WELL = {
   core: 16
 } as const
 
-// why: sizes at the black hole's design scale (1 at 1440×900); they shrink
+// why: sizes at the black hole's design scale (1 at 1440×900), twice the
+// first ones with the black hole (task black-hole-scale, 4–6); they shrink
 // with it on narrow screens, and with depth like the sheet. `pull` equals
-// the horizon radius, so a point is never pulled past the centre, only into
-// the horizon; `sink` sets the well's depth, 40–80 px on screen (criterion
-// 4), shallow enough that no row sinks past the next one.
+// the horizon radius, so no point is pulled past the centre; `sink` sinks
+// the line nearest the centre 80–160 px, and no row past the next one.
 export const HOLE_WELL = {
-  radius: 280,
-  pull: 48,
-  sink: 84
+  radius: 560,
+  pull: 96,
+  sink: 168
 } as const
 
 export type Point = { x: number; y: number }
@@ -40,8 +40,15 @@ export type Point = { x: number; y: number }
 /** The pointer's well: where it is and how deep, 0 (gone) to 1 (full). */
 export type PointerBody = Point & { strength: number }
 
-/** The black hole's well: its centre, horizon radius and scale, in px. */
-export type HoleBody = Point & { horizon: number; scale: number }
+/**
+ * The black hole's well: its centre, horizon radius and scale, in px, and
+ * its strength, 1 (resting on the grid) to 0.5 (risen off it).
+ */
+export type HoleBody = Point & {
+  horizon: number
+  scale: number
+  strength: number
+}
 
 /** A point of the sheet: `u` across, `v` up the sheet, both from the centre. */
 export type SheetPoint = { u: number; v: number }
@@ -171,20 +178,22 @@ export const pointerShift = (
  * How far the black hole's well moves a sheet point: `u` pulls it sideways
  * towards the centre, strongest at the horizon and gone at the well's
  * radius, never past the centre; `depth` sinks the sheet into the well.
- * `horizon` is the horizon's radius in sheet px; sizes follow `scale`.
+ * `horizon` is the horizon's radius in sheet px; sizes follow `scale`, and
+ * the pull and the depth `strength` (the radius does not).
  */
 export const holeShift = (
   at: SheetPoint,
   body: SheetPoint,
   horizon: number,
-  scale: number
+  scale: number,
+  strength = 1
 ) => {
   const du = at.u - body.u
   const distance = Math.hypot(du, at.v - body.v)
   const radius = HOLE_WELL.radius * scale
-  const pull = HOLE_WELL.pull * scale
+  const pull = HOLE_WELL.pull * scale * strength
   if (distance >= radius) return { u: 0, depth: 0 }
-  const depth = HOLE_WELL.sink * scale * falloff(distance, radius)
+  const depth = HOLE_WELL.sink * scale * strength * falloff(distance, radius)
   if (distance === 0) return { u: 0, depth }
   const towards =
     distance <= horizon
@@ -198,7 +207,7 @@ export const holeShift = (
 /** The pointer's and the black hole's wells in a sheet, in sheet px. */
 export type Wells = {
   pointer: (Well & { strength: number }) | null
-  hole: (Well & { horizon: number; scale: number }) | null
+  hole: (Well & { horizon: number; scale: number; strength: number }) | null
 }
 
 /** Places both bodies on the sheet, from where they are on screen. */
@@ -221,7 +230,8 @@ export const wellsOf = (
           ...grid.toSheet(hole),
           radius: HOLE_WELL.radius * hole.scale,
           horizon: hole.horizon / sheetScale(grid.height, hole.y),
-          scale: hole.scale
+          scale: hole.scale,
+          strength: hole.strength
         }
       : null
 })
@@ -244,7 +254,13 @@ export const displace = (
     ? pointerShift(at, wells.pointer, wells.pointer.strength)
     : { u: 0, depth: 0 }
   const byHole = wells.hole
-    ? holeShift(at, wells.hole, wells.hole.horizon, wells.hole.scale)
+    ? holeShift(
+        at,
+        wells.hole,
+        wells.hole.horizon,
+        wells.hole.scale,
+        wells.hole.strength
+      )
     : { u: 0, depth: 0 }
   if (vertical)
     return grid.toScreen({ u: at.u + byPointer.u + byHole.u, v: at.v }, 0)

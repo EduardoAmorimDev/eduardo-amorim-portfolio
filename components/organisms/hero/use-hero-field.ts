@@ -7,8 +7,15 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import { useNearViewport } from '@/lib/use-near-viewport'
-import { holeScale, horizonAt, restPoint } from './black-hole'
-import { createWander, wanderBox, type Wander } from './black-hole-path'
+import {
+  holeLift,
+  holeScale,
+  horizonAt,
+  liftScale,
+  restPoint,
+  wellStrength
+} from './black-hole'
+import { createWander, holeBox, type Wander } from './black-hole-path'
 import {
   GRID,
   HOLE_WELL,
@@ -73,24 +80,28 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   let running = false
   let frame = 0
   let last = 0
+  // invariant: the black hole's rise and fall advances only while the loop
+  // runs, so it resumes where it paused, like its path.
+  let lifted = 0
 
   // why: the black hole sits on the sheet, so it shrinks with depth like
-  // the cells around it (task gravity, criterion 6).
+  // the cells around it (task gravity, criterion 6); risen off it, it looks
+  // larger and its well weakens (task black-hole-scale, criteria 8–9).
   const placeHole = (at: Point) => {
+    const lift = holeLift(lifted, still)
     hole.current = {
       x: at.x,
       y: at.y,
-      horizon: horizonAt(width, height, at.y),
-      scale: holeScale(width, height)
+      horizon: horizonAt(width, height, at.y) * liftScale(lift),
+      scale: holeScale(width, height),
+      strength: wellStrength(lift)
     }
   }
 
   /** A new path from where the black hole is, or rest under reduced motion. */
   const resetPath = () => {
     const rest = restPoint(width, height)
-    // why: the hole is largest at the hero's foot; that size keeps it 10%
-    // clear of every edge wherever it goes.
-    const box = wanderBox(width, height, horizonAt(width, height, height))
+    const box = holeBox(width, height)
     const { x, y } = hole.current.horizon ? hole.current : rest
     const start = {
       x: Math.min(box.right, Math.max(box.left, x)),
@@ -143,6 +154,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   const advance = (seconds: number) => {
+    if (!still) lifted += seconds
     placeHole(
       wander && !still ? wander.step(seconds) : restPoint(width, height)
     )
