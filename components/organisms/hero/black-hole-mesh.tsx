@@ -107,8 +107,10 @@ const fragmentShader = /* glsl */ `
     float turn = mix(uInnerTurn, uOuterTurn, share);
     float phase = angle - TAU * uTime / turn;
     vec2 onPlane = vec2(cos(phase), sin(phase)) * radius * GLOW;
-    float cloud = fbm(onPlane * 2.0 + 7.3) * 0.7 + fbm(onPlane * 5.0 - 3.1) * 0.3;
-    return smoothstep(0.3 - edge, 0.62 + edge, cloud);
+    // why: tufts a quarter larger and covering a little more of the disk,
+    // so the gas reads thicker without adding rows.
+    float cloud = fbm(onPlane * 1.6 + 7.3) * 0.7 + fbm(onPlane * 4.0 - 3.1) * 0.3;
+    return smoothstep(0.26 - edge, 0.6 + edge, cloud);
   }
 
   // The arcs' gas: soft-edged clouds over a faint haze.
