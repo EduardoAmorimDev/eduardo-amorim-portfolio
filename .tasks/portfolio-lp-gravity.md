@@ -7,6 +7,11 @@
 > px vira 80–160 px na subida 0) e 5 (280 px viram 560 px); o 6 passa de 96 a 192 px no repouso
 > e ganha o fator da subida (0,88 a 1,12 ×).
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-lensing.md` (2026-10-28):** sai de
+> `Out of scope` o item "Lente gravitacional física de verdade… o fundo atrás dele não é
+> distorcido" — o buraco negro passa a distorcer a malha atrás dele; o 21 passa a valer pela
+> captura de raios com b ≤ b_c (critério 2 de lá).
+
 ## Intent
 
 A Hero ainda não passa a sensação de gravidade que o dono do portfólio quer. Nas palavras dele:
