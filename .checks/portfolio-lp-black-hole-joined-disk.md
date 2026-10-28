@@ -55,11 +55,12 @@ Decisões reversíveis, registradas antes do código:
     num vão (luminância 0,06).
 
   Passam a ler:
-  - C3 e C4: o pixel mais claro a ±8° do raio, com limiar 0,05. C3 vê a diferença entre a
-    borda de cima e a de baixo, que deve ser 0,08 R ±0,03 (1,30 − 1,22). C4 vê a borda de
-    baixo entre 1,10 e 1,22 R, e o fonte garante a borda de baixo igual à de antes.
+  - C3 e C4: o pixel mais claro a ±8° do raio, com limiar 0,05, e as mesmas tolerâncias de
+    antes (1,30 e 1,22 ±0,05).
   - C6: o brilho médio numa faixa de 9 px de altura e ±0,05 R.
 
+  A primeira troca (só a diferença entre cima e embaixo) afrouxava o C3 e foi corrigida
+  depois da rodada 1 do Verifier.
   Medidas resultantes: em cima, 1,285 R; embaixo, 1,180 R; mínimo de C6, 92%.
 
 - **O canvas da constelação (`hero-lens`) fica:** o laço da Hero tira dele o tamanho. Sem título,
@@ -77,14 +78,13 @@ transparente (2). Proof: `probe.mjs` › "no text, no 2D drawing"
 
 ### S2 - Disco vertical mais grosso em cima · 2 files · ~15 KB
 
-**C3** - No raio para cima, o disco vertical acaba a 1,30 R ±0,05 (último ponto com
-luminância > 0,2 antes de 1,8 R) (3). Proof: `probe.mjs` › "thicker on top"
+**C3** - No raio para cima, o disco vertical acaba a 1,30 R ±0,05, pelo menos 0,05 R além da
+borda de baixo. A borda é o último raio antes de 1,8 R em que o pixel mais claro a ±8° do raio
+passa de luminância 0,05 (3). Proof: `probe.mjs` › "thicker on top"
 
-**C4** - No raio para baixo, ele acaba a 1,22 R ±0,05, e o fonte fixa a borda de baixo em
-1,22 onde sen θ ≤ −0,2 (4). Proof: `probe.mjs` › "unchanged below" e `source.ts` › "bottom
-edge stays 1.22"
-
-### S3 - Ligado ao horizontal · 1 file · ~12 KB
+**C4** - No raio para baixo, pela mesma medida, ele acaba a 1,22 R ±0,05. O fonte fixa a borda
+de baixo em 1,22 onde sen θ ≤ −0,2, e de 200° a 340° `rise` e `foot` valem 0 (4). Proof:
+`probe.mjs` › "unchanged below" e `source.ts` › "bottom edge stays 1.22"
 
 **C5** - O fonte alarga os pés até 1,6 R onde |sen θ| < 0,33 e usa o gás do disco horizontal ali
 (5). Proof: `source.ts` › "feet widen into the disk"
