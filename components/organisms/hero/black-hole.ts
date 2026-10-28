@@ -20,16 +20,16 @@ export const HOLE = {
   margin: 0.1
 } as const
 
-// why: the disk turns faster near the horizon, like a real one, and fast
-// enough to be seen going round it: 3 s a turn at the inner edge, 6 s at
-// the outer one (task black-hole-behind, 9).
+// why: the disk turns faster near the horizon, like a real one, but slowly
+// overall: 20 s a turn at the inner edge, 40 s at the outer one (asked for
+// "bem devagar" after black-hole-behind's 3 and 6 s).
 export const DISK = {
   /** Inner and outer edges, in horizon radii. */
   inner: 1.5,
   outer: 4.2,
   /** Seconds per turn at the inner and outer edges. */
-  innerTurn: 3,
-  outerTurn: 6
+  innerTurn: 20,
+  outerTurn: 40
 } as const
 
 // why: what lies on this layer is behind the black hole and is only seen

@@ -177,7 +177,7 @@ type BlackHoleProps = {
 
 /**
  * The black hole that wanders over the hero's grid: a camera-facing quad
- * with the horizon, photon ring and a tilted, rocking disk, and a point
+ * with the horizon, photon ring and a tilted, slowly turning disk, and a point
  * light of the disk's colour that lights the glass logo, over what lies
  * `behind` it, bent by its gravity (bent-light.tsx). Its place and size
  * come from the hero's field (use-hero-field.ts), which also sinks the grid
@@ -206,6 +206,8 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
       uPrimary: { value: colors.primary },
       uInnerTurn: { value: DISK.innerTurn },
       uOuterTurn: { value: DISK.outerTurn },
+      // why: the disk holds one pose, 15° above its plane and square; a
+      // swinging tilt read as the disk growing and shrinking.
       uTilt: { value: diskPose(0, true).tilt },
       uRoll: { value: 0 }
     }),
@@ -253,11 +255,6 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
     const time = shader?.uTime
     if (!shader || !time) return
     if (!still.current) time.value += delta
-    const pose = diskPose(time.value, still.current)
-    const tilt = shader.uTilt
-    const roll = shader.uRoll
-    if (tilt) tilt.value = pose.tilt
-    if (roll) roll.value = pose.roll
   })
 
   return (
