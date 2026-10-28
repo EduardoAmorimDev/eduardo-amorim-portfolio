@@ -39,11 +39,11 @@ export const DISK = {
 // through its lens (task black-hole-behind, 5); the camera sees layer 0.
 export const BEHIND_LAYER = 1
 
-// why: the disk is seen 15° above its plane, so it reads as a tilted ring
-// (task gravity, criteria 10 and 14–15): the tilt swings 12–18° every 16 s
-// and the axis rocks ±3° every 21 s, two cycles that never line up.
+// why: the disk is seen 14° above its plane, so it reads as a tilted ring;
+// 1° flatter than the first 15°, its 288 px half width rises ~70 px, not
+// 75. The hero holds it still; diskPose can still swing and rock it.
 export const DISK_POSE = {
-  tilt: (15 * Math.PI) / 180,
+  tilt: (14 * Math.PI) / 180,
   tiltSwing: (3 * Math.PI) / 180,
   tiltPeriod: 16,
   roll: (3 * Math.PI) / 180,
