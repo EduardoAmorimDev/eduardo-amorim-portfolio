@@ -6,9 +6,9 @@ import { LIFT, liftScale } from './black-hole.ts'
 // a screen distance in horizon radii times this is the ray's impact.
 export const CRITICAL_IMPACT = (3 * Math.sqrt(3)) / 2
 
-// why: the Einstein ring at 2 horizon radii with the black hole half risen,
-// as read on the task's reference (black-hole-lensing, 5).
-export const EINSTEIN = { radius: 2, lift: LIFT.still } as const
+// why: the Einstein ring at 1.6 horizon radii above and below the black
+// hole, half risen (black-hole-apple, 4; it was 2 in black-hole-lensing).
+export const EINSTEIN = { radius: 1.6, lift: LIFT.still } as const
 
 // why: midpoint steps of the deflection integral; within 0.1% of the weak
 // field at b = 1000 and 0.05% of the strong field at 1.001 b_c.
@@ -80,6 +80,18 @@ export const sourceRadius = (theta: number, bend: number) =>
   bend > 0 ? theta - bend * bentBy(theta) : theta
 
 const rings = new Map<number, number>()
+
+/**
+ * Where the ray seen `theta` horizon radii out, `angle` radians off the
+ * poles' axis (the horizontal), comes from: the lens of the dipole field
+ * line through that point, ρ = θ / sin²(angle), so the bend is whole above
+ * and below and fades to none at the poles, left and right
+ * (black-hole-apple, 3).
+ */
+export const sourceRadiusAt = (theta: number, angle: number, bend: number) => {
+  const share = Math.sin(angle) ** 2
+  return share > 0 && bend > 0 ? theta - bend * bentBy(theta / share) : theta
+}
 
 /** The Einstein ring's radius, in horizon radii, for a lens of `bend`. */
 export const einsteinRadius = (bend: number) => {

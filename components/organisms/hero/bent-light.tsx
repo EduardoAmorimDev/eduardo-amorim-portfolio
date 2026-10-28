@@ -59,7 +59,10 @@ const fragmentShader = /* glsl */ `
     vec2 offset = here - uCentre;
     float theta = length(offset) / uHorizon;
     if (theta <= 1.0) discard;
-    float beta = theta - uBend * bentBy(theta);
+    // why: the bend of the dipole field line through this point, whose
+    // radius above and below is ρ = θ / sin²φ (black-hole-apple, 3).
+    float share = pow(offset.y / length(offset), 2.0);
+    float beta = share > 1e-6 ? theta - uBend * bentBy(theta / share) : theta;
     vec2 from = (uCentre + offset * (beta / theta)) / uSize;
     vec2 layer = 0.5 + (vec2(from.x, 1.0 - from.y) - 0.5) / ${OVERSCAN.toFixed(1)};
     if (any(lessThan(layer, vec2(0.0))) || any(greaterThan(layer, vec2(1.0))))
