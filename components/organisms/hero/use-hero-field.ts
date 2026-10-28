@@ -94,7 +94,8 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
       y: at.y,
       horizon: horizonAt(width, height, at.y) * liftScale(lift),
       scale: holeScale(width, height),
-      strength: wellStrength(lift)
+      strength: wellStrength(lift),
+      lift
     }
   }
 

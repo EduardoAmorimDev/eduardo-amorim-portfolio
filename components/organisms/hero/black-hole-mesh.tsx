@@ -13,6 +13,7 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
+import { BentLight } from './bent-light'
 import { DISK, HOLE, diskPose } from './black-hole'
 import { HERO_CAMERA } from './glass-motion'
 import type { HoleBody } from './grid-motion'
@@ -170,16 +171,19 @@ const fragmentShader = /* glsl */ `
 type BlackHoleProps = {
   /** Where the hero's field puts the black hole, in hero px. */
   hole: RefObject<HoleBody>
+  /** The canvas of whatever lies behind it, which it bends. */
+  behind: RefObject<HTMLCanvasElement | null>
 }
 
 /**
  * The black hole that wanders over the hero's grid: a camera-facing quad
  * with the horizon, photon ring and a tilted, rocking disk, and a point
- * light of the disk's colour that lights the glass logo. Its place and size come from
- * the hero's field (use-hero-field.ts), which also bends the grid around it;
- * the disk turns unless reduced motion is on.
+ * light of the disk's colour that lights the glass logo, over what lies
+ * `behind` it, bent by its gravity (bent-light.tsx). Its place and size
+ * come from the hero's field (use-hero-field.ts), which also sinks the grid
+ * into its well; the disk turns unless reduced motion is on.
  */
-export const BlackHole = ({ hole }: BlackHoleProps) => {
+export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables are available.
   const colors = useMemo(
@@ -271,6 +275,7 @@ export const BlackHole = ({ hole }: BlackHoleProps) => {
         />
       </mesh>
       <pointLight color={light} intensity={INTENSITY} />
+      <BentLight hole={hole} behind={behind} />
     </group>
   )
 }

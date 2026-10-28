@@ -169,7 +169,7 @@ test('the black hole resumes where it stopped', async ({ page }) => {
   // why: a capture takes 0.3-0.6 s, long enough for the black hole to move
   // under it; with time stopped, nothing moves while one is taken.
   await gotoStopped(page, 2000)
-  await showSceneOnly(page)
+  await showSceneOnly(page, { stopped: true })
   const ink = channels(await tokenRgb(page, 'ink'))
   const before = await findHorizon(page, ink)
 

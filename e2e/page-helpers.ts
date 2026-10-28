@@ -202,15 +202,32 @@ export const hideHeroCopy = (page: Page) =>
       node.style.visibility = 'hidden'
   }, HERO_COPY)
 
+// why: two frames of a stopped clock, for the 3D scene to redraw.
+const FRAME_PAIR_MS = 34
+
 /**
  * Hides the copy, the grid and the lens, so pixel checks see only the 3D
- * scene: the black hole and the glass logo over the page background.
+ * scene: the black hole and the glass logo over the page background. The
+ * scene draws the grid itself (task black-hole-lensing, 9), so it is given
+ * two frames to draw it no more: real ones, or, on a page whose clock was
+ * stopped (`stopped`), two run forward.
  */
-export const showSceneOnly = (page: Page) =>
-  page.evaluate(selector => {
+export const showSceneOnly = async (
+  page: Page,
+  { stopped = false }: { stopped?: boolean } = {}
+) => {
+  await page.evaluate(selector => {
     for (const node of document.querySelectorAll<HTMLElement>(selector))
       node.style.visibility = 'hidden'
+    // why: the black hole bends the grid at the grid's own opacity.
+    const grid = document.querySelector<HTMLElement>(
+      '[data-testid="hero-grid"]'
+    )
+    if (grid) grid.style.opacity = '0'
   }, `${HERO_COPY}, [data-testid="hero-grid"], [data-testid="hero-lens"]`)
+  if (stopped) await page.clock.runFor(FRAME_PAIR_MS)
+  else await nextFrames(page)
+}
 
 /** Element boxes, read in one round trip. */
 export const boxesOf = (page: Page, selectors: readonly string[]) =>
