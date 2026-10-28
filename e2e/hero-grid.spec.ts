@@ -732,7 +732,8 @@ test('the well weakens as the black hole rises', async ({ page }) => {
   const lowest = samples.reduce((a, b) => (b.size < a.size ? b : a))
   const highest = samples.reduce((a, b) => (b.size > a.size ? b : a))
   // why: the same offset for both, past the larger horizon, so no line is
-  // cut away and each is read the same distance from its centre.
+  // cut away and each is read the same distance from its centre, on the
+  // side the line is followed in from.
   const offset = Math.max(lowest.radius, highest.radius) + 8
   const depth = (at: (typeof samples)[number]) => {
     const side = at.x > WIDTH / 2 ? -1 : 1
@@ -740,7 +741,7 @@ test('the well weakens as the black hole rises', async ({ page }) => {
     const row = columnCrossings(at.grid, start).reduce((best, y) =>
       Math.abs(y - at.y) < Math.abs(best - at.y) ? y : best
     )
-    const end = traceRow(at.grid, row, start, at.x - side * offset).at(-1)
+    const end = traceRow(at.grid, row, start, at.x + side * offset).at(-1)
     if (!end) throw new Error('no line traced')
     return (end.y - row) / sinkScaleAt(row, 900)
   }
