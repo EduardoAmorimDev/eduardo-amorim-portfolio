@@ -85,29 +85,41 @@ const fragmentShader = /* glsl */ `
     );
   }
 
-  // Streaks of gas at a radius and angle of the disk, turning once every
-  // uInnerTurn s at the inner edge and uOuterTurn s at the outer one; read on
-  // a circle, so a whole turn brings the same pattern back.
-  float gas(float radius, float angle) {
-    float share = clamp((radius - DISK_IN) / (DISK_OUT - DISK_IN), 0.0, 1.0);
-    float turn = mix(uInnerTurn, uOuterTurn, share);
-    float phase = angle - TAU * uTime / turn;
-    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1) * GLOW;
-    float streak = noise(circle * 2.3 + radius * 3.1) * 0.6
-      + noise(circle * 5.9) * 0.4;
-    return GLOW * (0.15 * GLOW + 1.25 * pow(streak, 1.8));
+  // Clouds made of five layers of noise, each finer and turned, so the gas
+  // reads as tufts and wisps rather than streaks.
+  float fbm(vec2 p) {
+    float value = 0.0;
+    float weight = 0.5;
+    mat2 turn = mat2(1.6, 1.2, -1.2, 1.6);
+    for (int layer = 0; layer < 5; layer++) {
+      value += weight * noise(p);
+      p = turn * p;
+      weight *= 0.5;
+    }
+    return value;
   }
 
-  // The tilted disk's own streaks: finer and with more contrast than the
-  // arcs' gas, so its slow turn stays visible seen nearly edge-on.
-  float diskGas(float radius, float angle) {
+  // The gas at a radius and angle of the disk: clouds fixed to the disk's
+  // own plane, turning once every uInnerTurn s at the inner edge and
+  // uOuterTurn s at the outer one; sharp-edged, so each tuft is distinct.
+  float clouds(float radius, float angle, float edge) {
     float share = clamp((radius - DISK_IN) / (DISK_OUT - DISK_IN), 0.0, 1.0);
     float turn = mix(uInnerTurn, uOuterTurn, share);
     float phase = angle - TAU * uTime / turn;
-    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1) * GLOW;
-    float streak = noise(circle * 3.4 + radius * 4.3) * 0.65
-      + noise(circle * 8.1) * 0.35;
-    return GLOW * (0.08 * GLOW + 1.6 * pow(streak, 2.6));
+    vec2 onPlane = vec2(cos(phase), sin(phase)) * radius * GLOW;
+    float cloud = fbm(onPlane * 2.0 + 7.3) * 0.7 + fbm(onPlane * 5.0 - 3.1) * 0.3;
+    return smoothstep(0.3 - edge, 0.62 + edge, cloud);
+  }
+
+  // The arcs' gas: soft-edged clouds over a faint haze.
+  float gas(float radius, float angle) {
+    return GLOW * (0.12 * GLOW + 1.4 * clouds(radius, angle, 0.06));
+  }
+
+  // The tilted disk's gas: tighter edges and more contrast, so its slow
+  // turn stays visible seen nearly edge-on.
+  float diskGas(float radius, float angle) {
+    return GLOW * (0.06 * GLOW + 1.8 * pow(clouds(radius, angle, 0.0), 1.3));
   }
 
   // Doppler beaming: the side turning towards the viewer (cos < 0, the
