@@ -51,8 +51,9 @@ export const wanderBox = (
   height: number,
   horizon: number
 ): Box => {
-  const x = width * HOLE.margin + HOLE.halfHeight * horizon
-  const y = height * HOLE.margin + HOLE.halfHeight * horizon
+  const reach = Math.max(HOLE.halfHeight, HOLE.topHeight) * horizon
+  const x = width * HOLE.margin + reach
+  const y = height * HOLE.margin + reach
   return { left: x, top: y, right: width - x, bottom: height - y }
 }
 

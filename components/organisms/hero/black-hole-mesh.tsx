@@ -60,6 +60,9 @@ const fragmentShader = /* glsl */ `
   const float DISK_IN = ${DISK.inner.toFixed(2)};
   const float DISK_OUT = ${DISK.outer.toFixed(2)};
   const float ARC_OUT = ${HOLE.halfHeight.toFixed(2)};
+  const float ARC_TOP = ${HOLE.topHeight.toFixed(2)};
+  // Where the vertical disk's feet reach along the horizontal one's plane.
+  const float FOOT_OUT = 1.6;
   const float ARC_IN = 1.05;
   const float RING = 1.04;
   // The disk's own thickness, in horizon radii, and how much brighter its
@@ -174,15 +177,27 @@ const fragmentShader = /* glsl */ `
     float depth = smoothstep(DISK_IN, DISK_OUT - 0.6, length(vec2(q.x, q.y / lean)));
     vec3 diskColor = mix(uMist, uPrimary, depth);
 
-    // The far half, bent round the whole horizon: a ring from ARC_IN to
-    // ARC_OUT, whole over the top, fainter at the sides and below.
+    // The vertical disk: the horizontal one's far half, bent round the
+    // horizon. It reaches ARC_TOP above and ARC_OUT below (untouched where
+    // sin θ ≤ −0.2); at the sides its feet widen along the horizontal
+    // disk's plane to FOOT_OUT and take its gas, so the two read as one.
     // hazard: the fade-out must start past ARC_IN, or the band vanishes.
+    float rise = smoothstep(-0.2, 0.6, sin(theta));
+    float foot = 1.0 - smoothstep(0.1, 0.33, abs(sin(theta)));
+    float outer = mix(mix(ARC_OUT, ARC_TOP, rise), FOOT_OUT, foot);
     float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.04, r)
-      * (1.0 - smoothstep(ARC_OUT - 0.1, ARC_OUT + 0.04, r));
+      * (1.0 - smoothstep(outer - 0.1, outer + 0.04, r));
     float arcRadius = mix(DISK_IN, DISK_OUT * 0.7,
-      clamp((r - ARC_IN) / (ARC_OUT - ARC_IN), 0.0, 1.0));
-    float over = arcBand * mix(0.6, 1.0, smoothstep(-0.3, 0.4, sin(theta)))
-      * pow(ARC_IN / r, 2.2) * gas(arcRadius, theta) * beam(cos(theta)) * 1.15;
+      clamp((r - ARC_IN) / (outer - ARC_IN), 0.0, 1.0));
+    vec2 onPlane = vec2(q.x, q.y / lean);
+    float arcGas = mix(
+      gas(arcRadius, theta),
+      diskGas(length(onPlane), atan(onPlane.y, onPlane.x)),
+      foot
+    );
+    float weight = max(mix(0.6, 1.0, smoothstep(-0.3, 0.4, sin(theta))), foot);
+    float fall = mix(pow(ARC_IN / r, 2.2), pow(ARC_IN / r, 0.8), foot);
+    float over = arcBand * weight * fall * arcGas * beam(cos(theta)) * 1.15;
     vec3 arcColor = mix(uMist, uPrimary, smoothstep(ARC_IN, ARC_OUT, r));
 
     float ring = exp(-pow((r - RING) / 0.028, 2.0)) * 1.4;

@@ -12,8 +12,10 @@ export const HOLE = {
   designHeight: 900,
   /** The body's half extent, in horizon radii: the disk's outer edge … */
   halfWidth: 3,
-  /** … and the arcs' outer edge, drawn close to the horizon. */
+  /** … the vertical disk's outer edge below the horizon … */
   halfHeight: 1.22,
+  /** … and above it, a little thicker (black-hole-joined-disk, 3). */
+  topHeight: 1.3,
   /** Resting point, as a share of the hero's width and height. */
   rest: { x: 0.5, y: 0.32 },
   /** Share of the hero kept clear on every side. */
