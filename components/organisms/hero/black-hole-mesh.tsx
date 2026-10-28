@@ -23,7 +23,7 @@ import type { HoleBody } from './grid-motion'
 const DEPTH = 8.5
 // why: the quad's half size in horizon radii: the disk's outer edge plus
 // room for its glow to fade out before the quad ends.
-const SPAN = 4.6
+const SPAN = 5.6
 // why: candela, fading with the square of the distance; enough to light the
 // logo's facing side a few units away (cosmos 31), doubled with the black
 // hole (black-hole-scale 1), whose larger glow behind the glass lifts both
