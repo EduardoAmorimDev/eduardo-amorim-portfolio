@@ -3,6 +3,9 @@
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-flow.md` (2026-10-28):** 3–5 (o fator
+> de ângulo passa a |sen φ|^0,5, um fluxo em volta do círculo se soma à lente, e os números mudam).
+
 ## Intent
 
 A lente do buraco negro (`portfolio-lp-black-hole-lensing`, `-behind`) não tem o formato que o
