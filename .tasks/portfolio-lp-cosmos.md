@@ -3,6 +3,10 @@
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-scale.md` (2026-10-27):** 28 (96
+> px viram 192 px) e 29 (a velocidade passa a 10–30 px/s, e só a esfera e os arcos ficam a 10%
+> das bordas).
+
 ## Intent
 
 Hoje a Hero não conta a história que o dono do portfólio quer contar (astronomia, gravidade):

@@ -27,9 +27,9 @@ const SIZES = [
   { width: 768, height: 1024 },
   { width: 375, height: 667 }
 ]
-// why: around the resting black hole, its disk and arcs, at 1440×900; past
-// it, anything lit off the background is the logo. It shrinks with the hole.
-const HOLE_REACH = { x: 240, y: 95 }
+// why: around the black hole, the ellipse its disk and arcs fill, in
+// horizon radii; past it, anything lit off the background is the logo.
+const HOLE_REACH = { x: 4.4, y: 1.8 }
 const LOGO_GAP = 24
 const CORNERS = [
   { x: 2, y: 2 },
@@ -124,12 +124,8 @@ const logoBox = async (page: Page) => {
   const ink = channels(await tokenRgb(page, 'ink'))
   const hole = horizonIn(pixels, ink)
   if (!hole) throw new Error('no event horizon on screen')
-  // why: the horizon is 96 px across at 1440×900; its disk and arcs scale
-  // with it.
-  const reach = {
-    x: (HOLE_REACH.x * hole.width) / 96,
-    y: (HOLE_REACH.y * hole.width) / 96
-  }
+  const radius = hole.width / 2
+  const reach = { x: HOLE_REACH.x * radius, y: HOLE_REACH.y * radius }
   let left = Infinity
   let right = -Infinity
   let top = Infinity
@@ -138,7 +134,7 @@ const logoBox = async (page: Page) => {
   const lit: { x: number; y: number }[] = []
   for (let y = 0; y < pixels.height; y++)
     for (let x = 0; x < pixels.width; x++) {
-      if (Math.abs(x - hole.cx) < reach.x && Math.abs(y - hole.cy) < reach.y)
+      if (((x - hole.cx) / reach.x) ** 2 + ((y - hole.cy) / reach.y) ** 2 <= 1)
         continue
       if (channelGap(pixelAt(pixels, x, y), ink) <= LOGO_GAP) continue
       count++

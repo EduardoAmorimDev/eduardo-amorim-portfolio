@@ -24,8 +24,10 @@ const DEPTH = 8.5
 // room for its glow to fade out before the quad ends.
 const SPAN = 4.6
 // why: candela, fading with the square of the distance; enough to light the
-// logo's facing side a few units away (criterion 31).
-const INTENSITY = 160
+// logo's facing side a few units away (cosmos 31), doubled with the black
+// hole (black-hole-scale 1), whose larger glow behind the glass lifts both
+// of the logo's sides alike.
+const INTENSITY = 320
 // why: the light takes the disk's colour: mist warmed towards the brand blue.
 const LIGHT_BLEND = 0.4
 

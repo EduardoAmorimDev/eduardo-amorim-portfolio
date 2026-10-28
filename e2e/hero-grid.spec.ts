@@ -8,10 +8,20 @@ import {
   readGrid,
   readableRows,
   rowCrossings,
+  sheetDistance,
+  sheetScaleAt,
+  sinkScaleAt,
   sweepPointer,
   type GridImage
 } from './grid-helpers'
-import { boxesOf, gotoHero, gotoStopped } from './page-helpers'
+import { firstScreen, horizonIn } from './black-hole-helpers'
+import {
+  boxesOf,
+  channels,
+  gotoHero,
+  gotoStopped,
+  tokenRgb
+} from './page-helpers'
 
 // why: the checklists' own numbers (cosmos C24–C37; gravity C1–C17), at
 // 1440×900.
@@ -21,13 +31,24 @@ const MIDDLE_ASPECT = { min: 0.55, max: 0.7 }
 const TOP_ASPECT = 0.55
 const TOP_TO_BOTTOM = 0.75
 const POINTER_RADIUS = 180
-const HOLE_RADIUS = 280
-const HOLE_PULL = 48
-const HOLE_SINK = { min: 40, max: 80 }
-// why: the well's 280 sheet px around the resting hole, on the flat sheet
+// why: the black hole's well, twice the first one (black-hole-scale C6,
+// C18): 560 sheet px, pulling at most 96 px; at half lift (reduced motion)
+// the line nearest the centre sinks 60–120 px.
+const HOLE_RADIUS = 560
+const HOLE_PULL = 96
+const HOLE_SINK = { min: 60, max: 120 }
+const RIM_SINK = 0.1
+// why: black-hole-scale C28: risen, the well is half as deep. Read at two
+// moments, the black hole at two places on the sheet, the depth under the
+// same offset from its centre differs a little by place; 1.5 still tells
+// half strength (2×) from none (1×).
+const RISEN_RATIO = 1.5
+const RISE_SAMPLES = 27
+const RISE_STEP_MS = 500
+// why: the well's 560 sheet px around the resting hole, on the flat sheet
 // (tilted 50°, focus 3 × the hero's height), cross the measured column
-// (56 px right of the centre) 140.9 px above the centre and 163.9 px below.
-const WELL_ON_SCREEN = { up: 140.9, down: 163.9 }
+// (104 px off the centre) 264.2 px above the centre and 357.8 px below.
+const WELL_ON_SCREEN = { up: 264.2, down: 357.8 }
 const NARROWER = 0.85
 // why: a well's radius is in sheet px, screen px at the middle row; the
 // sheet is nearest, and so largest, at the hero's foot, 1.2 times as large.
@@ -39,11 +60,11 @@ const SETTLE_MS = 800
 const CORNER = 64
 // why: where the black hole rests: the hero's centre, 32% down.
 const REST = { x: 720, y: 288 }
-const HORIZON = 48
+const HORIZON = 96
 // why: the black hole moves at most 60 px/s from rest, which it leaves at
 // load; a test that runs the page clock `ms` in all keeps every sample this
 // much further from rest, so it stays clear of the well wherever the hole is.
-const MAX_SPEED = 60
+const MAX_SPEED = 30
 const drift = (ms: number) => (MAX_SPEED * ms) / 1000 + 4
 const WIDTH = 1440
 // why: a line is matched to the crossing nearest its straight course only
@@ -64,12 +85,22 @@ const nearestTo = (xs: readonly number[], expected: number) => {
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.hypot(a.x - b.x, a.y - b.y)
 
-/** Far from both wells, where the grid must be straight. */
+/**
+ * Far from both wells, where the grid must be straight: past each well's
+ * radius on the sheet, plus `holeSlack` px for how far the black hole may
+ * have drifted from rest.
+ */
 const farFrom =
-  (pointer: { x: number; y: number } | null, holeSlack: number) =>
+  (
+    pointer: { x: number; y: number } | null,
+    holeSlack: number,
+    hole: { x: number; y: number } = REST
+  ) =>
   (point: { x: number; y: number }) =>
-    distance(point, REST) > HOLE_RADIUS + holeSlack &&
-    (!pointer || distance(point, pointer) > POINTER_RADIUS * NEAREST_SCALE + 10)
+    sheetDistance(point, hole, 900, WIDTH) >
+      HOLE_RADIUS + holeSlack * NEAREST_SCALE &&
+    (!pointer ||
+      sheetDistance(point, pointer, 900, WIDTH) > POINTER_RADIUS + 10)
 
 /** Straight fits of every vertical line, from its samples kept by `keep`. */
 const fits = (
@@ -105,9 +136,16 @@ const bends = (
   holeSlack: number,
   grid: GridImage,
   pointer: { x: number; y: number },
-  rest: { y: number; left: number; right: number }
+  rest: { y: number; left: number; right: number },
+  hole: { x: number; y: number } = REST,
+  flat: GridImage | null = null
 ) => {
-  const straight = fits(grid, farFrom(pointer, holeSlack))
+  // why: read before the pointer came, every line's course is whole but
+  // where the black hole's well bends it; read now, the pointer's well
+  // takes its samples away too.
+  const straight = flat
+    ? fits(flat, farFrom(null, holeSlack, hole))
+    : fits(grid, farFrom(pointer, holeSlack, hole))
   const course = (x: number) => {
     const found = straight.reduce((best, fit) =>
       Math.abs(fit.line.at(rest.y) - x) < Math.abs(best.line.at(rest.y) - x)
@@ -119,6 +157,9 @@ const bends = (
   const left = course(rest.left)
   const right = course(rest.right)
   const shifts: { left: number[]; right: number[] } = { left: [], right: [] }
+  // why: inside the black hole's well, its own pull and its sinking
+  // horizontals would be read as the pointer's.
+  const clear = farFrom(null, holeSlack, hole)
   for (const { y, xs } of readableRows(
     grid,
     pointer.y - POINTER_RADIUS,
@@ -130,6 +171,7 @@ const bends = (
       ['right', right]
     ] as const) {
       const expected = line.at(y)
+      if (!clear({ x: expected, y })) continue
       const nearest = nearestTo(xs, expected)
       if (nearest !== null) shifts[side].push(nearest - expected)
     }
@@ -137,12 +179,48 @@ const bends = (
   return shifts
 }
 
+/**
+ * Where the black hole is now, on a page at the top: it rests at REST only
+ * under reduced motion; moving, it starts where its path's box lets it,
+ * which may be off REST. The 3D scene is read alone, then shown again.
+ */
+const holeNow = async (page: Page) => {
+  const found = await holeIfFound(page)
+  if (!found) throw new Error('no event horizon on screen')
+  return found
+}
+
+/** Where the black hole is now, or null in a rare frame it cannot be read. */
+const holeIfFound = async (page: Page) => {
+  const hidden = await page.evaluate(() => {
+    const nodes = [
+      ...document.querySelectorAll<HTMLElement>(
+        '#hero h1, #hero p, #hero a, #hero [data-lens], [data-testid="hero-grid"], [data-testid="hero-lens"]'
+      )
+    ]
+    for (const node of nodes) node.style.visibility = 'hidden'
+    return nodes.length
+  })
+  expect(hidden).toBeGreaterThan(0)
+  const horizon = horizonIn(
+    await firstScreen(page),
+    channels(await tokenRgb(page, 'ink'))
+  )
+  await page.evaluate(() => {
+    for (const node of document.querySelectorAll<HTMLElement>('#hero *'))
+      node.style.visibility = ''
+  })
+  return horizon ? { x: horizon.cx, y: horizon.cy, width: horizon.width } : null
+}
+
 const expectStraight = (
   grid: GridImage,
   keep: (p: { x: number; y: number }) => boolean
 ) => {
   const lines = fits(grid, keep)
-  expect(lines.length, 'lines measured').toBeGreaterThan(20)
+  // why: the black hole's well, 560 sheet px, leaves straight lines only
+  // near the hero's sides and foot.
+  expect(lines.length, 'lines measured').toBeGreaterThan(6)
   for (const { samples, line } of lines)
     for (const { x, y } of samples)
       expect(
@@ -187,7 +265,7 @@ const gapsNear = (
  * on a readable row between them.
  */
 const cellAt = (grid: GridImage, y: number) => {
-  const probe = between(grid, 200, Math.max(y, 12))
+  const probe = between(grid, 100, Math.max(y, 12))
   const column = (probe.left + probe.right) / 2
   const rows = columnCrossings(grid, column)
   const below = Math.max(
@@ -266,7 +344,9 @@ test.describe('black hole at rest', () => {
     const grid = await readGrid(page)
     const keep = farFrom(null, 20)
     const middle = gapsNear(grid, 450, 450, keep)
-    expect(middle.length).toBeGreaterThan(10)
+    // why: the black hole's well bends the middle row's verticals for
+    // ~520 px either side of it; the gaps past it are read.
+    expect(middle.length).toBeGreaterThan(5)
     for (const gap of middle)
       expect(Math.abs(gap - SPACING), `gap ${gap}`).toBeLessThanOrEqual(
         SPACING_SLACK
@@ -308,12 +388,12 @@ test.describe('black hole at rest', () => {
     await gotoHero(page)
     const grid = await readGrid(page)
     const straight = fits(grid, farFrom(null, 20))
-    // why: lines 175–235 px off the centre, inside the well at the hole's
+    // why: lines 380–480 px off the centre, inside the well at the hole's
     // depth, bend by less than half a gap, so the crossing nearest a line's
     // straight course is that line's own.
     const near = straight.filter(({ line }) => {
       const off = Math.abs(line.at(REST.y) - REST.x)
-      return off >= 175 && off <= 235
+      return off >= 380 && off <= 480
     })
     for (const side of [-1, 1])
       expect(
@@ -347,7 +427,7 @@ test.describe('black hole at rest', () => {
           expect(alphaAt(grid, x, y), `ink at ${x},${y}`).toBe(0)
   })
 
-  test("horizontals through the black hole's well sink, 40 to 80px at its centre", async ({
+  test("horizontals through the black hole's well sink, 60 to 120px at half lift", async ({
     page
   }) => {
     await gotoHero(page)
@@ -374,9 +454,11 @@ test.describe('black hole at rest', () => {
         ({ y }) =>
           y - REST.y > -WELL_ON_SCREEN.up && y - REST.y < WELL_ON_SCREEN.down
       )
-      expect(inside.length).toBeGreaterThanOrEqual(11)
+      // why: the well's edges on this column hold 23 horizontals; a few
+      // may be lost where a vertical blurs a neighbouring column.
+      expect(inside.length).toBeGreaterThanOrEqual(20)
       for (const { y, sink } of inside)
-        expect(sink, `line at ${y}px`).toBeGreaterThan(0.5)
+        expect(sink, `line at ${y}px`).toBeGreaterThan(RIM_SINK)
       const nearest = shifts.reduce((best, shift) =>
         Math.abs(shift.y - REST.y) < Math.abs(best.y - REST.y) ? shift : best
       )
@@ -390,14 +472,15 @@ test('lines far from the pointer and the black hole stay straight', async ({
   page
 }) => {
   await gotoStopped(page, 300)
+  const hole = await holeNow(page)
   const pointer = { x: 240, y: 640 }
   await pointAt(page, pointer, 300)
   const grid = await readGrid(page)
-  expectStraight(grid, farFrom(pointer, drift(600)))
-  // invariant: the horizontals are straight too. Right of 1100 px both
-  // wells are out of reach: the black hole's reaches ~340 px across where
-  // the sheet is nearest, from at most drift(600) off 720 px. Each is
-  // followed across, and no stretch of it leaves its row by over 1 px.
+  expectStraight(grid, farFrom(pointer, drift(300), hole))
+  // invariant: the horizontals are straight too. Right of 1290 px both
+  // wells are out of reach: the black hole's reaches ~520 px across at
+  // most, and it starts within ~40 px of 720 px. Each is followed across, and no
+  // stretch of it leaves its row by over 1 px.
   // why: a horizontal crosses neighbouring columns at the same height; a
   // vertical, leaning, crosses them tens of px apart.
   const neighbours = [WIDTH - 48, WIDTH - 56].map(x => columnCrossings(grid, x))
@@ -409,7 +492,7 @@ test('lines far from the pointer and the black hole stay straight', async ({
   expect(rows.length, 'horizontals measured').toBeGreaterThan(15)
   for (const row of rows) {
     let run = 0
-    for (const { x, y } of traceRow(grid, row, WIDTH - 40, 1100)) {
+    for (const { x, y } of traceRow(grid, row, WIDTH - 40, 1290)) {
       run = Math.abs(y - row) > STRAIGHT_PX ? run + 1 : 0
       expect(run, `horizontal at ${row}px, at ${x}px`).toBeLessThan(SUSTAINED)
     }
@@ -420,7 +503,9 @@ test('the pointer pulls the nearest verticals 6 to 20px towards it', async ({
   page
 }) => {
   await gotoStopped(page, 300)
-  const rest = between(await readGrid(page), 240, 640)
+  const hole = await holeNow(page)
+  const flat = await readGrid(page)
+  const rest = between(flat, 240, 640)
   const [title] = await boxesOf(page, ['#hero h1'])
   // invariant: the pointer's well works off the title too (gravity, 16).
   expect(title && 640 > title.bottom, 'the pointer is outside the title').toBe(
@@ -433,7 +518,14 @@ test('the pointer pulls the nearest verticals 6 to 20px towards it', async ({
   ] as const) {
     const pointer = { x: rest.left + gap * share, y: rest.y }
     await pointAt(page, pointer, 300)
-    const shift = bends(drift(900), await readGrid(page), pointer, rest)
+    const shift = bends(
+      drift(600),
+      await readGrid(page),
+      pointer,
+      rest,
+      hole,
+      flat
+    )
     const label = `pointer at ${share} of the gap`
     // invariant: towards the pointer is right for the left line, left for
     // the right one; never the other way.
@@ -515,21 +607,32 @@ test('the well follows the pointer within 150ms and stays while it rests', async
   page
 }) => {
   await gotoStopped(page, 300)
-  // why: on the middle row lines sit exactly 48 px apart, so two gaps on
+  const hole = await holeNow(page)
+  const flat = await readGrid(page)
+  // why: low in the hero, the black hole's 560 px well, high up, stays
+  // clear of both points; lines there are evenly spaced, so two gaps on
   // from one midpoint lies another.
-  const start = between(await readGrid(page), 200, 450)
+  const start = between(flat, 160, 700)
+  const gap = start.right - start.left
   const first = { x: (start.left + start.right) / 2, y: start.y }
-  const second = { x: first.x + 2 * SPACING, y: first.y }
+  const second = { x: first.x + 2 * gap, y: first.y }
   const rest = {
     y: start.y,
-    left: start.left + 2 * SPACING,
-    right: start.right + 2 * SPACING
+    left: start.left + 2 * gap,
+    right: start.right + 2 * gap
   }
   await pointAt(page, first, 300)
   await page.mouse.move(second.x, second.y)
   for (const wait of [FOLLOW_MS, 2000]) {
     await page.clock.runFor(wait)
-    const shift = bends(drift(2750), await readGrid(page), second, rest)
+    const shift = bends(
+      drift(2750),
+      await readGrid(page),
+      second,
+      rest,
+      hole,
+      flat
+    )
     const left = Math.max(...shift.left)
     const right = -Math.min(...shift.right)
     const label = `${wait} ms after the jump`
@@ -545,6 +648,7 @@ test('the well fades within 800ms after the pointer leaves', async ({
   page
 }) => {
   await gotoStopped(page, 300)
+  const hole = await holeNow(page)
   // why: half the hero scrolled away leaves its lower half on screen, with
   // room below it to take the mouse out of the hero.
   await page.evaluate(() => window.scrollTo({ top: 450, behavior: 'instant' }))
@@ -555,12 +659,13 @@ test('the well fades within 800ms after the pointer leaves', async ({
     drift(650),
     await readGrid(page),
     pointer,
-    between(await readGrid(page), pointer.x, pointer.y)
+    between(await readGrid(page), pointer.x, pointer.y),
+    hole
   )
   expect(Math.max(...bent.left.map(Math.abs))).toBeGreaterThan(1)
   await page.mouse.move(pointer.x, 700, { steps: 4 })
   await page.clock.runFor(SETTLE_MS)
-  expectStraight(await readGrid(page), farFrom(null, drift(1450)))
+  expectStraight(await readGrid(page), farFrom(null, drift(1450), hole))
 })
 
 test('the grid and the lens never take the pointer', async ({ page }) => {
@@ -592,4 +697,58 @@ test('the grid and the lens never take the pointer', async ({ page }) => {
     }
   })
   expect(hits).toEqual({ scene: true, title: true, cta: true })
+})
+
+test('the well weakens as the black hole rises', async ({ page }) => {
+  // why: 27 captures of the scene and the grid, one every 0.5 s of page
+  // time, outlast the default 30 s.
+  test.setTimeout(150_000)
+  await gotoStopped(page, 300)
+  // invariant: over one rise and fall (12 s), the moment it looks smallest
+  // for its depth on the sheet is when it rests on the grid (lift 0), and
+  // largest when it is farthest off it (lift 1).
+  const samples: {
+    grid: GridImage
+    x: number
+    y: number
+    radius: number
+    size: number
+  }[] = []
+  for (let sample = 0; sample < RISE_SAMPLES; sample++) {
+    if (sample) await page.clock.runFor(RISE_STEP_MS)
+    const hole = await holeIfFound(page)
+    if (!hole) continue
+    const grid = await readGrid(page)
+    const radius = hole.width / 2
+    samples.push({
+      grid,
+      x: hole.x,
+      y: hole.y,
+      radius,
+      size: radius / sheetScaleAt(hole.y, 900)
+    })
+  }
+  expect(samples.length, 'frames read').toBeGreaterThanOrEqual(RISE_SAMPLES - 3)
+  const lowest = samples.reduce((a, b) => (b.size < a.size ? b : a))
+  const highest = samples.reduce((a, b) => (b.size > a.size ? b : a))
+  // why: the same offset for both, past the larger horizon, so no line is
+  // cut away and each is read the same distance from its centre, on the
+  // side the line is followed in from.
+  const offset = Math.max(lowest.radius, highest.radius) + 8
+  const depth = (at: (typeof samples)[number]) => {
+    const side = at.x > WIDTH / 2 ? -1 : 1
+    const start = side < 0 ? 40 : WIDTH - 40
+    const row = columnCrossings(at.grid, start).reduce((best, y) =>
+      Math.abs(y - at.y) < Math.abs(best - at.y) ? y : best
+    )
+    const end = traceRow(at.grid, row, start, at.x + side * offset).at(-1)
+    if (!end) throw new Error('no line traced')
+    return (end.y - row) / sinkScaleAt(row, 900)
+  }
+  const low = depth(lowest)
+  const high = depth(highest)
+  expect(
+    low / high,
+    `${low} on the grid, ${high} risen; sizes ${lowest.size}, ${highest.size}`
+  ).toBeGreaterThanOrEqual(RISEN_RATIO)
 })

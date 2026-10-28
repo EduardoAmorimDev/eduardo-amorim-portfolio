@@ -1,13 +1,13 @@
 import { viewFit } from './glass-motion.ts'
 import { sheetScale } from './grid-motion.ts'
 
-// why: the task's numbers (cosmos, criteria 28–30) at 1440×900: a 96 px
-// horizon, a near edge-on disk ~4 diameters wide (outer radius 4.2 horizon
-// radii), the back of the disk bent into arcs up to 1.65 radii above and
-// below; it rests at the centre, 32% down, 10% clear of every edge.
+// why: the tasks' numbers at 1440×900 (cosmos 28–30, black-hole-scale 1–3):
+// a 192 px horizon, a disk ~4 diameters wide (outer radius 4.2 horizon
+// radii), its back bent into arcs up to 1.65 radii above and below; it rests
+// at the centre, 32% down, its sphere and arcs 10% clear of every edge.
 export const HOLE = {
   /** Horizon diameter in CSS px at the design size. */
-  horizon: 96,
+  horizon: 192,
   /** The design size the numbers above are measured at. */
   designHeight: 900,
   /** The body's half extent, in horizon radii: the disk's outer edge … */
@@ -55,6 +55,37 @@ export const diskPose = (seconds: number, still: boolean) => {
     roll: DISK_POSE.roll * turn(DISK_POSE.rollPeriod)
   }
 }
+
+// why: the black hole rises off the grid and sinks back to it (task
+// black-hole-scale, criteria 7–11): nearer the viewer it looks up to 1.12×
+// its size and its well is half as strong; resting on the grid, 0.88× and
+// full strength. One rise and fall takes 12 s, apart from the disk's 16 s
+// and 21 s cycles.
+export const LIFT = {
+  period: 12,
+  lowest: 0.88,
+  highest: 1.12,
+  weakest: 0.5,
+  /** Where a still black hole holds. */
+  still: 0.5
+} as const
+
+/**
+ * How far off the grid the black hole is `seconds` into its motion: 0
+ * resting on it, 1 the farthest; it starts on the grid. Still, it holds at
+ * LIFT.still.
+ */
+export const holeLift = (seconds: number, still: boolean) =>
+  still
+    ? LIFT.still
+    : 0.5 - 0.5 * Math.cos((2 * Math.PI * seconds) / LIFT.period)
+
+/** How much larger the black hole looks at `lift`: 0.88 to 1.12. */
+export const liftScale = (lift: number) =>
+  LIFT.lowest + (LIFT.highest - LIFT.lowest) * lift
+
+/** How strong its well is at `lift`: 1 on the grid, 0.5 the farthest. */
+export const wellStrength = (lift: number) => 1 - (1 - LIFT.weakest) * lift
 
 /**
  * The black hole's size in a hero `width` × `height` px, relative to the

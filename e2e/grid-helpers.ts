@@ -188,3 +188,56 @@ export const sweepPointer = async (
   await page.mouse.move(to.x - 36, to.y - 24)
   await page.mouse.move(to.x, to.y, { steps: 8 })
 }
+
+// why: the sheet the tasks set (gravity, criterion 1): leaning 50° back
+// about the hero's midline, seen with a focus of 3 × the hero's height.
+const SHEET = { tilt: (50 * Math.PI) / 180, focal: 3 }
+
+/**
+ * How far apart two screen points of a `height` px hero are on the flat
+ * sheet, in sheet px (screen px at the middle row): the distance a well's
+ * radius is measured in.
+ */
+export const sheetDistance = (
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  height: number,
+  width: number
+) => {
+  const focal = SHEET.focal * height
+  const cos = Math.cos(SHEET.tilt)
+  const sin = Math.sin(SHEET.tilt)
+  const tan = Math.tan(SHEET.tilt)
+  const toSheet = ({ x, y }: { x: number; y: number }) => {
+    const dy = height / 2 - y
+    const scale = 1 - (dy * tan) / focal
+    return {
+      u: (x - width / 2) / scale,
+      v: (dy * focal) / (focal * cos - dy * sin)
+    }
+  }
+  const p = toSheet(a)
+  const q = toSheet(b)
+  return Math.hypot(p.u - q.u, p.v - q.v)
+}
+
+/** The sheet's scale at screen height `y`: a cell's width over 48 px. */
+export const sheetScaleAt = (y: number, height: number) =>
+  1 - ((height / 2 - y) * Math.tan(SHEET.tilt)) / (SHEET.focal * height)
+
+/**
+ * How far down the screen a point of the flat sheet at screen height `y`
+ * moves per sheet px it sinks, in a `height` px hero: what turns a well's
+ * depth into the drop a viewer sees there.
+ */
+export const sinkScaleAt = (y: number, height: number) => {
+  const focal = SHEET.focal * height
+  const cos = Math.cos(SHEET.tilt)
+  const sin = Math.sin(SHEET.tilt)
+  const dy = height / 2 - y
+  const v = (dy * focal) / (focal * cos - dy * sin)
+  const screenY = (depth: number) =>
+    height / 2 -
+    (focal * (v * cos - depth * sin)) / (focal + v * sin + depth * cos)
+  return screenY(1) - screenY(0)
+}

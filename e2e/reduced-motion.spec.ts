@@ -28,9 +28,9 @@ const REST_SLACK = 4
 const STILL_PX = 1
 // why: two frames at 60 Hz; an animated close would take 300 ms.
 const AT_ONCE_MS = 50
-// why: the checklist's own numbers (gravity C32): the disk and its arcs
-// reach 4.2 and 1.65 horizon radii, 48 px each at rest.
-const DISK_BOX = { x: 210, y: 80 }
+// why: the checklists' own numbers (gravity C32, black-hole-scale C1): the
+// disk and its arcs reach 4.2 and 1.65 horizon radii, 96 px each at rest.
+const DISK_BOX = { x: 420, y: 160 }
 const STILL_LEVELS = 1
 const STILL_MS = 2000
 

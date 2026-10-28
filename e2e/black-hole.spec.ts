@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
+import { sheetScaleAt } from './grid-helpers'
 import {
   findHorizon,
   firstScreen,
@@ -21,8 +22,13 @@ import {
 
 // why: the checklists' own numbers (cosmos C47–C52, C57, C59, C60; gravity
 // C10, C19–C24, C30).
-const HORIZON_PX = 96
+// why: twice the first horizon (black-hole-scale C1–C3, C13, C22), with a
+// disk ~4 diameters wide; risen and back, it looks 0.88 to 1.12 times its
+// size, at least 1.2 times larger at its largest; it wanders 10–30 px/s.
+const HORIZON_PX = 192
 const HORIZON_SLACK = 0.1
+// why: at a 96 px horizon; the ring widens with the horizon (black-hole-
+// scale, criterion 2), so these scale with it.
 const RING_REACH_PX = 8
 const RING_MIN = 0.5
 // why: thin: the ring's bright part spans no more than this across.
@@ -30,7 +36,10 @@ const RING_THIN_PX = 4
 // why: the photon ring sits at 1.04 horizon radii; its peaks above and below
 // the centre are that much more than a diameter apart.
 const RING_AT = 1.04
-const DISK_SPAN = { min: 360, max: 440 }
+const DISK_SPAN = { min: 725, max: 887 }
+const GROWS = 1.2
+const GROW_SAMPLES = 9
+const GROW_STEP_MS = 1500
 const INCLINED = { min: 0.2, max: 0.32 }
 const NEAR_HALF = { from: 0.3, to: 0.7 }
 const OVER = { from: 20, to: 160, step: 10 }
@@ -49,6 +58,7 @@ const ARC_SEEN = 0.04
 // and within this many radii of the centre row.
 const DISK_REACH = { from: 1.6, to: 4.0, rows: 1.2 }
 const MIN_WANDER_PX = 30
+const WANDER_MS = 4000
 // why: the arcs of a disk that does not turn, aligned within a few px,
 // changed by 6.3 levels at most in 1 s (measured on a build with the turn
 // stopped); a turning disk changes them by over 20.
@@ -76,7 +86,8 @@ const isLit = (pixels: Pixels, ink: readonly number[], x: number, y: number) =>
 /** The disk's lit span along the row through the horizon's centre. */
 const diskSpan = (pixels: Pixels, ink: readonly number[], horizon: Box) => {
   const row = Math.round(horizon.cy)
-  const reach = DISK_SPAN.max
+  // why: half the widest disk, and a margin, either side of the centre.
+  const reach = DISK_SPAN.max / 2 + 20
   let left = Infinity
   let right = -Infinity
   for (let x = horizon.cx - reach; x <= horizon.cx + reach; x++)
@@ -127,7 +138,7 @@ const vertical = (
 test.describe('at rest', () => {
   test.use({ reducedMotion: 'reduce' })
 
-  test('a 96px event horizon', async ({ page }) => {
+  test('a 192px event horizon', async ({ page }) => {
     await gotoHero(page)
     await showSceneOnly(page)
     const horizon = await findHorizon(page, await inkOf(page))
@@ -178,22 +189,31 @@ test.describe('at rest', () => {
           horizon.cy + (radius + reach) * Math.sin(angle)
         )
       let peak = -1
-      for (let reach = -1; reach <= RING_REACH_PX; reach += 0.5)
+      const grown = horizon.width / 96
+      for (let reach = -1; reach <= RING_REACH_PX * grown; reach += 0.5)
         if (at(reach) > at(peak)) peak = reach
       const label = `ring at ${Math.round((angle * 180) / Math.PI)}°`
       expect(at(peak), label).toBeGreaterThan(RING_MIN)
       // invariant: thin: the bright run through the peak is a few px across.
       let inner = peak
       let outer = peak
-      while (at(inner - 0.5) > RING_MIN && peak - inner < 2 * RING_THIN_PX)
+      while (
+        at(inner - 0.5) > RING_MIN &&
+        peak - inner < 2 * RING_THIN_PX * grown
+      )
         inner -= 0.5
-      while (at(outer + 0.5) > RING_MIN && outer - peak < 2 * RING_THIN_PX)
+      while (
+        at(outer + 0.5) > RING_MIN &&
+        outer - peak < 2 * RING_THIN_PX * grown
+      )
         outer += 0.5
-      expect(outer - inner, `${label}: width`).toBeLessThanOrEqual(RING_THIN_PX)
+      expect(outer - inner, `${label}: width`).toBeLessThanOrEqual(
+        RING_THIN_PX * grown
+      )
     }
   })
 
-  test('the disk is about 400px wide', async ({ page }) => {
+  test('the disk is about 800px wide', async ({ page }) => {
     await gotoHero(page)
     await showSceneOnly(page)
     const pixels = await firstScreen(page)
@@ -323,14 +343,17 @@ test.describe('at rest', () => {
     const horizon = horizonIn(pixels, await inkOf(page))
     if (!horizon) throw new Error('no event horizon on screen')
     let lit = 0
+    // why: one assertion over every lit pixel, not one per pixel: the
+    // black hole lights tens of thousands of them.
+    const warm: string[] = []
     for (let y = horizon.cy - 120; y <= horizon.cy + 120; y++)
       for (let x = horizon.cx - 240; x <= horizon.cx + 240; x++) {
         if (luminanceAt(pixels, x, y) <= 0.03) continue
         lit++
         const [r = 0, g = 0, b = 0] = pixelAt(pixels, x, y)
-        expect(b, `blue over red at ${x},${y}`).toBeGreaterThanOrEqual(r)
-        expect(b, `blue over green at ${x},${y}`).toBeGreaterThanOrEqual(g - 2)
+        if (b < r || b < g - 2) warm.push(`${x},${y}: ${r},${g},${b}`)
       }
+    expect(warm.slice(0, 10), 'pixels warmer than blue').toEqual([])
     expect(lit, 'the black hole is lit').toBeGreaterThan(2000)
   })
 
@@ -341,11 +364,14 @@ test.describe('at rest', () => {
     const ink = await inkOf(page)
     const horizon = horizonIn(pixels, ink)
     if (!horizon) throw new Error('no event horizon on screen')
-    // why: the logo floats right of the resting black hole; past its disk,
+    // why: the logo floats up and right of the resting black hole. Past
+    // 3.5 horizon radii right of its centre, the disk is under 0.9 radii
+    // below and above it there only its faint glow reaches; up there,
     // everything not background is the logo.
+    const radius = horizon.width / 2
     const logo: { x: number; y: number; lum: number }[] = []
-    for (let y = 0; y < pixels.height; y++)
-      for (let x = Math.round(horizon.cx + 260); x < pixels.width; x++)
+    for (let y = 0; y < horizon.cy - 0.9 * radius; y++)
+      for (let x = Math.round(horizon.cx + 3.5 * radius); x < pixels.width; x++)
         if (channelGap(pixelAt(pixels, x, y), ink) > 24)
           logo.push({ x, y, lum: luminanceAt(pixels, x, y) })
     expect(logo.length, 'the logo is on screen').toBeGreaterThan(500)
@@ -384,7 +410,7 @@ test('the black hole wanders', async ({ page }) => {
   await showSceneOnly(page)
   const ink = await inkOf(page)
   const before = await findHorizon(page, ink)
-  await page.clock.runFor(2000)
+  await page.clock.runFor(WANDER_MS)
   const after = await findHorizon(page, ink)
   expect(
     Math.hypot(after.cx - before.cx, after.cy - before.cy)
@@ -407,27 +433,31 @@ test("the disk's pattern turns", async ({ page }) => {
   // why: the bent back of the disk, over and under the horizon, carries the
   // same turning gas as the disk and is thick enough that the black hole
   // moving between captures barely changes it once the two are aligned.
-  const radius = first.horizon.width / 2
-  const arc: { x: number; y: number }[] = []
+  // invariant: the black hole grows and shrinks as it rises, so each
+  // capture is sampled at the same angles and radii of its own horizon.
+  const radii = [first, second].map(({ horizon }) => horizon.width / 2)
+  const arc: { reach: number; angle: number }[] = []
   for (let reach = 1.15; reach <= 1.5; reach += 0.03)
     for (let angle = 0; angle < 2 * Math.PI; angle += 0.02)
-      if (Math.abs(Math.sin(angle)) > 0.6)
-        arc.push({
-          x: reach * radius * Math.cos(angle),
-          y: reach * radius * Math.sin(angle)
-        })
+      if (Math.abs(Math.sin(angle)) > 0.6) arc.push({ reach, angle })
+  const at = (index: 0 | 1, { reach, angle }: (typeof arc)[number]) => ({
+    x: reach * (radii[index] ?? 0) * Math.cos(angle),
+    y: reach * (radii[index] ?? 0) * Math.sin(angle)
+  })
   const change = (dx: number, dy: number) => {
     let sum = 0
-    for (const { x, y } of arc) {
+    for (const point of arc) {
+      const one = at(0, point)
+      const two = at(1, point)
       const a = pixelAt(
         first.pixels,
-        first.horizon.cx + x,
-        first.horizon.cy + y
+        first.horizon.cx + one.x,
+        first.horizon.cy + one.y
       )
       const b = pixelAt(
         second.pixels,
-        second.horizon.cx + x + dx,
-        second.horizon.cy + y + dy
+        second.horizon.cx + two.x + dx,
+        second.horizon.cy + two.y + dy
       )
       for (let channel = 0; channel < 3; channel++)
         sum += Math.abs((a[channel] ?? 0) - (b[channel] ?? 0))
@@ -458,6 +488,22 @@ test("the disk's tilt changes on screen", async ({ page }) => {
     Math.abs(after - before),
     `${before} then ${after}`
   ).toBeGreaterThanOrEqual(TILT_CHANGE)
+})
+
+test('the black hole grows and shrinks as it rises', async ({ page }) => {
+  await gotoStopped(page, 500)
+  await showSceneOnly(page)
+  const ink = await inkOf(page)
+  const sizes: number[] = []
+  for (let sample = 0; sample < GROW_SAMPLES; sample++) {
+    if (sample) await page.clock.runFor(GROW_STEP_MS)
+    const horizon = await findHorizon(page, ink)
+    // invariant: the size it has for its depth on the sheet is set apart,
+    // leaving only how far it has risen.
+    sizes.push(horizon.width / sheetScaleAt(horizon.cy, 900))
+  }
+  const ratio = Math.max(...sizes) / Math.min(...sizes)
+  expect(ratio, sizes.map(Math.round).join(', ')).toBeGreaterThanOrEqual(GROWS)
 })
 
 test('the notebook shows no black hole', async ({ page }) => {
