@@ -11,6 +11,9 @@
 > do `logo`, `cursor`, `wave`, `atom` e `brick` entram atrás do buraco negro) e 30 em parte (as
 > voltas do disco passam a 3 e 6 s).
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-apple.md` (2026-10-28):** 15 em parte
+> (o `logo` não inclina nem cresce com o ponteiro).
+
 ## Intent
 
 Hoje a Hero não conta a história que o dono do portfólio quer contar (astronomia, gravidade):

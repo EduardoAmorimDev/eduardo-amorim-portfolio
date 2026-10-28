@@ -7,6 +7,9 @@
 > sai da Hero), 8 e 9 (a lente deixa de ler o canvas da malha e passa a ler a camada de trás, com
 > os modelos) e Decided 1 (o formato de `behind`).
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-apple.md` (2026-10-28):** 3–6 (o anel
+> de 2,0 vira 1,6 no equador e a lente deixa de ser radial: segue a forma de dipolo).
+
 ## Intent
 
 O buraco negro da Hero simula só a própria luz. O disco tem a metade de trás dobrada por cima e

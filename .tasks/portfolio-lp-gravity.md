@@ -12,6 +12,9 @@
 > distorcido" — o buraco negro passa a distorcer a malha atrás dele; o 21 passa a valer pela
 > captura de raios com b ≤ b_c (critério 2 de lá).
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-apple.md` (2026-10-28):** 6 (o
+> horizonte deixa de seguir a profundidade da malha e tem tamanho fixo).
+
 ## Intent
 
 A Hero ainda não passa a sensação de gravidade que o dono do portfólio quer. Nas palavras dele:

@@ -3,6 +3,9 @@
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-apple.md` (2026-10-28):** 5 (tabelas
+> de θ₊/θ₋) e 8 em parte (o `logo` deixa de seguir o ponteiro).
+
 ## Intent
 
 A lente gravitacional da Hero (`portfolio-lp-black-hole-lensing`) distorce só a malha. O
