@@ -1,5 +1,6 @@
 import { HOLE, horizonRadius } from './black-hole.ts'
 import type { Point } from './grid-motion.ts'
+import { PLANET } from './space.ts'
 
 // why: 2.5 to 7.5 px/s, half the pace of black-hole-behind 11, a new turn
 // every 4 to 10 s (cosmos 29), never more than 4 px in one frame, never
@@ -54,7 +55,15 @@ export const wanderBox = (
   const reach = Math.max(HOLE.halfHeight, HOLE.topHeight) * horizon
   const x = width * HOLE.margin + reach
   const y = height * HOLE.margin + reach
-  return { left: x, top: y, right: width - x, bottom: height - y }
+  // why: the planet lies in front of the black hole (task space, 7), so it
+  // keeps its arcs above the planet's top instead of sinking behind it.
+  const abovePlanet = PLANET.top * height - reach
+  return {
+    left: x,
+    top: y,
+    right: width - x,
+    bottom: Math.max(y, Math.min(height - y, abovePlanet))
+  }
 }
 
 /**

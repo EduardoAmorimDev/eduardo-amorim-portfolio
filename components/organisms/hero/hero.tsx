@@ -4,6 +4,7 @@ import { useRef, type ReactNode } from 'react'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { HERO_CAMERA } from './glass-motion'
 import type { HoleBody } from './grid-motion'
+import { HeroPlanet } from './hero-planet'
 import { HeroScene } from './hero-scene'
 import { useHeroField } from './use-hero-field'
 
@@ -36,7 +37,9 @@ export const Hero = ({ id, children }: HeroProps) => {
     <section
       id={id}
       ref={section}
-      className="relative h-svh overflow-clip select-none"
+      // why: from pure black at the top to the page's ink at the foot (task
+      // space, 5), where the planet's ink body meets the next section.
+      className="to-ink relative h-svh overflow-clip bg-linear-to-b from-black select-none"
     >
       {/* why: no grid for now (task black-hole-behind, 1); what lies behind
           the black hole is the glass icons, seen through its lens. */}
@@ -57,6 +60,7 @@ export const Hero = ({ id, children }: HeroProps) => {
         <RenderGate />
         <HeroScene hole={hole} />
       </Canvas>
+      <HeroPlanet />
       <canvas
         ref={lens}
         data-testid="hero-lens"
