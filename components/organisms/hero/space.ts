@@ -1,13 +1,14 @@
-// why: the task's numbers (space, criteria 2, 3 and 6), measured at
-// 1440×900 in CSS px; the user takes them as starting values (Unresolved 2).
+// why: the task's numbers (space, criteria 2, 3 and 6; black-hole-alive, 3:
+// 60% of the stars blink, from 15% to whole, in 1.5 to 4 s), measured at
+// 1440×900 in CSS px; the user takes them as starting values.
 export const SPACE = {
   /** Stars inside a 1440×900 hero; the density holds at any size. */
   stars: 2000,
   designArea: 1440 * 900,
   /** Share of stars that twinkle, how far down and how slowly. */
-  twinkleShare: 0.15,
-  twinkleLow: 0.4,
-  twinkleSeconds: [2, 6],
+  twinkleShare: 0.6,
+  twinkleLow: 0.15,
+  twinkleSeconds: [1.5, 4],
   /** Share of stars tinted towards primary or steel. */
   tintShare: 0.15
 } as const
@@ -86,4 +87,54 @@ export const starGlow = (star: Star, seconds: number) => {
   const wave =
     0.5 + 0.5 * Math.cos(2 * Math.PI * (seconds / star.period + star.phase))
   return star.brightness * (SPACE.twinkleLow + (1 - SPACE.twinkleLow) * wave)
+}
+
+/** A seeded generator, so the same sky comes back for the same seed. */
+export const seeded = (seed: number): Random => {
+  let state = Math.floor(seed * 2147483646) % 2147483647 || 1
+  return () => {
+    state = (state * 16807) % 2147483647
+    return (state - 1) / 2147483646
+  }
+}
+
+// why: more bright stars over the sky, two large, four medium and six small
+// (task black-hole-alive, 4), blinking slowly, off the copy's band.
+const FEATURED = [
+  { count: 2, size: [5, 6] },
+  { count: 4, size: [3, 4] },
+  { count: 6, size: [2.2, 2.8] }
+] as const
+
+/**
+ * The extra bright stars of a `width` × `height` px hero: placed off the
+ * copy's band (12–88% wide × 28–80% tall), full brightness, so their
+ * sprites carry spikes, and blinking in 3 to 6 s.
+ */
+export const createFeatured = (
+  random: Random,
+  width: number,
+  height: number
+): Star[] => {
+  const stars: Star[] = []
+  for (const kind of FEATURED)
+    for (let index = 0; index < kind.count; index++) {
+      let x = 0
+      let y = 0
+      for (let tries = 0; tries < 100; tries++) {
+        x = random()
+        y = random() * 0.8
+        if (!(x > 0.12 && x < 0.88 && y > 0.28 && y < 0.8)) break
+      }
+      stars.push({
+        x: x * width,
+        y: y * height,
+        size: between(random, kind.size),
+        brightness: 0.9 + 0.1 * random(),
+        tint: 0,
+        period: between(random, [3, 6]),
+        phase: random()
+      })
+    }
+  return stars
 }

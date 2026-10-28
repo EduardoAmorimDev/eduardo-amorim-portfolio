@@ -25,7 +25,14 @@ import {
 } from '@/lib/media-preferences'
 import { OVERSCAN } from './bent-light'
 import { BEHIND_LAYER } from './black-hole'
-import { BRIGHT_STARS, SPACE, createStars, type Star } from './space'
+import {
+  BRIGHT_STARS,
+  SPACE,
+  createFeatured,
+  createStars,
+  seeded,
+  type Star
+} from './space'
 
 // invariant: a hero px maps to the clip space of the lens' layer behind,
 // which spans OVERSCAN heroes wide and tall, centred on the hero.
@@ -63,9 +70,9 @@ const starVertex = /* glsl */ `
     float wave = period > 0.0
       ? 0.5 + 0.5 * cos(6.283185307 * (uTime / period + phase))
       : 1.0;
-    // why: the stars fade with the gradient, whole at the top of the hero
-    // and gone at its foot (task black-hole-wide, 2).
-    float fade = clamp(1.0 - position.y / uHero.y, 0.0, 1.0);
+    // why: the stars fade with the gradient, whole down to 10% of the hero
+    // and gone from 80% (task black-hole-alive, 7).
+    float fade = 1.0 - smoothstep(0.1, 0.8, position.y / uHero.y);
     vGlow = fade * brightness * (period > 0.0 ? mix(uLow, 1.0, wave) : 1.0);
     vColor = tint;
     vSize = size;
@@ -126,8 +133,8 @@ const skyFragment = /* glsl */ `
     float diagonal = exp(-pow(e.y / thin, 2.0)) * max(1.0 - abs(e.x) / (0.55 * reach), 0.0)
       + exp(-pow(e.x / thin, 2.0)) * max(1.0 - abs(e.y) / (0.55 * reach), 0.0);
     float rays = pow(cross, 1.5) * 0.8 + pow(diagonal, 2.0) * 0.3;
-    // why: the bright stars fade with the gradient too (black-hole-wide, 2).
-    float fade = clamp(1.0 - a.y / uHero.y, 0.0, 1.0);
+    // why: the bright stars fade with the gradient too (black-hole-alive, 7).
+    float fade = 1.0 - smoothstep(0.1, 0.8, a.y / uHero.y);
     float light = fade * clamp(core + halo + rays, 0.0, 1.0);
     vec3 color = mix(uPrimary, uMist, clamp(core + rays * 0.8 + 0.35, 0.0, 1.0));
     return vec4(color * light, light);
@@ -283,7 +290,11 @@ const paintSky = (
  */
 export const SpaceSky = () => {
   const gl = useThree(state => state.gl)
-  const size = useThree(state => state.size)
+  // hazard: R3F measures its canvas with scroll: true, so the size object
+  // changes on every scroll; keyed on it, the sky was redrawn with new stars
+  // as the page scrolled (task black-hole-alive, 5). Only width and height.
+  const width = useThree(state => state.size.width)
+  const height = useThree(state => state.size.height)
   const palette = useMemo<Palette>(
     () => ({
       mist: new Color(readColorToken('mist')),
@@ -295,6 +306,8 @@ export const SpaceSky = () => {
   )
   const hero = useMemo(() => new Vector2(), [])
   const still = useRef(true)
+  // why: one sky per visit; a new hero size repaints the same stars.
+  const seed = useRef(0)
   const show = useRef<Mesh>(null)
   const twinkling =
     useRef<Points<BufferGeometry<NormalOrGLBufferAttributes>>>(null)
@@ -320,13 +333,13 @@ export const SpaceSky = () => {
   }, [])
 
   useEffect(() => {
-    const { width, height } = size
     if (!width || !height) return
+    if (!seed.current) seed.current = Math.random() || 0.5
     hero.set(width, height)
     // why: stars over the whole layer the lens draws from, so a ray it bends
     // past the hero's edge still finds sky there.
     const spread = (OVERSCAN - 1) / 2
-    const stars = createStars(Math.random, {
+    const stars = createStars(seeded(seed.current), {
       left: -spread * width,
       top: -spread * height,
       right: (1 + spread) * width,
@@ -352,7 +365,10 @@ export const SpaceSky = () => {
     // why: handed to the meshes through their refs, not React state, so a
     // new hero size repaints without a render of its own.
     const twinkles = starGeometry(
-      stars.filter(star => star.period > 0),
+      [
+        ...stars.filter(star => star.period > 0),
+        ...createFeatured(seeded(seed.current / 2 + 0.25), width, height)
+      ],
       palette
     )
     const sky = show.current
@@ -368,7 +384,7 @@ export const SpaceSky = () => {
       painted.dispose()
       twinkles.dispose()
     }
-  }, [gl, size, hero, palette])
+  }, [gl, width, height, hero, palette])
 
   useFrame((_, delta) => {
     const time = twinkle.current?.uniforms.uTime
