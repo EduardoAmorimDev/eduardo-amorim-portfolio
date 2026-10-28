@@ -22,12 +22,12 @@ export type BrightStar = {
 }
 
 // why: a column falling towards the planet's horizon, as in the reference,
-// right of the copy and clear of the black hole's resting point (task
-// space, 3).
+// right of the copy's box (which ends at 87% of a 1440 px hero) and clear
+// of the black hole's resting point (task space, 3).
 export const BRIGHT_STARS: readonly BrightStar[] = [
-  { at: [0.8, 0.22], core: 8, halo: 80, spikes: 140 },
-  { at: [0.78, 0.62], core: 4, halo: 32, spikes: 56 },
-  { at: [0.805, 0.74], core: 3, halo: 14, spikes: 22 }
+  { at: [0.9, 0.2], core: 8, halo: 80, spikes: 140 },
+  { at: [0.92, 0.56], core: 4, halo: 32, spikes: 56 },
+  { at: [0.905, 0.72], core: 3, halo: 14, spikes: 22 }
 ]
 
 // why: the planet's rim rises in a wide arc, as in the reference: radius 2

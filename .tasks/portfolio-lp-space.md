@@ -60,7 +60,9 @@ Medidas em CSS px numa janela de 1440×900, salvo onde a medida é outra.
    - **Média:** núcleo de 4 px, halo de 32 px e raios de 56 px.
    - **Pequena:** núcleo de 3 px, halo de 14 px e raios de 22 px.
    - Ficam numa coluna que desce rumo ao horizonte do planeta, à direita do texto, fora da caixa
-     dele: grande em (80%; 22%) da Hero, média em (78%; 62%), pequena em (80,5%; 74%).
+     dele (que a 1440×900 acaba em x = 1250 px, 87%): grande em (90%; 20%) da Hero, média em
+     (92%; 56%), pequena em (90,5%; 72%). (Corrigido na verificação: a primeira coluna, a ~80%,
+     caía dentro da caixa do título.)
 4. Sempre, o buraco negro curva o céu (estrelas pequenas e de destaque) pela lente que já existe.
    Uma estrela perto dele aparece esticada em arco em volta da sombra, com imagem espelhada do
    outro lado.
