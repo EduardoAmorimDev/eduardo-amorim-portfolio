@@ -9,10 +9,12 @@ import {
   readableRows,
   rowCrossings,
   sheetDistance,
+  sheetScaleAt,
+  sinkScaleAt,
   sweepPointer,
   type GridImage
 } from './grid-helpers'
-import { findHorizon } from './black-hole-helpers'
+import { firstScreen, horizonIn } from './black-hole-helpers'
 import {
   boxesOf,
   channels,
@@ -36,6 +38,13 @@ const HOLE_RADIUS = 560
 const HOLE_PULL = 96
 const HOLE_SINK = { min: 60, max: 120 }
 const RIM_SINK = 0.1
+// why: black-hole-scale C28: risen, the well is half as deep. Read at two
+// moments, the black hole at two places on the sheet, the depth under the
+// same offset from its centre differs a little by place; 1.5 still tells
+// half strength (2×) from none (1×).
+const RISEN_RATIO = 1.5
+const RISE_SAMPLES = 27
+const RISE_STEP_MS = 500
 // why: the well's 560 sheet px around the resting hole, on the flat sheet
 // (tilted 50°, focus 3 × the hero's height), cross the measured column
 // (104 px off the centre) 264.2 px above the centre and 357.8 px below.
@@ -176,6 +185,13 @@ const bends = (
  * which may be off REST. The 3D scene is read alone, then shown again.
  */
 const holeNow = async (page: Page) => {
+  const found = await holeIfFound(page)
+  if (!found) throw new Error('no event horizon on screen')
+  return found
+}
+
+/** Where the black hole is now, or null in a rare frame it cannot be read. */
+const holeIfFound = async (page: Page) => {
   const hidden = await page.evaluate(() => {
     const nodes = [
       ...document.querySelectorAll<HTMLElement>(
@@ -186,12 +202,15 @@ const holeNow = async (page: Page) => {
     return nodes.length
   })
   expect(hidden).toBeGreaterThan(0)
-  const horizon = await findHorizon(page, channels(await tokenRgb(page, 'ink')))
+  const horizon = horizonIn(
+    await firstScreen(page),
+    channels(await tokenRgb(page, 'ink'))
+  )
   await page.evaluate(() => {
     for (const node of document.querySelectorAll<HTMLElement>('#hero *'))
       node.style.visibility = ''
   })
-  return { x: horizon.cx, y: horizon.cy }
+  return horizon ? { x: horizon.cx, y: horizon.cy, width: horizon.width } : null
 }
 
 const expectStraight = (
@@ -435,7 +454,9 @@ test.describe('black hole at rest', () => {
         ({ y }) =>
           y - REST.y > -WELL_ON_SCREEN.up && y - REST.y < WELL_ON_SCREEN.down
       )
-      expect(inside.length).toBeGreaterThanOrEqual(11)
+      // why: the well's edges on this column hold 23 horizontals; a few
+      // may be lost where a vertical blurs a neighbouring column.
+      expect(inside.length).toBeGreaterThanOrEqual(20)
       for (const { y, sink } of inside)
         expect(sink, `line at ${y}px`).toBeGreaterThan(RIM_SINK)
       const nearest = shifts.reduce((best, shift) =>
@@ -676,4 +697,57 @@ test('the grid and the lens never take the pointer', async ({ page }) => {
     }
   })
   expect(hits).toEqual({ scene: true, title: true, cta: true })
+})
+
+test('the well weakens as the black hole rises', async ({ page }) => {
+  // why: 27 captures of the scene and the grid, one every 0.5 s of page
+  // time, outlast the default 30 s.
+  test.setTimeout(150_000)
+  await gotoStopped(page, 300)
+  // invariant: over one rise and fall (12 s), the moment it looks smallest
+  // for its depth on the sheet is when it rests on the grid (lift 0), and
+  // largest when it is farthest off it (lift 1).
+  const samples: {
+    grid: GridImage
+    x: number
+    y: number
+    radius: number
+    size: number
+  }[] = []
+  for (let sample = 0; sample < RISE_SAMPLES; sample++) {
+    if (sample) await page.clock.runFor(RISE_STEP_MS)
+    const hole = await holeIfFound(page)
+    if (!hole) continue
+    const grid = await readGrid(page)
+    const radius = hole.width / 2
+    samples.push({
+      grid,
+      x: hole.x,
+      y: hole.y,
+      radius,
+      size: radius / sheetScaleAt(hole.y, 900)
+    })
+  }
+  expect(samples.length, 'frames read').toBeGreaterThanOrEqual(RISE_SAMPLES - 3)
+  const lowest = samples.reduce((a, b) => (b.size < a.size ? b : a))
+  const highest = samples.reduce((a, b) => (b.size > a.size ? b : a))
+  // why: the same offset for both, past the larger horizon, so no line is
+  // cut away and each is read the same distance from its centre.
+  const offset = Math.max(lowest.radius, highest.radius) + 8
+  const depth = (at: (typeof samples)[number]) => {
+    const side = at.x > WIDTH / 2 ? -1 : 1
+    const start = side < 0 ? 40 : WIDTH - 40
+    const row = columnCrossings(at.grid, start).reduce((best, y) =>
+      Math.abs(y - at.y) < Math.abs(best - at.y) ? y : best
+    )
+    const end = traceRow(at.grid, row, start, at.x - side * offset).at(-1)
+    if (!end) throw new Error('no line traced')
+    return (end.y - row) / sinkScaleAt(row, 900)
+  }
+  const low = depth(lowest)
+  const high = depth(highest)
+  expect(
+    low / high,
+    `${low} on the grid, ${high} risen; sizes ${lowest.size}, ${highest.size}`
+  ).toBeGreaterThanOrEqual(RISEN_RATIO)
 })

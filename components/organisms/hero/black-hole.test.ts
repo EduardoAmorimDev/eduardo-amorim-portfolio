@@ -59,7 +59,7 @@ const iconFit = (width: number, height: number) => {
   return Math.min(1, viewWidth / 6)
 }
 
-test('the horizon is 96px at 1440x900 and shrinks with the icons', () => {
+test('the horizon is 192px at 1440x900 and shrinks with the icons', () => {
   assert.ok(Math.abs(2 * horizonRadius(1440, 900) - HORIZON_PX) < 1e-9)
   // invariant: an icon's size on screen is its world size times the fit,
   // and world units grow with the view's height in px.
@@ -179,14 +179,16 @@ test('the lift rises from 0 to 1 and back every 10 to 14 s', () => {
 })
 
 test('the black hole is 0.88 to 1.12 times its size as it rises', () => {
-  for (let lift = 0; lift <= 1; lift += 0.05) {
+  for (let step = 0; step <= 20; step++) {
+    const lift = step / 20
     const expected = SIZE.low + (SIZE.high - SIZE.low) * lift
     assert.ok(Math.abs(liftScale(lift) - expected) < 1e-9, `at ${lift}`)
   }
 })
 
 test('the well weakens from 1 to 0.5 as the black hole rises', () => {
-  for (let lift = 0; lift <= 1; lift += 0.05) {
+  for (let step = 0; step <= 20; step++) {
+    const lift = step / 20
     const expected = STRENGTH.low + (STRENGTH.high - STRENGTH.low) * lift
     assert.ok(Math.abs(wellStrength(lift) - expected) < 1e-9, `at ${lift}`)
   }

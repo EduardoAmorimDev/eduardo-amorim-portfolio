@@ -343,14 +343,17 @@ test.describe('at rest', () => {
     const horizon = horizonIn(pixels, await inkOf(page))
     if (!horizon) throw new Error('no event horizon on screen')
     let lit = 0
+    // why: one assertion over every lit pixel, not one per pixel: the
+    // black hole lights tens of thousands of them.
+    const warm: string[] = []
     for (let y = horizon.cy - 120; y <= horizon.cy + 120; y++)
       for (let x = horizon.cx - 240; x <= horizon.cx + 240; x++) {
         if (luminanceAt(pixels, x, y) <= 0.03) continue
         lit++
         const [r = 0, g = 0, b = 0] = pixelAt(pixels, x, y)
-        expect(b, `blue over red at ${x},${y}`).toBeGreaterThanOrEqual(r)
-        expect(b, `blue over green at ${x},${y}`).toBeGreaterThanOrEqual(g - 2)
+        if (b < r || b < g - 2) warm.push(`${x},${y}: ${r},${g},${b}`)
       }
+    expect(warm.slice(0, 10), 'pixels warmer than blue').toEqual([])
     expect(lit, 'the black hole is lit').toBeGreaterThan(2000)
   })
 

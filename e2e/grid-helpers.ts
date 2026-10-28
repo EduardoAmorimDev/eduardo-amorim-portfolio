@@ -224,3 +224,20 @@ export const sheetDistance = (
 /** The sheet's scale at screen height `y`: a cell's width over 48 px. */
 export const sheetScaleAt = (y: number, height: number) =>
   1 - ((height / 2 - y) * Math.tan(SHEET.tilt)) / (SHEET.focal * height)
+
+/**
+ * How far down the screen a point of the flat sheet at screen height `y`
+ * moves per sheet px it sinks, in a `height` px hero: what turns a well's
+ * depth into the drop a viewer sees there.
+ */
+export const sinkScaleAt = (y: number, height: number) => {
+  const focal = SHEET.focal * height
+  const cos = Math.cos(SHEET.tilt)
+  const sin = Math.sin(SHEET.tilt)
+  const dy = height / 2 - y
+  const v = (dy * focal) / (focal * cos - dy * sin)
+  const screenY = (depth: number) =>
+    height / 2 -
+    (focal * (v * cos - depth * sin)) / (focal + v * sin + depth * cos)
+  return screenY(1) - screenY(0)
+}

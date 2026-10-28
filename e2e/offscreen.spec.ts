@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import { findHorizon } from './black-hole-helpers'
 import { expect, test } from './fixtures'
+import { sheetScaleAt } from './grid-helpers'
 import {
   channels,
   documentTop,
@@ -21,6 +22,10 @@ const SETTLE_MS = 300
 // test advances it: 0.1 s of it after returning moves the black hole 6 px at
 // most (60 px/s), while 2 s away would move it 40 px or more (20 px/s).
 const RESUMED_PX = 12
+// why: 2 s away from 2 s in would take the black hole from a quarter to
+// three quarters of its rise, ~13% larger for its depth; resuming, it has
+// risen 0.1 s more, well under 3% (task black-hole-scale, criterion 13).
+const RESUMED_SIZE = 0.03
 const AWAY_MS = 2000
 const RESUME_MS = 100
 
@@ -181,6 +186,12 @@ test('the black hole resumes where it stopped', async ({ page }) => {
   expect(
     Math.hypot(after.cx - before.cx, after.cy - before.cy)
   ).toBeLessThanOrEqual(RESUMED_PX)
+  const size = ({ width, cy }: { width: number; cy: number }) =>
+    width / sheetScaleAt(cy, 900)
+  expect(
+    Math.abs(size(after) / size(before) - 1),
+    'risen as far as it was'
+  ).toBeLessThanOrEqual(RESUMED_SIZE)
 })
 
 test("the laptop's screen page is not loaded at the top", async ({ page }) => {
