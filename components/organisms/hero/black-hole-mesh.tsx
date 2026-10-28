@@ -46,7 +46,6 @@ const vertexShader = /* glsl */ `
 // hole reads as a sphere; mist, primary and ink only (gravity 13).
 const fragmentShader = /* glsl */ `
   uniform float uTime;
-  uniform vec3 uInk;
   uniform vec3 uMist;
   uniform vec3 uPrimary;
   uniform float uInnerTurn;
@@ -340,7 +339,9 @@ const fragmentShader = /* glsl */ `
     float alpha = clamp(max(max(light.r, light.g), light.b), 0.0, 1.0);
     vec3 shown = min(light / max(alpha, 1e-4), vec3(1.0));
     // Inside the horizon: ink, with the near half of the disk over it.
-    vec3 inside = min(uInk + diskColor * lit.x, vec3(1.0));
+    // why: the shadow is pure black (task black-hole-alive, 6); ink read grey
+    // against the black sky.
+    vec3 inside = min(diskColor * lit.x, vec3(1.0));
     gl_FragColor = vec4(mix(inside, shown, outside), mix(1.0, alpha, outside));
     #include <colorspace_fragment>
   }
@@ -366,7 +367,6 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
   // when the theme's CSS variables are available.
   const colors = useMemo(
     () => ({
-      ink: new Color(readColorToken('ink')),
       mist: new Color(readColorToken('mist')),
       primary: new Color(readColorToken('primary'))
     }),
@@ -379,7 +379,6 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uInk: { value: colors.ink },
       uMist: { value: colors.mist },
       uPrimary: { value: colors.primary },
       uInnerTurn: { value: DISK.innerTurn },
@@ -431,8 +430,13 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
     body.scale.setScalar((horizon * DEPTH) / focal)
     const shader = material.current?.uniforms
     const time = shader?.uTime
-    if (!shader || !time) return
+    const roll = shader?.uRoll
+    if (!shader || !time || !roll) return
     if (!still.current) time.value += delta
+    // why: the slant sways ±3° on its own 21 s cycle as it travels (task
+    // black-hole-alive, 2); still, it holds at the slant.
+    roll.value =
+      DISK_POSE.slant + (still.current ? 0 : diskPose(time.value, false).roll)
   })
 
   return (
