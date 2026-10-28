@@ -52,25 +52,44 @@ const starVertex = /* glsl */ `
   attribute vec3 tint;
   varying vec3 vColor;
   varying float vGlow;
+  varying float vSize;
+  varying float vSpikes;
   ${toClip}
   void main() {
     gl_Position = heroToClip(position.xy);
-    // why: one texel per CSS px in the layer behind, plus a px of soft edge.
-    gl_PointSize = size + 1.0;
+    // why: one texel per CSS px in the layer behind; the sprite holds the
+    // core, a halo 3 sizes out and spikes 4 sizes out, plus a px of edge.
+    gl_PointSize = size * 8.0 + 1.0;
     float wave = period > 0.0
       ? 0.5 + 0.5 * cos(6.283185307 * (uTime / period + phase))
       : 1.0;
-    vGlow = brightness * (period > 0.0 ? mix(uLow, 1.0, wave) : 1.0);
+    // why: the stars fade with the gradient, whole at the top of the hero
+    // and gone at its foot (task black-hole-wide, 2).
+    float fade = clamp(1.0 - position.y / uHero.y, 0.0, 1.0);
+    vGlow = fade * brightness * (period > 0.0 ? mix(uLow, 1.0, wave) : 1.0);
     vColor = tint;
+    vSize = size;
+    // why: the brightest quarter (0.3 + 0.7·0.75^2.2) carries spikes.
+    vSpikes = brightness > 0.672 ? 1.0 : 0.0;
   }
 `
 
 const starFragment = /* glsl */ `
   varying vec3 vColor;
   varying float vGlow;
+  varying float vSize;
+  varying float vSpikes;
+  // Incandescent (task black-hole-wide, 3): a hot core, a halo of 35% of
+  // it fading to nothing 3 sizes out, and on the brightest a thin cross.
   void main() {
-    float d = length(gl_PointCoord - 0.5) * 2.0;
-    float a = vGlow * (1.0 - smoothstep(0.35, 1.0, d));
+    vec2 px = (gl_PointCoord - 0.5) * (vSize * 8.0 + 1.0);
+    float d = length(px);
+    float core = 1.0 - smoothstep(0.5 * vSize - 0.2, 0.5 * vSize + 0.6, d);
+    float halo = 0.35 * pow(max(1.0 - d / (3.0 * vSize), 0.0), 2.0);
+    float reach = 4.0 * vSize;
+    float cross = exp(-px.y * px.y * 4.0) * max(1.0 - abs(px.x) / reach, 0.0)
+      + exp(-px.x * px.x * 4.0) * max(1.0 - abs(px.y) / reach, 0.0);
+    float a = vGlow * clamp(core + halo + vSpikes * 0.6 * cross, 0.0, 1.0);
     gl_FragColor = vec4(vColor * a, a);
   }
 `
@@ -107,7 +126,9 @@ const skyFragment = /* glsl */ `
     float diagonal = exp(-pow(e.y / thin, 2.0)) * max(1.0 - abs(e.x) / (0.55 * reach), 0.0)
       + exp(-pow(e.x / thin, 2.0)) * max(1.0 - abs(e.y) / (0.55 * reach), 0.0);
     float rays = pow(cross, 1.5) * 0.8 + pow(diagonal, 2.0) * 0.3;
-    float light = clamp(core + halo + rays, 0.0, 1.0);
+    // why: the bright stars fade with the gradient too (black-hole-wide, 2).
+    float fade = clamp(1.0 - a.y / uHero.y, 0.0, 1.0);
+    float light = fade * clamp(core + halo + rays, 0.0, 1.0);
     vec3 color = mix(uPrimary, uMist, clamp(core + rays * 0.8 + 0.35, 0.0, 1.0));
     return vec4(color * light, light);
   }
