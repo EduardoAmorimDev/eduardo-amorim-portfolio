@@ -41,6 +41,21 @@ balança ±3°; as estrelas piscam; o céu fica parado no scroll; e a sombra é 
 7. Sempre, a opacidade das estrelas é 1 até 10% da altura da Hero, cai suave até 0 em 80% e é 0
    daí para baixo.
 
+### Revisão do usuário (2026-10-28)
+
+> Substituem 2 (±3° vira ±1,5°) e 7 (a curva de opacidade).
+
+8. Sempre, há uma estrela grande (núcleo de 8 px, halo de 80 px, raios de 140 px) no canto
+   inferior direito, em (93,5%; 84%), com a opacidade da curva de 9.
+9. Sempre, a opacidade das estrelas, pela altura y no céu: 1 no topo, 0,7 na metade, 0,5 a 75%,
+   0,2 a 90% e 0,02 a 8 px da base; linear entre esses pontos e 0 dali para baixo.
+10. Enquanto o movimento estiver ligado, o centro do buraco negro nunca entra na caixa do texto
+    (os glifos do `h1`, do `p` e do `a`). Ele dá a volta pelas faixas entre o texto e a borda da
+    sua caixa, que agora tem 2% de margem, sem passar de 7,5 px/s. A esfera pode cobrir o texto
+    até a metade. A inclinação oscila ±1,5°.
+11. Sempre, o logo de vidro volta à Hero, no lugar de antes (canto superior direito), à frente
+    do buraco negro e atrás do texto, inclinado 5 px na direção do buraco negro.
+
 ## Out of scope
 
 - Testes (decisão do usuário).
@@ -90,6 +105,14 @@ balança ±3°; as estrelas piscam; o céu fica parado no scroll; e a sombra é 
     se mexe, ta bem estranho."
   - "5- O buraco negro parece cinza, ele deve ser #000."
   - "6- as estrelas mais pra baixo da hero devem ter opacity 0"
+  - Revisão: "a oscilação de inclinação pode ser menor, pode ser 1.5 grau"; "as estrelas começam a
+    ter opacity 0 muito antes do necesssário, pode ser a uns 8px do bottom (...) 1 nas estrelas do
+    topo, 0.7 nas do meio, 0.5 nas mais pra baixo, 0.2 mais embaixo ainda e quase 0 antes de 8px
+    do bottom"; "coloque uma estrela grande no canto inferior direito"; "Garanta que o buraco
+    negro não vai passar atrás dos textos e CTA da Hero, não 100% mas só um pouco" (escolhido:
+    "Contornar pelas bordas"); "Vamos adicionar o elemento 3D logo na Hero novamente (...) atrás
+    do copy da Hero e na frente do buraco negro (...) puxado em direção ao buraco negro (...) uns
+    5px".
 
 This task is the record of decision. If a linked document diverges, ask before building.
 
