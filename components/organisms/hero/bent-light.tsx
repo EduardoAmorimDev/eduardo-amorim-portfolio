@@ -71,7 +71,8 @@ const fragmentShader = /* glsl */ `
     // invariant: as behindPoint (deflection.ts); with y down the flow keeps
     // its form, a²·(x, −y)/r².
     vec2 lensed = q * (beta / theta)
-      + uFlow * uFlow * vec2(q.x, -q.y) / (theta * theta);
+      + smoothstep(${FLOW.from.toFixed(2)}, ${FLOW.to.toFixed(2)}, theta)
+        * uFlow * uFlow * vec2(q.x, -q.y) / (theta * theta);
     vec2 from = (uCentre + lensed * uHorizon) / uSize;
     vec2 layer = 0.5 + (vec2(from.x, 1.0 - from.y) - 0.5) / ${OVERSCAN.toFixed(1)};
     if (any(lessThan(layer, vec2(0.0))) || any(greaterThan(layer, vec2(1.0))))

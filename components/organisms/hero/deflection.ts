@@ -87,7 +87,19 @@ const rings = new Map<number, number>()
 // 1.92 horizon radii, as a liquid round a cylinder; both 1.2 times wider
 // than before (task black-hole-wide, 9–10).
 export const FIELD = { exponent: 0 } as const
-export const FLOW = { radius: 1.92 } as const
+// why: the flow acts only past the radial lens, fading in from 2.4 to 3.6
+// horizon radii, so the lens near the shadow stays circular (task
+// black-hole-alive, 1).
+export const FLOW = { radius: 1.92, from: 2.4, to: 3.6 } as const
+
+/** How much of the flow acts `theta` horizon radii out: 0 to 1, smooth. */
+export const flowShare = (theta: number) => {
+  const t = Math.min(
+    1,
+    Math.max(0, (theta - FLOW.from) / (FLOW.to - FLOW.from))
+  )
+  return t * t * (3 - 2 * t)
+}
 
 /** How much of the lens reaches `angle` radians off the poles' axis. */
 export const fieldShare = (angle: number) =>
@@ -112,7 +124,7 @@ export const behindPoint = (x: number, y: number, bend: number) => {
   const r2 = x * x + y * y
   const theta = Math.sqrt(r2)
   const beta = sourceRadiusAt(theta, Math.atan2(y, x), bend)
-  const flow = (FLOW.radius * FLOW.radius) / r2
+  const flow = (flowShare(theta) * FLOW.radius * FLOW.radius) / r2
   return {
     x: (x * beta) / theta + flow * x,
     y: (y * beta) / theta - flow * y
