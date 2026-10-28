@@ -151,8 +151,8 @@ This task is the record of decision. If a linked document diverges, ask before b
 
 ## Unresolved
 
-| #   | Kind           | Question                                                                                                                            | Until answered                                                                                  |
-| --- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 1   | blocks go-live | Conteúdo real e CTAs (herdado).                                                                                                     | A Hero mostra só o buraco negro.                                                                |
-| 2   | open           | "Um pouco mais grosso" em cima: +50% de largura (1,30 R) serve? E "ligação" é o anel abrindo-se no plano do disco nos lados (±20°)? | Escrito como em 3 e 5; ajusta-se ao ver. Ajuda reenviar a imagem de referência, que não baixou. |
-| 3   | open           | Com nada atrás, a lente deve continuar ligada (custa um passe por quadro) ou sair até haver conteúdo atrás?                         | Continua ligada.                                                                                |
+| #   | Kind           | Question                                                                                                    | Until answered                             |
+| --- | -------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1   | blocks go-live | Conteúdo real e CTAs (herdado).                                                                             | A Hero mostra só o buraco negro.           |
+| 2   | open           | Os valores lidos na referência (1,30 R em cima, pés até 1,6 R nos lados, ±20°) servem?                      | Escritos como em 3 e 5; ajustam-se ao ver. |
+| 3   | open           | Com nada atrás, a lente deve continuar ligada (custa um passe por quadro) ou sair até haver conteúdo atrás? | Continua ligada.                           |
