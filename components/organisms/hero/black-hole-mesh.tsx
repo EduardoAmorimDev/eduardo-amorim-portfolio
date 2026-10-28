@@ -14,16 +14,16 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import { BentLight } from './bent-light'
-import { DISK, HOLE, diskPose } from './black-hole'
+import { DISK, DISK_POSE, HOLE, diskPose } from './black-hole'
 import { HERO_CAMERA } from './glass-motion'
 import type { HoleBody } from './grid-motion'
 
 // why: how far from the camera the black hole floats, in world units; behind
 // the logo (≈7 away), so the glass sits in front of it.
 const DEPTH = 8.5
-// why: the quad's half size in horizon radii: the disk's outer edge plus
-// room for its glow to fade out before the quad ends.
-const SPAN = 5
+// why: the quad's half size in horizon radii: the disk's outer edge (8)
+// plus room for its glow to fade out before the quad ends.
+const SPAN = 9.5
 // why: candela, fading with the square of the distance; enough to light the
 // logo's facing side a few units away (cosmos 31), doubled with the black
 // hole (black-hole-scale 1), whose larger glow behind the glass lifts both
@@ -62,12 +62,16 @@ const fragmentShader = /* glsl */ `
   const float ARC_OUT = ${HOLE.halfHeight.toFixed(2)};
   const float ARC_TOP = ${HOLE.topHeight.toFixed(2)};
   // Where the vertical disk's feet reach along the horizontal one's plane.
-  const float FOOT_OUT = 1.6;
+  const float FOOT_OUT = 2.15;
+  // why: the disk grew from 4 to DISK_OUT radii and the arcs' bands doubled
+  // (task black-hole-wide, 4); its light, colour and filaments are read at
+  // the radius they had at 4, so it looks the same, only larger.
+  const float LOOK_OUT = 4.0;
   const float ARC_IN = 1.05;
   const float RING = 1.04;
   // The disk's own thickness, in horizon radii, and how much brighter its
   // approaching (left) side is than its receding one: 1 ± BEAM.
-  const float THICK = 0.06;
+  const float THICK = 0.12;
   const float BEAM = 0.45;
   // How much brighter and denser the gas is than at first: 1.5×, so both
   // disks glow white hot.
@@ -108,6 +112,16 @@ const fragmentShader = /* glsl */ `
     return value;
   }
 
+  // The radius, on a disk reaching LOOK_OUT, whose look a point takes.
+  float look(float radius) {
+    return DISK_IN + (radius - DISK_IN) * (LOOK_OUT - DISK_IN) / (DISK_OUT - DISK_IN);
+  }
+
+  // The same for the arcs, whose bands are twice as wide.
+  float arcLook(float radius) {
+    return ARC_IN + (radius - ARC_IN) * 0.5;
+  }
+
   // Wisps of gas at a radius and angle of the disk: noise in (around the
   // orbit, across it), long along the orbit and thin across, its radius
   // bent by a slower turbulence so each filament wavers and breaks. It
@@ -117,8 +131,9 @@ const fragmentShader = /* glsl */ `
     float turn = mix(uInnerTurn, uOuterTurn, share);
     float phase = angle - TAU * uTime / turn;
     vec2 around = vec2(cos(phase), sin(phase)) * 2.6;
-    float swirl = fbm(vec3(around * 0.8, radius * 2.0));
-    float strand = fbm(vec3(around, (radius + swirl * 0.35) * 9.0 * GLOW));
+    float seen = look(radius);
+    float swirl = fbm(vec3(around * 0.8, seen * 2.0));
+    float strand = fbm(vec3(around, (seen + swirl * 0.35) * 9.0 * GLOW));
     return smoothstep(0.34 - edge, 0.7 + edge, strand);
   }
 
@@ -137,7 +152,7 @@ const fragmentShader = /* glsl */ `
   // The horizontal disk's colour at a radius of its plane: mist inside,
   // primary towards its outer edge.
   vec3 diskTint(float radius) {
-    return mix(uMist, uPrimary, smoothstep(DISK_IN, DISK_OUT - 0.6, radius));
+    return mix(uMist, uPrimary, smoothstep(DISK_IN, LOOK_OUT - 0.6, look(radius)));
   }
 
   // why: band t of the vertical disk's top is the image of the horizontal
@@ -184,10 +199,11 @@ const fragmentShader = /* glsl */ `
       float y = q.y + float(k) * THICK * 0.5;
       vec2 onDisk = vec2(q.x, y / lean);
       float radius = length(onDisk);
+      float seen = look(radius);
       float band = smoothstep(DISK_IN - 0.05, DISK_IN + 0.2, radius)
-        * (1.0 - smoothstep(DISK_OUT - 0.45, DISK_OUT, radius));
+        * (1.0 - smoothstep(LOOK_OUT - 0.45, LOOK_OUT, seen));
       if (band <= 0.0) continue;
-      float heat = 0.85 * pow(DISK_IN / max(radius, DISK_IN), 1.1);
+      float heat = 0.85 * pow(DISK_IN / max(seen, DISK_IN), 1.1);
       float light = band * heat
         * beam(onDisk.x / max(radius, 1e-4))
         * (1.0 - abs(float(k)) * 0.3);
@@ -205,6 +221,21 @@ const fragmentShader = /* glsl */ `
     vec2 q = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
     float lean = max(sin(uTilt), 0.02);
     float r = length(q);
+    float glow = 0.22 * exp(-max(r - 1.0, 0.0) * 1.3)
+      * (1.0 - smoothstep(SPAN * 0.7, SPAN, r));
+    // why: most of the quad lies past the arcs and the disk, where only the
+    // glow shows; it skips the rest, which would add nothing there.
+    // invariant: past r = 2.3 no arc, foot or ring reaches (ARC_TOP 1.8,
+    // FOOT_OUT 2.15); past plane radius DISK_OUT + 0.4 no disk row nor top
+    // band (it fades out by t = 1.1, plane radius 8.29) does.
+    float nearest = length(vec2(q.x, max(abs(q.y) - THICK * 0.5, 0.0) / lean));
+    if (r > 2.3 && nearest > DISK_OUT + 0.4) {
+      vec3 faint = uPrimary * glow;
+      float faintAlpha = clamp(max(max(faint.r, faint.g), faint.b), 0.0, 1.0);
+      gl_FragColor = vec4(min(faint / max(faintAlpha, 1e-4), vec3(1.0)), faintAlpha);
+      #include <colorspace_fragment>
+      return;
+    }
     float theta = atan(q.y, q.x);
     float sine = sin(theta);
     float cosine = cos(theta);
@@ -254,8 +285,8 @@ const fragmentShader = /* glsl */ `
       // the disk's own heat and whole light, to match the disk it joins.
       float arcRadius = ARC_IN + (ARC_TOP - ARC_IN) * clamp(band, 0.0, 1.0);
       float heat = mix(
-        0.5 * pow(ARC_IN / arcRadius, 2.2),
-        0.85 * pow(DISK_IN / rho, 1.1),
+        0.5 * pow(ARC_IN / arcLook(arcRadius), 2.2),
+        0.85 * pow(DISK_IN / look(rho), 1.1),
         lying
       );
       top = topBand * heat * topGas
@@ -281,7 +312,8 @@ const fragmentShader = /* glsl */ `
         float arcGas = mix(roundGas, foot > 0.0 ? planeGas : 0.0, foot);
         // why: dim below the horizon, 35%, whole at the feet.
         float weight = max(mix(0.35, 1.0, smoothstep(-0.3, 0.4, sine)), foot);
-        float fall = mix(pow(ARC_IN / r, 2.2), pow(ARC_IN / r, 0.8), foot);
+        float near = arcLook(r);
+        float fall = mix(pow(ARC_IN / near, 2.2), pow(ARC_IN / near, 0.8), foot);
         bottom = arcBand * weight * fall * arcGas * beam(cosine)
           * mix(0.5, 0.35, foot);
       }
@@ -292,8 +324,6 @@ const fragmentShader = /* glsl */ `
     // 0.020 there, from 0.028 above (task black-hole-disk-colors, 6).
     float ringWidth = mix(0.028, 0.020, below);
     float ring = exp(-pow((r - RING) / ringWidth, 2.0)) * 1.4;
-    float glow = 0.22 * exp(-max(r - 1.0, 0.0) * 1.3)
-      * (1.0 - smoothstep(SPAN * 0.7, SPAN, r));
 
     // why: where the top's bands lie on the far half, the brighter of the
     // two shows; summed, the join burned into a white blot.
@@ -353,10 +383,10 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
       uPrimary: { value: colors.primary },
       uInnerTurn: { value: DISK.innerTurn },
       uOuterTurn: { value: DISK.outerTurn },
-      // why: the disk holds one pose, 15° above its plane and square; a
+      // why: the disk holds one pose, DISK_POSE's tilt and slant; a
       // swinging tilt read as the disk growing and shrinking.
       uTilt: { value: diskPose(0, true).tilt },
-      uRoll: { value: 0 }
+      uRoll: { value: DISK_POSE.slant }
     }),
     [colors]
   )

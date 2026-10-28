@@ -11,11 +11,12 @@ export const HOLE = {
   /** The design size the numbers above are measured at. */
   designHeight: 900,
   /** The body's half extent, in horizon radii: the disk's outer edge … */
-  halfWidth: 4,
+  halfWidth: 8,
   /** … the vertical disk's outer edge below the horizon … */
-  halfHeight: 1.22,
-  /** … and above it, 1.5 times as wide as the 0.25 it was: 1.43. */
-  topHeight: 1.425,
+  halfHeight: 1.39,
+  /** … and above it; both bands twice as wide as they were (task
+   * black-hole-wide, 4). */
+  topHeight: 1.8,
   /** Resting point, as a share of the hero's width and height. */
   rest: { x: 0.5, y: 0.32 },
   /** Share of the hero kept clear on every side. */
@@ -27,9 +28,10 @@ export const HOLE = {
 // 73 s a turn at the inner edge, 145 s at the outer one (80 and 160 s,
 // then 1.1 times as fast, as asked).
 export const DISK = {
-  /** Inner and outer edges, in horizon radii. */
+  /** Inner and outer edges, in horizon radii; twice its former 4 (task
+   * black-hole-wide, 4). */
   inner: 1.15,
-  outer: 4,
+  outer: 8,
   /** Seconds per turn at the inner and outer edges. */
   innerTurn: 80 / 1.1,
   outerTurn: 160 / 1.1
@@ -39,11 +41,13 @@ export const DISK = {
 // through its lens (task black-hole-behind, 5); the camera sees layer 0.
 export const BEHIND_LAYER = 1
 
-// why: the disk is seen 13° above its plane, so it reads as a tilted ring;
-// 2° flatter than the first 15°, its 288 px half width rises ~65 px, not
-// 75. The hero holds it still; diskPose can still swing and rock it.
+// why: the disk is seen 7° above its plane, more from the side than from
+// above, and its long axis rises 20° to the right, like a "/" (task
+// black-hole-wide, 5–6). The hero holds it still; diskPose can still swing
+// and rock it.
 export const DISK_POSE = {
-  tilt: (13 * Math.PI) / 180,
+  tilt: (7 * Math.PI) / 180,
+  slant: (20 * Math.PI) / 180,
   tiltSwing: (3 * Math.PI) / 180,
   tiltPeriod: 16,
   roll: (3 * Math.PI) / 180,
