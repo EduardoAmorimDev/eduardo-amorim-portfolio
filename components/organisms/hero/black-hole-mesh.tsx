@@ -70,58 +70,64 @@ const fragmentShader = /* glsl */ `
   // disks glow white hot.
   const float GLOW = 1.5;
 
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  float hash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1) * 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
   }
 
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
+  float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
     return mix(
-      mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
-      f.y
+      mix(
+        mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x),
+        mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x),
+        f.y
+      ),
+      mix(
+        mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x),
+        mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x),
+        f.y
+      ),
+      f.z
     );
   }
 
-  // Clouds made of five layers of noise, each finer and turned, so the gas
-  // reads as tufts and wisps rather than streaks.
-  float fbm(vec2 p) {
+  float fbm(vec3 p) {
     float value = 0.0;
     float weight = 0.5;
-    mat2 turn = mat2(1.6, 1.2, -1.2, 1.6);
-    for (int layer = 0; layer < 5; layer++) {
+    for (int layer = 0; layer < 4; layer++) {
       value += weight * noise(p);
-      p = turn * p;
+      p = p * 2.03 + vec3(1.7, 9.2, 3.1);
       weight *= 0.5;
     }
     return value;
   }
 
-  // The gas at a radius and angle of the disk: clouds fixed to the disk's
-  // own plane, turning once every uInnerTurn s at the inner edge and
-  // uOuterTurn s at the outer one; sharp-edged, so each tuft is distinct.
-  float clouds(float radius, float angle, float edge) {
+  // Wisps of gas at a radius and angle of the disk: noise in (around the
+  // orbit, across it), long along the orbit and thin across, its radius
+  // bent by a slower turbulence so each filament wavers and breaks. It
+  // turns once every uInnerTurn s at the inner edge, uOuterTurn s outside.
+  float wisps(float radius, float angle, float edge) {
     float share = clamp((radius - DISK_IN) / (DISK_OUT - DISK_IN), 0.0, 1.0);
     float turn = mix(uInnerTurn, uOuterTurn, share);
     float phase = angle - TAU * uTime / turn;
-    vec2 onPlane = vec2(cos(phase), sin(phase)) * radius * GLOW;
-    // why: tufts a quarter larger and covering a little more of the disk,
-    // so the gas reads thicker without adding rows.
-    float cloud = fbm(onPlane * 1.6 + 7.3) * 0.7 + fbm(onPlane * 4.0 - 3.1) * 0.3;
-    return smoothstep(0.26 - edge, 0.6 + edge, cloud);
+    vec2 around = vec2(cos(phase), sin(phase)) * 2.6;
+    float swirl = fbm(vec3(around * 0.8, radius * 2.0));
+    float strand = fbm(vec3(around, (radius + swirl * 0.35) * 9.0 * GLOW));
+    return smoothstep(0.42 - edge, 0.7 + edge, strand);
   }
 
-  // The arcs' gas: soft-edged clouds over a faint haze.
+  // The ring's gas: wisps over a faint haze, never so bright they merge.
   float gas(float radius, float angle) {
-    return GLOW * (0.12 * GLOW + 1.4 * clouds(radius, angle, 0.06));
+    return GLOW * (0.05 * GLOW + 1.3 * wisps(radius, angle, 0.06));
   }
 
-  // The tilted disk's gas: tighter edges and more contrast, so its slow
-  // turn stays visible seen nearly edge-on.
+  // The tilted disk's gas: crisper wisps, so its slow turn stays visible
+  // seen nearly edge-on.
   float diskGas(float radius, float angle) {
-    return GLOW * (0.06 * GLOW + 1.8 * pow(clouds(radius, angle, 0.0), 1.3));
+    return GLOW * (0.04 * GLOW + 1.7 * wisps(radius, angle, 0.0));
   }
 
   // Doppler beaming: the side turning towards the viewer (cos < 0, the
@@ -185,8 +191,10 @@ const fragmentShader = /* glsl */ `
 
     float outside = smoothstep(0.99, 1.01, r);
     vec3 light = uPrimary * glow + uMist * ring
-      + (arcColor * over + diskColor * lit.y) * outside
-      + diskColor * lit.x;
+      + arcColor * over * outside
+      // why: where the near and far halves meet, at the disk's middle row,
+      // the brighter one shows; summed, they drew a straight white line.
+      + diskColor * max(lit.x, lit.y * outside);
     float alpha = clamp(max(max(light.r, light.g), light.b), 0.0, 1.0);
     vec3 shown = min(light / max(alpha, 1e-4), vec3(1.0));
     // Inside the horizon: ink, with the near half of the disk over it.
