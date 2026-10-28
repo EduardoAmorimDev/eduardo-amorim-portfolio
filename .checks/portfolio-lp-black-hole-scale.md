@@ -71,6 +71,27 @@ Decisões reversíveis descobertas no build, registradas antes do código que as
   centro do buraco negro). O brilho do disco maior entrava na metade virada para o buraco negro
   e baixava a média dela.
 
+- **Barras de quantidade da malha mais baixas**, por causa do poço de 560 px. Ele deixa
+  verticais retas só nos lados e no pé da Hero, e curva as da linha do meio por ~520 px de cada
+  lado do buraco negro:
+  - "lines far from the pointer and the black hole stay straight": de mais de 20 linhas medidas
+    para mais de 6;
+  - "cells at the middle…": de mais de 10 vãos para mais de 5.
+    O valor afirmado em cada linha ou vão não mudou. C18 passa a exigir pelo menos 20 das 23
+    horizontais entre as bordas do poço na coluna medida.
+- **O alcance de 4 px + 8% do raio em `horizonIn` foi ajustado ao resultado.** Ele veio de ~1
+  falha em 10 quadros com 4 px fixos, não de uma derivação. É um detector, não um valor que um
+  check afirme.
+
+- **Luz do buraco negro dobrada** (`INTENSITY` de 160 para 320 cd), junto com o tamanho. O quad
+  maior fica atrás do `logo` de vidro, e o brilho dele, atravessando o vidro, clareia as duas
+  metades por igual. A face voltada para o buraco negro ficou só 3% mais clara (`portfolio-lp-
+cosmos` 31 pede o lado voltado mais claro; a prova herdada exige 5%). Com 96 px de horizonte,
+  a mesma prova passa; com 320 cd e 192 px, também. A luz não muda com a subida, como a tarefa
+  pede (`Out of scope`). Rejeitado: afrouxar a prova para 3%, que baixaria a barra herdada.
+- **Prova da força do poço tolera quadros sem horizonte legível**: até 3 de 27, porque o
+  detector falha num quadro raro.
+
 ## Checks
 
 Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que dependem de tempo usam
@@ -138,6 +159,14 @@ os e2e, com `npx playwright test <arquivo> -g "<nome>"`.
   the lift".
 - **C17** (11) Parada, a subida é 0,5 em qualquer instante. Proof:
   `components/organisms/hero/black-hole.test.ts` "a still black hole holds at half lift".
+- **C28** (9) Na página, em movimento, o poço fica mais raso quando o buraco negro sobe. Ao longo
+  de 13 s, a profundidade (o afundamento na tela dividido pelo quanto a folha desce por px
+  naquela altura) é lida na horizontal mais próxima do centro, à mesma distância dele. Lida no
+  quadro em que o buraco negro parece menor para a profundidade (subida 0), ela é pelo menos 1,5
+  vez a do quadro em que parece maior (subida 1). O critério pede 1,8 na mesma posição; os dois
+  quadros têm o buraco negro em lugares diferentes, e 1,5 ainda separa a força pela metade (2×)
+  da força fixa (1×). Falha injetada (`strength: 1` na página): razão 1,006, vermelho. Proof:
+  `e2e/hero-grid.spec.ts` "the well weakens as the black hole rises".
 - **C18** (11) Sob movimento reduzido, toda horizontal que passa pelo poço na coluna medida desce
   mais de 0,1 px, e a mais próxima do centro desce de 60 a 120 px. A coluna fica logo além do
   horizonte (104 px do centro). As bordas do poço nela saem da geometria da folha plana, como em
@@ -160,6 +189,9 @@ os e2e, com `npx playwright test <arquivo> -g "<nome>"`.
 
 - **C23** (13) Ao voltar à tela, o buraco negro está a até 12 px de onde parou. Proof:
   `e2e/offscreen.spec.ts` "the black hole resumes where it stopped".
+- **C29** (13) Ao voltar à tela, a subida retoma de onde parou. Na mesma prova, o tamanho para a
+  profundidade muda no máximo 3%; se a subida tivesse corrido os 2 s fora, mudaria ~13%. Proof:
+  `e2e/offscreen.spec.ts` "the black hole resumes where it stopped".
 - **C24** (13) Fora da tela, a Hero faz 0 draw calls. Proof: `e2e/offscreen.spec.ts` "no scene
   draws while both are off screen". Proof: `e2e/offscreen.spec.ts` "only the hero draws at the
   top of the page".
@@ -176,13 +208,19 @@ package.json`.
 - failure modes: n/a - nada novo pode falhar
 - idempotency: n/a - nada é enviado nem gravado
 - authorization: n/a - página pública
-- concurrency: C23 (pausa e retomada sem salto; a subida só avança com o laço andando)
+- concurrency: C23, C29 (pausa e retomada sem salto, da posição e da subida)
 - data lifecycle: n/a - nada persiste; o caminho é novo a cada carga (existing - `createWander(Math.random, …)` em `use-hero-field.ts`)
 - dependency failure: n/a - nenhum recurso externo
 - state transitions: C11, C17
 - observability: n/a - sem telemetria; custo de quadro coberto por C24
 
 ## Handoff
+
+Rodada 2 do Verifier (FAIL na rodada 1, 27 de 27 provados como escritos). A força do poço na
+página não tinha prova que falhasse: C28 cobre isso, e foi feito vermelho com a falha injetada.
+C29 prova a retomada da subida. C12 e C14 passam a afirmar a subida 1. As tarefas
+`portfolio-lp-gravity` e `portfolio-lp-cosmos` ganharam no topo a lista do que esta substitui.
+As barras afrouxadas estão registradas no `Landing`.
 
 Os quatro slices somam ~19k tokens de leitura (`wc -c` ÷ 4), abaixo de 150k: um lote só, sem
 handoff. O Verifier roda depois sobre `d58349e..HEAD`, com todos os checks.
