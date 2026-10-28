@@ -64,7 +64,7 @@ const fragmentShader = /* glsl */ `
   const float RING = 1.04;
   // The disk's own thickness, in horizon radii, and how much brighter its
   // approaching (left) side is than its receding one: 1 ± BEAM.
-  const float THICK = 0.06;
+  const float THICK = 0.16;
   const float BEAM = 0.45;
   // How much brighter and denser the gas is than at first: 1.5×, so both
   // disks glow white hot.
@@ -136,8 +136,8 @@ const fragmentShader = /* glsl */ `
     vec2 lit = vec2(0.0);
     vec2 centre = vec2(q.x, q.y / lean);
     float streaks = diskGas(length(centre), atan(centre.y, centre.x));
-    for (int k = -1; k <= 1; k++) {
-      float y = q.y + float(k) * THICK * 0.5;
+    for (int k = -2; k <= 2; k++) {
+      float y = q.y + float(k) * THICK * 0.25;
       vec2 onDisk = vec2(q.x, y / lean);
       float radius = length(onDisk);
       float band = smoothstep(DISK_IN - 0.05, DISK_IN + 0.2, radius)
@@ -145,7 +145,7 @@ const fragmentShader = /* glsl */ `
       float heat = 0.85 * pow(DISK_IN / max(radius, DISK_IN), 1.1);
       float light = band * heat * streaks
         * beam(onDisk.x / max(radius, 1e-4))
-        * (1.0 - abs(float(k)) * 0.3);
+        * (1.0 - abs(float(k)) * 0.22);
       if (y < 0.0) lit.x = max(lit.x, light);
       else lit.y = max(lit.y, light);
     }
