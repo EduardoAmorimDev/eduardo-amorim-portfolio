@@ -49,10 +49,17 @@ buraco negro: 90° em cima, 270° embaixo, 0° e 180° nos lados.
 3. Sempre, o disco vertical vai de 1,05 R até 1,30 R em cima (θ = 90°), e até 1,22 R embaixo
    (θ = 270°), como hoje. A borda de fora passa de uma medida à outra suavemente, conforme sen θ.
    Em cima, a largura cresce cerca de 50% (de 0,17 a 0,25 R).
+
+> Substituído em 2026-10-28 por `.tasks/portfolio-lp-black-hole-disk-colors.md` (5–7): embaixo,
+> o disco vertical passa a ser azul escuro e o anel de fótons fica mais fino.
+
 4. Sempre, a parte de baixo do disco vertical, de θ = 200° a 340°, fica como hoje: mesmos raios,
    mesmo brilho, mesmo gás.
 
 ### S3 — Disco vertical ligado ao horizontal
+
+> Substituído em 2026-10-28 por `.tasks/portfolio-lp-black-hole-disk-colors.md` (2): em cima, os
+> pés seguem as faixas de cor até (±1,9; 0,8) R; embaixo, continuam até 1,6 R.
 
 5. Sempre, nos lados (θ a até ~20° de 0° ou de 180°), os pés do disco vertical se alargam ao longo
    do plano do disco horizontal até 1,6 R e se fundem nele, como na referência.
