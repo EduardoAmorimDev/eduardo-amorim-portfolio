@@ -81,16 +81,42 @@ export const sourceRadius = (theta: number, bend: number) =>
 
 const rings = new Map<number, number>()
 
+// why: the lens follows a dipole whose poles are left and right of the
+// shadow, bending as the field line through each point (black-hole-flow,
+// 2): |sin φ|^0.5 keeps it near whole at most angles and drops it only at
+// the poles; the light also flows round a circle of 1.6 horizon radii, as
+// a liquid round a cylinder (black-hole-flow, 3).
+export const FIELD = { exponent: 0.5 } as const
+export const FLOW = { radius: 1.6 } as const
+
+/** How much of the lens reaches `angle` radians off the poles' axis. */
+export const fieldShare = (angle: number) =>
+  Math.abs(Math.sin(angle)) ** FIELD.exponent
+
 /**
  * Where the ray seen `theta` horizon radii out, `angle` radians off the
- * poles' axis (the horizontal), comes from: the lens of the dipole field
- * line through that point, ρ = θ / sin²(angle), so the bend is whole above
- * and below and fades to none at the poles, left and right
- * (black-hole-apple, 3).
+ * poles' axis (the horizontal), comes from, by the lens alone: the lens of
+ * the field line through that point, ρ = θ / fieldShare(angle).
  */
 export const sourceRadiusAt = (theta: number, angle: number, bend: number) => {
-  const share = Math.sin(angle) ** 2
+  const share = fieldShare(angle)
   return share > 0 && bend > 0 ? theta - bend * bentBy(theta / share) : theta
+}
+
+/**
+ * The point behind the black hole that the screen point (x, y) shows, both
+ * in horizon radii from its centre, x to the right and y up: the dipole
+ * lens, radial, plus the flow round the circle, a²·(x, −y)/r².
+ */
+export const behindPoint = (x: number, y: number, bend: number) => {
+  const r2 = x * x + y * y
+  const theta = Math.sqrt(r2)
+  const beta = sourceRadiusAt(theta, Math.atan2(y, x), bend)
+  const flow = (FLOW.radius * FLOW.radius) / r2
+  return {
+    x: (x * beta) / theta + flow * x,
+    y: (y * beta) / theta - flow * y
+  }
 }
 
 /** The Einstein ring's radius, in horizon radii, for a lens of `bend`. */

@@ -12,7 +12,7 @@ import {
   Vector2,
   type ShaderMaterial
 } from 'three'
-import { bendAt, deflectionTable } from './deflection'
+import { FIELD, FLOW, bendAt, deflectionTable } from './deflection'
 import type { HoleBody } from './grid-motion'
 
 // why: values of the deflection over s = 1/θ, 0 to 1; linear between them,
@@ -42,6 +42,7 @@ const fragmentShader = /* glsl */ `
   uniform vec2 uCentre;
   uniform float uHorizon;
   uniform float uBend;
+  uniform float uFlow;
   varying vec2 vUv;
 
   const int TABLE = ${TABLE_SIZE};
@@ -56,14 +57,19 @@ const fragmentShader = /* glsl */ `
 
   void main() {
     vec2 here = vec2(vUv.x, 1.0 - vUv.y) * uSize;
-    vec2 offset = here - uCentre;
-    float theta = length(offset) / uHorizon;
+    vec2 q = (here - uCentre) / uHorizon;
+    float theta = length(q);
     if (theta <= 1.0) discard;
-    // why: the bend of the dipole field line through this point, whose
-    // radius above and below is ρ = θ / sin²φ (black-hole-apple, 3).
-    float share = pow(offset.y / length(offset), 2.0);
+    // hazard: pow() of a negative base is undefined in GLSL (NaN above the
+    // centre, black-hole-flow 1); the angle's share comes from a square.
+    float sine2 = (q.y * q.y) / (theta * theta);
+    float share = pow(sine2, ${(FIELD.exponent / 2).toFixed(2)});
     float beta = share > 1e-6 ? theta - uBend * bentBy(theta / share) : theta;
-    vec2 from = (uCentre + offset * (beta / theta)) / uSize;
+    // invariant: as behindPoint (deflection.ts); with y down the flow keeps
+    // its form, a²·(x, −y)/r².
+    vec2 lensed = q * (beta / theta)
+      + uFlow * uFlow * vec2(q.x, -q.y) / (theta * theta);
+    vec2 from = (uCentre + lensed * uHorizon) / uSize;
     vec2 layer = 0.5 + (vec2(from.x, 1.0 - from.y) - 0.5) / ${OVERSCAN.toFixed(1)};
     if (any(lessThan(layer, vec2(0.0))) || any(greaterThan(layer, vec2(1.0))))
       discard;
@@ -113,7 +119,8 @@ export const BentLight = ({ hole, behind }: BentLightProps) => {
       uSize: { value: new Vector2() },
       uCentre: { value: new Vector2() },
       uHorizon: { value: 1 },
-      uBend: { value: 0 }
+      uBend: { value: 0 },
+      uFlow: { value: FLOW.radius }
     }),
     [deflection, target]
   )
