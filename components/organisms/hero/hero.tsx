@@ -28,7 +28,8 @@ export const Hero = ({ id, children }: HeroProps) => {
     y: 0,
     horizon: 0,
     scale: 1,
-    strength: 1
+    strength: 1,
+    lift: 0
   })
   useHeroField({ section, grid, lens, hole })
 
@@ -39,12 +40,13 @@ export const Hero = ({ id, children }: HeroProps) => {
       className="relative h-svh overflow-clip select-none"
     >
       {/* why: first in the DOM, so the transparent 3D canvas paints over it;
-          it never takes the pointer, which the field hears on the window. */}
+          it never takes the pointer, which the field hears on the window.
+          The black hole draws it bent and hides it while it does. */}
       <canvas
         ref={grid}
         data-testid="hero-grid"
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 size-full opacity-[0.14]"
+        className="pointer-events-none absolute inset-0 size-full opacity-50"
       />
       {/* why: no OrbitControls, so the camera stays put: the viewer can neither
           drag nor zoom. dpr: at least 1.5× even on 1× screens; MSAA alone left
@@ -61,7 +63,7 @@ export const Hero = ({ id, children }: HeroProps) => {
         camera={{ position: HERO_CAMERA.position, fov: HERO_CAMERA.fov }}
       >
         <RenderGate />
-        <HeroScene hole={hole} />
+        <HeroScene hole={hole} grid={grid} />
       </Canvas>
       <canvas
         ref={lens}

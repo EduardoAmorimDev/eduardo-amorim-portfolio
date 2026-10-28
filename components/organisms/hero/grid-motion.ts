@@ -41,13 +41,15 @@ export type Point = { x: number; y: number }
 export type PointerBody = Point & { strength: number }
 
 /**
- * The black hole's well: its centre, horizon radius and scale, in px, and
- * its strength, 1 (resting on the grid) to 0.5 (risen off it).
+ * The black hole's well: its centre, horizon radius and scale, in px, its
+ * strength, 1 (resting on the grid) to 0.5 (risen off it), and how far it
+ * has risen, 0 to 1.
  */
 export type HoleBody = Point & {
   horizon: number
   scale: number
   strength: number
+  lift: number
 }
 
 /** A point of the sheet: `u` across, `v` up the sheet, both from the centre. */

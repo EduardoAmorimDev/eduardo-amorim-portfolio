@@ -9,10 +9,12 @@ import type { HoleBody } from './grid-motion'
 type HeroSceneProps = {
   /** Where the hero's field puts the black hole, in hero px. */
   hole: RefObject<HoleBody>
+  /** The grid's canvas, which lies behind the black hole. */
+  grid: RefObject<HTMLCanvasElement | null>
 }
 
 /** The hero's 3D layer: the wandering black hole and the glass logo. */
-export const HeroScene = ({ hole }: HeroSceneProps) => {
+export const HeroScene = ({ hole, grid }: HeroSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
   const background = useMemo(() => readThemeColor('background'), [])
@@ -23,7 +25,7 @@ export const HeroScene = ({ hole }: HeroSceneProps) => {
           depth reads without a floor or a horizon. */}
       <fog attach="fog" args={[background, 8, 16]} />
       <StudioEnvironment />
-      <BlackHole hole={hole} />
+      <BlackHole hole={hole} behind={grid} />
       {/* why: Suspense renders nothing until the models have loaded. */}
       <Suspense fallback={null}>
         <GlassElements />

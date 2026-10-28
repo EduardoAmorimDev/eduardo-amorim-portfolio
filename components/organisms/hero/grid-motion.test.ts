@@ -24,8 +24,8 @@ const HOLE_PULL = 96
 const HORIZON = 96
 const REST = { x: 720, y: 288 }
 const LIFTED = {
-  low: { size: 0.88, strength: 1 },
-  high: { size: 1.12, strength: 0.5 }
+  low: { size: 0.88, strength: 1, lift: 0 },
+  high: { size: 1.12, strength: 0.5, lift: 1 }
 }
 const LOW_SINK = { min: 80, max: 160 }
 const DEEPER = 1.8
@@ -44,7 +44,7 @@ const pointerBody = { u: -400, v: -150 }
 const holeAt = (
   x: number,
   y: number,
-  lifted: { size: number; strength: number } = LIFTED.low
+  lifted: { size: number; strength: number; lift: number } = LIFTED.low
 ): HoleBody => ({
   x,
   y,
@@ -52,7 +52,8 @@ const holeAt = (
     (HORIZON * lifted.size * sheetScale(HEIGHT, y)) /
     sheetScale(HEIGHT, REST.y),
   scale: 1,
-  strength: lifted.strength
+  strength: lifted.strength,
+  lift: lifted.lift
 })
 
 test('a 50° sheet: straight verticals, 48px apart at the middle, flat cells far off', () => {
