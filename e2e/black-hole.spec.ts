@@ -407,7 +407,7 @@ test.describe('narrow screen', () => {
 
 test('the black hole wanders', async ({ page }) => {
   await gotoStopped(page, 500)
-  await showSceneOnly(page)
+  await showSceneOnly(page, { stopped: true })
   const ink = await inkOf(page)
   const before = await findHorizon(page, ink)
   await page.clock.runFor(WANDER_MS)
@@ -419,7 +419,7 @@ test('the black hole wanders', async ({ page }) => {
 
 test("the disk's pattern turns", async ({ page }) => {
   await gotoStopped(page, 500)
-  await showSceneOnly(page)
+  await showSceneOnly(page, { stopped: true })
   const ink = await inkOf(page)
   const capture = async () => {
     const pixels = await firstScreen(page)
@@ -473,7 +473,7 @@ test("the disk's pattern turns", async ({ page }) => {
 
 test("the disk's tilt changes on screen", async ({ page }) => {
   await gotoStopped(page, 500)
-  await showSceneOnly(page)
+  await showSceneOnly(page, { stopped: true })
   const ink = await inkOf(page)
   const read = async () => {
     const pixels = await firstScreen(page)
@@ -491,8 +491,11 @@ test("the disk's tilt changes on screen", async ({ page }) => {
 })
 
 test('the black hole grows and shrinks as it rises', async ({ page }) => {
+  // why: 12 s of frames through a stopped clock, each now sending the grid
+  // to the GPU to bend it: ~32 s here, ~27 s with the grid sent once.
+  test.setTimeout(60_000)
   await gotoStopped(page, 500)
-  await showSceneOnly(page)
+  await showSceneOnly(page, { stopped: true })
   const ink = await inkOf(page)
   const sizes: number[] = []
   for (let sample = 0; sample < GROW_SAMPLES; sample++) {
