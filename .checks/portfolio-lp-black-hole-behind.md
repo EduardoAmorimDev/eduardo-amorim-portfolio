@@ -50,6 +50,10 @@ Reusa `useFBO` do drei, a mesma câmera da cena, o vidro do `logo` e a lente atu
 
 Decisões reversíveis, registradas antes do código:
 
+- **`cursor` e `wave` mais baixos** (`anchor` (−0,48; 0,40) e (0,52; 0,12), em vez de
+  (−0,44; 0,56) e (0,44; 0,56)). Em repouso, a lente empurra os modelos para fora do centro do
+  buraco negro, e o `wave` foi parar embaixo do `logo`. A tarefa (Unresolved 2) foi corrigida.
+
 - **A malha sai da Hero sem apagar o código.** `useHeroField` aceita `grid` ausente e, sem ela,
   não desenha a malha. O tamanho passa a vir do canvas da lente, que cobre a mesma área.
 - **Os modelos de trás não seguem o ponteiro.** Só balançam (`bob`/`sway`), com o ponteiro
