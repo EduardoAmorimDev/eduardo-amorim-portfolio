@@ -3,7 +3,7 @@ import { sheetScale } from './grid-motion.ts'
 
 // why: at 1440×900 (cosmos 28–30, black-hole-scale 1–3): a 192 px horizon,
 // a disk drawn close in, 3 diameters wide (outer radius 3 horizon radii),
-// its back bent into arcs up to 1.25 radii above and below; it rests at the
+// its back bent into a ring up to 1.3 radii round it; it rests at the
 // centre, 32% down, its sphere and arcs 10% clear of every edge.
 export const HOLE = {
   /** Horizon diameter in CSS px at the design size. */
@@ -13,7 +13,7 @@ export const HOLE = {
   /** The body's half extent, in horizon radii: the disk's outer edge … */
   halfWidth: 3,
   /** … and the arcs' outer edge, drawn close to the horizon. */
-  halfHeight: 1.25,
+  halfHeight: 1.3,
   /** Resting point, as a share of the hero's width and height. */
   rest: { x: 0.5, y: 0.32 },
   /** Share of the hero kept clear on every side. */

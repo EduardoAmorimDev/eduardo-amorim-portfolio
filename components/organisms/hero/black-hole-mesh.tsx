@@ -42,8 +42,8 @@ const vertexShader = /* glsl */ `
 
 // why: one pass on a camera-facing quad, in horizon radii: a ring seen
 // uTilt above its plane, axis leaning uRoll, its near half in front of the
-// horizon, its far half past it and bent over the top and, faintly, under
-// it, so the hole reads as a sphere; mist, primary and ink only (gravity 13).
+// horizon, its far half past it and bent into a ring round it, so the
+// hole reads as a sphere; mist, primary and ink only (gravity 13).
 const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec3 uInk;
@@ -66,6 +66,9 @@ const fragmentShader = /* glsl */ `
   // approaching (left) side is than its receding one: 1 ± BEAM.
   const float THICK = 0.06;
   const float BEAM = 0.45;
+  // How much brighter and denser the gas is than at first: 1.5×, so both
+  // disks glow white hot.
+  const float GLOW = 1.5;
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -89,10 +92,10 @@ const fragmentShader = /* glsl */ `
     float share = clamp((radius - DISK_IN) / (DISK_OUT - DISK_IN), 0.0, 1.0);
     float turn = mix(uInnerTurn, uOuterTurn, share);
     float phase = angle - TAU * uTime / turn;
-    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1);
+    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1) * GLOW;
     float streak = noise(circle * 2.3 + radius * 3.1) * 0.6
       + noise(circle * 5.9) * 0.4;
-    return 0.15 + 1.25 * pow(streak, 1.8);
+    return GLOW * (0.15 * GLOW + 1.25 * pow(streak, 1.8));
   }
 
   // The tilted disk's own streaks: finer and with more contrast than the
@@ -101,10 +104,10 @@ const fragmentShader = /* glsl */ `
     float share = clamp((radius - DISK_IN) / (DISK_OUT - DISK_IN), 0.0, 1.0);
     float turn = mix(uInnerTurn, uOuterTurn, share);
     float phase = angle - TAU * uTime / turn;
-    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1);
+    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1) * GLOW;
     float streak = noise(circle * 3.4 + radius * 4.3) * 0.65
       + noise(circle * 8.1) * 0.35;
-    return 0.08 + 1.6 * pow(streak, 2.6);
+    return GLOW * (0.08 * GLOW + 1.6 * pow(streak, 2.6));
   }
 
   // Doppler beaming: the side turning towards the viewer (cos < 0, the
@@ -151,19 +154,15 @@ const fragmentShader = /* glsl */ `
     float depth = smoothstep(DISK_IN, DISK_OUT - 0.6, length(vec2(q.x, q.y / lean)));
     vec3 diskColor = mix(uMist, uPrimary, depth);
 
-    // The far half, bent over the top of the horizon from side to side.
-    float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.08, r)
-      * (1.0 - smoothstep(ARC_OUT - 0.35, ARC_OUT, r));
+    // The far half, bent round the whole horizon: a ring from ARC_IN to
+    // ARC_OUT, whole over the top, fainter at the sides and below.
+    // hazard: the fade-out must start past ARC_IN, or the band vanishes.
+    float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.04, r)
+      * (1.0 - smoothstep(ARC_OUT - 0.1, ARC_OUT + 0.04, r));
     float arcRadius = mix(DISK_IN, DISK_OUT * 0.7,
       clamp((r - ARC_IN) / (ARC_OUT - ARC_IN), 0.0, 1.0));
-    float over = arcBand * smoothstep(-0.05, 0.3, sin(theta))
+    float over = arcBand * mix(0.6, 1.0, smoothstep(-0.3, 0.4, sin(theta)))
       * pow(ARC_IN / r, 2.2) * gas(arcRadius, theta) * beam(cos(theta)) * 1.15;
-    // Under the bottom: a thin, faint image just past the near half's edge.
-    float edge = DISK_OUT * lean;
-    float underBand = smoothstep(edge + 0.04, edge + 0.1, r)
-      * (1.0 - smoothstep(edge + 0.14, edge + 0.22, r));
-    float under = underBand * smoothstep(0.2, 0.75, -sin(theta))
-      * gas(DISK_IN + 0.4, theta) * beam(cos(theta)) * 0.42;
     vec3 arcColor = mix(uMist, uPrimary, smoothstep(ARC_IN, ARC_OUT, r));
 
     float ring = exp(-pow((r - RING) / 0.028, 2.0)) * 1.4;
@@ -172,7 +171,7 @@ const fragmentShader = /* glsl */ `
 
     float outside = smoothstep(0.99, 1.01, r);
     vec3 light = uPrimary * glow + uMist * ring
-      + (arcColor * (over + under) + diskColor * lit.y) * outside
+      + (arcColor * over + diskColor * lit.y) * outside
       + diskColor * lit.x;
     float alpha = clamp(max(max(light.r, light.g), light.b), 0.0, 1.0);
     vec3 shown = min(light / max(alpha, 1e-4), vec3(1.0));
