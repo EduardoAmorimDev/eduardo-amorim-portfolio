@@ -38,6 +38,9 @@ buraco negro: 90° em cima, 270° embaixo, 0° e 180° nos lados.
 
 ### S1 — Só o buraco negro
 
+> Substituídos em 2026-10-28 por `.tasks/portfolio-lp-space.md`: a Hero volta a ter texto (1),
+> céu de estrelas (2–4), gradiente (5) e planeta (6).
+
 1. Quando `/` carrega, a Hero não pede nenhum modelo de `/models/glass/` e não desenha `logo`,
    ícones nem a parede de texto. Na tela da Hero, só o buraco negro tem luz: a sombra, o anel
    de fótons, o brilho em volta e os dois discos.

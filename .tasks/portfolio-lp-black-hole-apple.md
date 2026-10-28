@@ -93,6 +93,9 @@ dos polos, a horizontal: 0° à direita e à esquerda, 90° em cima e embaixo.
 
 ### S4 — Hero sem texto
 
+> Substituído em 2026-10-28 por `.tasks/portfolio-lp-space.md` (1): o título, o subtítulo e o
+> CTA voltam à Hero.
+
 8. Quando `/` carrega, `#hero` não tem `<h1>`, subtítulo nem CTA. O componente `HeroCopy`
    continua no projeto, sem uso.
 
