@@ -263,12 +263,12 @@ const paintSky = (
             new Vector4(
               star.at[0] * width,
               star.at[1] * height,
-              star.core,
-              star.halo
+              star.core * SPACE.scale,
+              star.halo * SPACE.scale
             )
         )
       },
-      uStarB: { value: BRIGHT_STARS.map(star => star.spikes) }
+      uStarB: { value: BRIGHT_STARS.map(star => star.spikes * SPACE.scale) }
     },
     depthTest: false,
     depthWrite: false

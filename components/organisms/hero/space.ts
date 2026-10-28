@@ -10,7 +10,9 @@ export const SPACE = {
   twinkleLow: 0.15,
   twinkleSeconds: [1.5, 4],
   /** Share of stars tinted towards primary or steel. */
-  tintShare: 0.15
+  tintShare: 0.15,
+  /** Every star, small or bright, at 2/3 of its size (black-hole-bare, 2). */
+  scale: 2 / 3
 } as const
 
 export type BrightStar = {
@@ -74,7 +76,7 @@ export const createStars = (random: Random, area: Box): Star[] => {
       stars.push({
         x: left + random() * cell,
         y: top + random() * cell,
-        size: random() < 0.75 ? 1 : between(random, [1.4, 2]),
+        size: SPACE.scale * (random() < 0.75 ? 1 : between(random, [1.4, 2])),
         // why: most stars faint, a few bright, as in the reference sky;
         // halved, so the bright ones stand out (black-hole-alive, 14).
         brightness: 0.5 * (0.3 + 0.7 * random() ** 2.2),
@@ -134,7 +136,7 @@ export const createFeatured = (
       stars.push({
         x: x * width,
         y: y * height,
-        size: between(random, kind.size),
+        size: SPACE.scale * between(random, kind.size),
         brightness: 0.9 + 0.1 * random(),
         tint: 0,
         period: between(random, [3, 6]),
