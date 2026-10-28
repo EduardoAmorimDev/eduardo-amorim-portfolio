@@ -303,3 +303,135 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
 }
 
 export type Wander = ReturnType<typeof createWander>
+
+/** A path the black hole follows: where it is after `seconds` more. */
+export type Path = { step(seconds: number): Point }
+
+// why: the black hole circles the copy instead of crossing it (task
+// black-hole-alive, 10): one lap of the lanes between the copy and the edge
+// of its box, at 3.5 to 6.5 px/s, swaying across each lane, and trailing
+// the lap by CIRCUIT.lag s, which rounds its corners.
+export const CIRCUIT = {
+  speed: 5,
+  speedSway: 1.5,
+  speedPeriod: 37,
+  /** Share of each lane's half width it sways across. */
+  sway: 0.45,
+  swayPeriod: 23,
+  lag: 3
+} as const
+
+/**
+ * A closed lap of `box` round `copy` (both in hero px), clockwise from its
+ * top left corner, starting at the lap's point nearest `start`. Each lane
+ * runs midway between the copy and the box's edge; where the copy leaves no
+ * room, the lane keeps to the box's edge.
+ */
+export const createCircuit = (
+  random: () => number,
+  box: Box,
+  copy: Box | null,
+  start: Point
+): Path => {
+  const inner = copy ?? {
+    left: box.left + (box.right - box.left) * 0.3,
+    top: box.top + (box.bottom - box.top) * 0.3,
+    right: box.right - (box.right - box.left) * 0.3,
+    bottom: box.bottom - (box.bottom - box.top) * 0.3
+  }
+  const lane = (edge: number, side: number, low: number, high: number) =>
+    Math.min(high, Math.max(low, (edge + side) / 2))
+  const left = lane(
+    box.left,
+    Math.max(box.left, inner.left),
+    box.left,
+    box.right
+  )
+  const right = lane(
+    box.right,
+    Math.min(box.right, inner.right),
+    left,
+    box.right
+  )
+  const top = lane(box.top, Math.max(box.top, inner.top), box.top, box.bottom)
+  const bottom = lane(
+    box.bottom,
+    Math.min(box.bottom, inner.bottom),
+    top,
+    box.bottom
+  )
+  // invariant: how far each lane may sway and still keep off the copy and
+  // inside the box: its half width.
+  const halfWidth = {
+    top: Math.max(0, Math.min(top - box.top, inner.top - top)),
+    right: Math.max(0, Math.min(box.right - right, right - inner.right)),
+    bottom: Math.max(0, Math.min(box.bottom - bottom, bottom - inner.bottom)),
+    left: Math.max(0, Math.min(left - box.left, inner.left - left))
+  }
+  const width = right - left
+  const height = bottom - top
+  const lap = 2 * (width + height)
+
+  /** The lap's point `distance` px along it, and its outward normal. */
+  const along = (distance: number) => {
+    let d = ((distance % lap) + lap) % lap
+    if (d < width)
+      return { x: left + d, y: top, nx: 0, ny: -1, half: halfWidth.top }
+    d -= width
+    if (d < height)
+      return { x: right, y: top + d, nx: 1, ny: 0, half: halfWidth.right }
+    d -= height
+    if (d < width)
+      return { x: right - d, y: bottom, nx: 0, ny: 1, half: halfWidth.bottom }
+    d -= width
+    return { x: left, y: bottom - d, nx: -1, ny: 0, half: halfWidth.left }
+  }
+
+  // why: the lap's point nearest `start`, so a resize picks up where the
+  // black hole is instead of jumping.
+  let travelled = 0
+  let nearest = Infinity
+  for (let d = 0; d < lap; d += 2) {
+    const p = along(d)
+    const gap = Math.hypot(p.x - start.x, p.y - start.y)
+    if (gap < nearest) {
+      nearest = gap
+      travelled = d
+    }
+  }
+  const phase = random() * 2 * Math.PI
+  let time = 0
+  const position = { ...start }
+
+  return {
+    step(seconds: number) {
+      const dt = Math.min(Math.max(seconds, 0), WANDER.maxFrame)
+      time += dt
+      const speed =
+        CIRCUIT.speed +
+        CIRCUIT.speedSway *
+          Math.sin((2 * Math.PI * time) / CIRCUIT.speedPeriod + phase)
+      travelled += speed * dt
+      const at = along(travelled)
+      const offset =
+        CIRCUIT.sway *
+        at.half *
+        Math.sin((2 * Math.PI * time) / CIRCUIT.swayPeriod + phase)
+      const target = { x: at.x + at.nx * offset, y: at.y + at.ny * offset }
+      // why: trailing the lap rounds its corners; the pace stays the lap's,
+      // and never above WANDER.maxSpeed, even catching up after a resize.
+      const follow = 1 - Math.exp(-dt / CIRCUIT.lag)
+      let dx = (target.x - position.x) * follow
+      let dy = (target.y - position.y) * follow
+      const move = Math.hypot(dx, dy)
+      const most = WANDER.maxSpeed * dt
+      if (move > most) {
+        dx *= most / move
+        dy *= most / move
+      }
+      position.x += dx
+      position.y += dy
+      return { ...position }
+    }
+  }
+}

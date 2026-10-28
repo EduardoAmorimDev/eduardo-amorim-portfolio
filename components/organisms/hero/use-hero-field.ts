@@ -14,7 +14,7 @@ import {
   liftScale,
   wellStrength
 } from './black-hole'
-import { createWander, holeBox, type Wander } from './black-hole-path'
+import { createCircuit, holeBox, type Box, type Path } from './black-hole-path'
 import {
   GRID,
   HOLE_WELL,
@@ -69,7 +69,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   let dpr = 1
   let geometry = sheet(0, 0)
   let still = prefersReducedMotion()
-  let wander: Wander | null = null
+  let wander: Path | null = null
   let client: Point | null = null
   let target: Point | null = null
   // why: the lens opens only over the title (task gravity, criterion 16);
@@ -95,6 +95,32 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   /**
+   * The box round the copy's text, glyph by glyph (the h1's element spans
+   * its whole container), in hero px; the black hole circles it.
+   */
+  const copyBox = (): Box | null => {
+    const hero = section.getBoundingClientRect()
+    const rects: DOMRect[] = []
+    for (const element of section.querySelectorAll('h1, p, a')) {
+      const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+      for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+        if (!node.textContent?.trim()) continue
+        if (node.parentElement?.closest('[aria-hidden="true"]')) continue
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        rects.push(...range.getClientRects())
+      }
+    }
+    if (!rects.length) return null
+    return {
+      left: Math.min(...rects.map(rect => rect.left)) - hero.left,
+      top: Math.min(...rects.map(rect => rect.top)) - hero.top,
+      right: Math.max(...rects.map(rect => rect.right)) - hero.left,
+      bottom: Math.max(...rects.map(rect => rect.bottom)) - hero.top
+    }
+  }
+
+  /**
    * Where the black hole starts, and rests under reduced motion: the top
    * left corner of its box (task black-hole-wide, 7).
    */
@@ -112,7 +138,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
       x: Math.min(box.right, Math.max(box.left, x)),
       y: Math.min(box.bottom, Math.max(box.top, y))
     }
-    wander = still ? null : createWander(Math.random, box, start)
+    wander = still ? null : createCircuit(Math.random, box, copyBox(), start)
     placeHole(still ? rest : start)
   }
 
@@ -395,6 +421,11 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
 
   const observer = new ResizeObserver(resize)
   observer.observe(lens)
+  // why: the title's box is only final once the page's fonts have loaded.
+  let disposed = false
+  void document.fonts.ready.then(() => {
+    if (!disposed && width) resetPath()
+  })
   window.addEventListener('pointermove', onMove, { passive: true })
   window.addEventListener('scroll', follow, { passive: true })
   document.documentElement.addEventListener('pointerleave', onLeave)
@@ -415,6 +446,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
     },
     stop,
     dispose() {
+      disposed = true
       stop()
       observer.disconnect()
       window.removeEventListener('pointermove', onMove)

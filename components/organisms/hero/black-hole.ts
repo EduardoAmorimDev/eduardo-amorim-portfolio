@@ -19,8 +19,9 @@ export const HOLE = {
   topHeight: 1.8,
   /** Resting point, as a share of the hero's width and height. */
   rest: { x: 0.5, y: 0.32 },
-  /** Share of the hero kept clear on every side. */
-  margin: 0.1
+  /** Share of the hero kept clear on every side; small, so the black
+   * hole can circle round the copy (task black-hole-alive, 10). */
+  margin: 0.02
 } as const
 
 // why: the disk hugs the black hole, from 1.15 to 4 horizon radii, and
@@ -50,7 +51,9 @@ export const DISK_POSE = {
   slant: (20 * Math.PI) / 180,
   tiltSwing: (3 * Math.PI) / 180,
   tiltPeriod: 16,
-  roll: (3 * Math.PI) / 180,
+  // why: the slant sways ±1.5° as it travels (task black-hole-alive, 2,
+  // halved after review).
+  roll: (1.5 * Math.PI) / 180,
   rollPeriod: 21
 } as const
 
