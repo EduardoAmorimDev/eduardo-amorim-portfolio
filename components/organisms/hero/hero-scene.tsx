@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import { BEHIND_LAYER } from './black-hole'
 import { BlackHole } from './black-hole-mesh'
 import type { HoleBody } from './grid-motion'
+import { SpaceSky } from './space-sky'
 
 type HeroSceneProps = {
   /** Where the hero's field puts the black hole, in hero px. */
@@ -10,9 +11,12 @@ type HeroSceneProps = {
 }
 
 /**
- * The hero's 3D layer: the wandering black hole alone, for now (task
- * black-hole-joined-disk, 1); the glass icons and the text wall wait.
+ * The hero's 3D layer: the wandering black hole and, behind it and seen
+ * through its lens, a sky of stars (task space).
  */
 export const HeroScene = ({ hole }: HeroSceneProps) => (
-  <BlackHole hole={hole} behind={BEHIND_LAYER} />
+  <>
+    <SpaceSky />
+    <BlackHole hole={hole} behind={BEHIND_LAYER} />
+  </>
 )
