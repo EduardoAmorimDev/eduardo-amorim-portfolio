@@ -29,8 +29,7 @@ Com a tarefa entregue:
 - ele parte do canto superior esquerdo e anda pela Hero inteira;
 - a lente é radial e 1,2 vez maior.
 
-11 critérios em 4 fatias · 0 one-way doors · 4 em aberto, nenhum bloqueia (1 bloqueia go-live,
-herdado).
+11 critérios em 4 fatias · 0 one-way doors · 1 em aberto, que bloqueia go-live (herdado).
 
 ## Criteria
 
@@ -59,7 +58,7 @@ Medidas em CSS px numa janela de 1440×900, com R = 72 px (raio do horizonte).
    - as faixas de cor do vertical continuam entrando no horizontal pela parte de mesma cor (task
      `black-hole-disk-colors`, 1–3), agora até a borda de 8 R.
 5. Sempre, os discos são vistos 7° acima do plano (eram 13°): mais de lado do que de cima.
-6. Sempre, o eixo longo do disco horizontal fica inclinado 70° da horizontal, no sentido "/":
+6. Sempre, o eixo longo do disco horizontal fica inclinado 20° da horizontal, no sentido "/":
    sobe para a direita. Na tela, a borda direita do disco está acima da esquerda.
 7. Quando a página carrega com o movimento ligado, o centro do buraco negro começa no canto
    superior esquerdo do seu caminho, a ±2 px de (`box.left`; `box.top`). Sob movimento reduzido,
@@ -167,9 +166,12 @@ This task is the record of decision. If a linked document diverges, ask before b
 
 ## Unresolved
 
-| #   | Kind           | Question                                                                                                                            | Until answered                                 |
-| --- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 1   | blocks go-live | Texto real e destino do CTA (herdado).                                                                                              | Lorem; o CTA leva a `#contato`.                |
-| 2   | open           | "70º de inclinação" no sentido "/": 70° a partir da horizontal (disco quase em pé) ou 20° (disco quase deitado, só um pouco torto)? | 70° da horizontal (6), como o traço de um "/". |
-| 3   | open           | O fluxo aerodinâmico deve girar com o disco (70°) ou continuar horizontal?                                                          | Continua horizontal.                           |
-| 4   | open           | Os números propostos aqui: 7° de perspectiva, halo de 3× nas estrelas, quatro quadrantes em 300 s com a velocidade de hoje. Servem? | Escritos como estão; ajustam-se ao ver.        |
+| #   | Kind           | Question                               | Until answered                  |
+| --- | -------------- | -------------------------------------- | ------------------------------- |
+| 1   | blocks go-live | Texto real e destino do CTA (herdado). | Lorem; o CTA leva a `#contato`. |
+
+Respostas do usuário (2026-10-28):
+
+- 2: "Sim, o correto acho que seria 20º", no sentido "/" (6).
+- 3: "Fluxo aerodinâmico consinua": o fluxo continua horizontal.
+- 4: "Sim, ele vai mais longe, não mais rápido": a velocidade fica a de hoje.

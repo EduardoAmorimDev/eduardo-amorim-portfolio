@@ -73,6 +73,8 @@ Medidas em CSS px numa janela de 1440×900, salvo onde a medida é outra.
 
 ### S4 — Planeta
 
+> Substituído em 2026-10-28 por `.tasks/portfolio-lp-black-hole-wide.md` (1): o planeta saiu.
+
 6. Sempre, a silhueta de um planeta fecha a Hero embaixo.
    - É um círculo de raio igual a 2 larguras da Hero, com o topo a 84% da altura. A borda sobe
      em arco: nos cantos, ~6,4% da largura abaixo do topo.
