@@ -107,23 +107,28 @@ height − reach))`.
 - núcleo de 8, 4 e 3 px;
 - halo de 80, 32 e 14 px;
 - raios de 140, 56 e 22 px;
-- posições (80%; 22%), (78%; 62%) e (80,5%; 74%).
+- posições (90%; 20%), (92%; 56%) e (90,5%; 72%), à direita da caixa do texto.
 
-Na tela, o pixel mais claro a ±30 px de cada posição passa de 230 nos três canais (2–3). Proof:
-`source.ts` › "bright stars" e `probe.mjs` › "bright stars shine"
+Na tela, a 1440×900:
+
+- a posição de cada uma no céu fica fora da caixa do texto do `h1`, do `p` e do `a`, a 20 px
+  ou mais dela. A caixa é medida pelos glifos (`Range.getBoundingClientRect`), porque o
+  elemento `h1` ocupa toda a largura do contêiner, até x = 1360;
+- o pixel mais claro a ±30 px de cada posição passa de 230 nos três canais (2–3). Proof:
+  `source.ts` › "bright stars" e `probe.mjs` › "bright stars shine"
 
 **C4** - Com o movimento ligado, em duas capturas a 1 s de intervalo, a parte dos pixels que
 muda mais de 12 níveis é pelo menos 3 vezes maior perto do buraco negro que longe dele:
 
-- perto: a coroa de 1,6 a 3 R, fora da faixa do disco (|dy| > 0,9 R);
+- perto: a coroa de 1,6 a 3 R, fora do disco e do brilho dele (|dy| > 1,6 R);
 - longe: além de 6 R, fora do planeta e do texto.
 
 Isso mostra o céu curvado seguindo o buraco negro (4). Proof: `probe.mjs` › "the sky is lensed"
 
 ### S3 - Gradiente · 1 file · ~2 KB
 
-**C5** - O `background-image` do `#hero` é um `linear-gradient` para baixo, de `rgb(0, 0, 0)` a
-`rgb(16, 17, 19)` (5). Proof: `probe.mjs` › "black to ink"
+**C5** - O `background-image` do `#hero` é um `linear-gradient` sem direção ou com `to bottom`,
+de `rgb(0, 0, 0)` a `rgb(16, 17, 19)` (5). Proof: `probe.mjs` › "black to ink"
 
 ### S4 - Planeta · 3 files · ~12 KB
 
@@ -169,6 +174,17 @@ Nenhum limite mudou. Três medidas da sonda liam a coisa errada:
   nós que não são `aria-hidden`, que dão o nome acessível.
 - **C10, `laptop.glb`.** É o modelo do caderno, baixado desde `c359f26`. O critério 10 fala do
   que é baixado para o céu e o planeta, então a sonda o exclui pelo caminho.
+
+## Rodada 1 do Verifier: FAIL, e o que mudou
+
+- **Critério 3 sem check e violado.** A coluna a ~80% caía dentro da caixa do título. As
+  posições passaram para 90%, 92% e 90,5%, fora da caixa, e a C3 ganhou a verificação da caixa.
+  Com isso, a prova da estrela média deixa de ler as letras do título.
+- **C4 apertada:** o perto passou a excluir |dy| ≤ 1,6 R, como na releitura do Verifier.
+- **C5 apertada:** a regex agora recusa qualquer direção que não seja `to bottom`.
+- **C9:** a rolagem cai a 57 FPS em y = 1800 por causa do `iframe` do Kune no caderno
+  (`laptop.tsx`, `notebook-scene.tsx`), que este diff não toca. A exceção escrita ("a primeira
+  compilação do `next dev`") nomeia a causa errada. Está levado ao usuário.
 
 ## Handoff
 
