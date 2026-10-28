@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { HeroCopy } from '@/components/molecules/hero-copy'
 import { About } from '@/components/organisms/about'
 import { Cases } from '@/components/organisms/cases'
 import { Contact } from '@/components/organisms/contact'
@@ -28,9 +27,9 @@ export default function Home() {
     <>
       <header></header>
       <main>
-        <Hero id="hero">
-          <HeroCopy />
-        </Hero>
+        {/* why: no copy for now, to see the black hole clearly (task
+            black-hole-apple, 8); HeroCopy comes back later. */}
+        <Hero id="hero" />
         <Decorated>
           <SocialProof />
           <About />
