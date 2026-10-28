@@ -2,6 +2,7 @@
 import { Suspense, useMemo, type RefObject } from 'react'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import { readThemeColor } from '@/lib/color-tokens'
+import { BEHIND_LAYER } from './black-hole'
 import { BlackHole } from './black-hole-mesh'
 import { GlassElements } from './glass-elements'
 import type { HoleBody } from './grid-motion'
@@ -9,12 +10,10 @@ import type { HoleBody } from './grid-motion'
 type HeroSceneProps = {
   /** Where the hero's field puts the black hole, in hero px. */
   hole: RefObject<HoleBody>
-  /** The grid's canvas, which lies behind the black hole. */
-  grid: RefObject<HTMLCanvasElement | null>
 }
 
 /** The hero's 3D layer: the wandering black hole and the glass logo. */
-export const HeroScene = ({ hole, grid }: HeroSceneProps) => {
+export const HeroScene = ({ hole }: HeroSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
   const background = useMemo(() => readThemeColor('background'), [])
@@ -25,7 +24,7 @@ export const HeroScene = ({ hole, grid }: HeroSceneProps) => {
           depth reads without a floor or a horizon. */}
       <fog attach="fog" args={[background, 8, 16]} />
       <StudioEnvironment />
-      <BlackHole hole={hole} behind={grid} />
+      <BlackHole hole={hole} behind={BEHIND_LAYER} />
       {/* why: Suspense renders nothing until the models have loaded. */}
       <Suspense fallback={null}>
         <GlassElements />

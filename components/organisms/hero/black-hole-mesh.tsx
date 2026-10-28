@@ -171,8 +171,8 @@ const fragmentShader = /* glsl */ `
 type BlackHoleProps = {
   /** Where the hero's field puts the black hole, in hero px. */
   hole: RefObject<HoleBody>
-  /** The canvas of whatever lies behind it, which it bends. */
-  behind: RefObject<HTMLCanvasElement | null>
+  /** The layer of whatever lies behind it, which it bends and lights. */
+  behind: number
 }
 
 /**
@@ -274,7 +274,13 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
           toneMapped={false}
         />
       </mesh>
-      <pointLight color={light} intensity={INTENSITY} />
+      <pointLight
+        // why: a light only reaches the layers it is on; the disk lights
+        // what lies behind as well (task black-hole-behind, 5).
+        ref={lamp => lamp?.layers.enable(behind)}
+        color={light}
+        intensity={INTENSITY}
+      />
       <BentLight hole={hole} behind={behind} />
     </group>
   )

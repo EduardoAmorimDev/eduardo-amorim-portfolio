@@ -1,6 +1,6 @@
 import { MathUtils } from 'three'
 
-export type GlassName = 'logo'
+export type GlassName = 'logo' | 'cursor' | 'wave' | 'atom' | 'brick'
 
 export type GlassLayout = {
   name: GlassName
@@ -12,11 +12,18 @@ export type GlassLayout = {
   size: number
   /** Resting rotation in radians, so each icon shows its best angle. */
   pose: readonly [number, number, number]
+  /** Behind the black hole, seen only through its lens, deaf to the pointer. */
+  behind?: boolean
 }
 
 // why: the title holds the centre and the black hole wanders around it, so
 // the logo floats alone at the top right, clear of the title and the CTA;
 // high enough to clear the title's box at 2.5× (task gravity, 24).
+// why: the other four float behind the black hole (task black-hole-behind,
+// 3–5), around its resting point (centre, 32% down), so its lens bends them
+// even at rest: at z = −3, past the black hole (≈ −1.5), ~120 px each. The
+// upper two sit low enough that the lens, pushing them out, keeps the wave
+// clear of the logo.
 export const GLASS_LAYOUT: readonly GlassLayout[] = [
   {
     name: 'logo',
@@ -24,6 +31,38 @@ export const GLASS_LAYOUT: readonly GlassLayout[] = [
     depth: 0,
     size: 0.95,
     pose: [0.2, 0.4, 0]
+  },
+  {
+    name: 'cursor',
+    anchor: [-0.48, 0.4],
+    depth: -3,
+    size: 1,
+    pose: [0.3, -0.5, 0.2],
+    behind: true
+  },
+  {
+    name: 'wave',
+    anchor: [0.52, 0.12],
+    depth: -3,
+    size: 1,
+    pose: [0.2, 0.5, -0.1],
+    behind: true
+  },
+  {
+    name: 'atom',
+    anchor: [-0.36, -0.24],
+    depth: -3,
+    size: 1,
+    pose: [0.4, 0.3, 0],
+    behind: true
+  },
+  {
+    name: 'brick',
+    anchor: [0.36, -0.24],
+    depth: -3,
+    size: 1,
+    pose: [0.3, -0.4, 0.1],
+    behind: true
   }
 ]
 

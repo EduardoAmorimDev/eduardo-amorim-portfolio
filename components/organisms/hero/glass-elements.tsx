@@ -13,6 +13,7 @@ import {
   type Texture
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
+import { BEHIND_LAYER } from './black-hole'
 import {
   GLASS_LAYOUT,
   LAYOUT_WIDTH,
@@ -33,6 +34,7 @@ const BACKDROP = { size: 512, repeats: 4 }
 // why: below 1 the real scene (the black hole, the grid) shows through, so
 // the logo reads as translucent instead of solid coloured glass.
 const GLASS_OPACITY = 0.7
+const STILL_POINTER = { x: 0, y: 0 }
 
 /**
  * What the glass refracts, in place of the near-black scene behind it: the
@@ -77,10 +79,16 @@ type Part = {
   matrix: Matrix4
 }
 
-type GlassPartProps = { part: Part; backdrop: Texture }
+type GlassPartProps = { part: Part; backdrop: Texture; layer: number }
 
-const GlassPart = ({ part, backdrop }: GlassPartProps) => (
-  <mesh geometry={part.geometry} matrix={part.matrix} matrixAutoUpdate={false}>
+const GlassPart = ({ part, backdrop, layer }: GlassPartProps) => (
+  <mesh
+    // why: a layer is per object, not inherited, so each mesh is moved to it.
+    ref={mesh => mesh?.layers.set(layer)}
+    geometry={part.geometry}
+    matrix={part.matrix}
+    matrixAutoUpdate={false}
+  >
     {/* why: a given `buffer` makes drei skip its per-frame render of the
         scene, so the glass icons cost no extra passes. */}
     <MeshTransmissionMaterial
@@ -143,9 +151,11 @@ const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
   useFrame(({ clock, pointer }, delta) => {
     const group = body.current
     if (!group) return
+    // why: an icon behind the black hole is deaf to the pointer; it only
+    // bobs and sways (task black-hole-behind, 8).
     const target = motionTarget(
-      pointer,
-      hover.current,
+      layout.behind ? STILL_POINTER : pointer,
+      layout.behind ? null : hover.current,
       clock.elapsedTime,
       phase
     )
@@ -179,13 +189,21 @@ const GlassElement = ({ layout, phase, backdrop }: GlassElementProps) => {
       onPointerOut={() => (hover.current = null)}
     >
       {parts.map(part => (
-        <GlassPart key={part.key} part={part} backdrop={backdrop} />
+        <GlassPart
+          key={part.key}
+          part={part}
+          backdrop={backdrop}
+          layer={layout.behind ? BEHIND_LAYER : 0}
+        />
       ))}
     </group>
   )
 }
 
-/** The translucent glass logo floating in the hero, leaning to the pointer. */
+/**
+ * The translucent glass icons of the hero: the logo, in front, leaning to
+ * the pointer, and the icons behind the black hole, seen through its lens.
+ */
 export const GlassElements = () => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when a canvas and the theme's CSS variables are available.
