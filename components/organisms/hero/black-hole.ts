@@ -39,11 +39,11 @@ export const DISK = {
 // through its lens (task black-hole-behind, 5); the camera sees layer 0.
 export const BEHIND_LAYER = 1
 
-// why: the disk is seen 14° above its plane, so it reads as a tilted ring;
-// 1° flatter than the first 15°, its 288 px half width rises ~70 px, not
+// why: the disk is seen 13° above its plane, so it reads as a tilted ring;
+// 2° flatter than the first 15°, its 288 px half width rises ~65 px, not
 // 75. The hero holds it still; diskPose can still swing and rock it.
 export const DISK_POSE = {
-  tilt: (14 * Math.PI) / 180,
+  tilt: (13 * Math.PI) / 180,
   tiltSwing: (3 * Math.PI) / 180,
   tiltPeriod: 16,
   roll: (3 * Math.PI) / 180,

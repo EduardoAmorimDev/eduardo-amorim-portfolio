@@ -122,13 +122,8 @@ const fragmentShader = /* glsl */ `
     return smoothstep(0.34 - edge, 0.7 + edge, strand);
   }
 
-  // The ring's gas: wisps over a glowing body of gas, so it reads full.
-  float gas(float radius, float angle) {
-    return GLOW * (0.24 * GLOW + 1.1 * wisps(radius, angle, 0.08));
-  }
-
-  // The tilted disk's gas: a full, glowing body of gas with crisper wisps
-  // over it, so its slow turn stays visible seen nearly edge-on.
+  // The disks' gas: a full, glowing body of gas with crisp wisps over it,
+  // so its slow turn stays visible; both disks show the same gas.
   float diskGas(float radius, float angle) {
     return GLOW * (0.3 * GLOW + 1.4 * wisps(radius, angle, 0.04));
   }
@@ -187,18 +182,24 @@ const fragmentShader = /* glsl */ `
     float outer = mix(mix(ARC_OUT, ARC_TOP, rise), FOOT_OUT, foot);
     float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.04, r)
       * (1.0 - smoothstep(outer - 0.1, outer + 0.04, r));
-    float arcRadius = mix(DISK_IN, DISK_OUT * 0.7,
-      clamp((r - ARC_IN) / (outer - ARC_IN), 0.0, 1.0));
+    // why: the vertical disk is the horizontal one's image, so it shows the
+    // same gas at the same radius: each filament of the horizontal disk,
+    // reaching the sides at x = r, carries on round the top as an arc.
     vec2 onPlane = vec2(q.x, q.y / lean);
     float arcGas = mix(
-      gas(arcRadius, theta),
+      diskGas(r, theta),
       diskGas(length(onPlane), atan(onPlane.y, onPlane.x)),
       foot
     );
-    float weight = max(mix(0.6, 1.0, smoothstep(-0.3, 0.4, sin(theta))), foot);
+    // why: dim below the horizon, 35%, whole above and at the feet.
+    float weight = max(mix(0.35, 1.0, smoothstep(-0.3, 0.4, sin(theta))), foot);
     float fall = mix(pow(ARC_IN / r, 2.2), pow(ARC_IN / r, 0.8), foot);
-    float over = arcBand * weight * fall * arcGas * beam(cos(theta)) * 1.15;
-    vec3 arcColor = mix(uMist, uPrimary, smoothstep(ARC_IN, ARC_OUT, r));
+    // why: at half the disk's light the arcs keep their filaments instead of
+    // burning white; at the feet, where they add to the disk's own light,
+    // a little less again, so the join does not burn into a white blot.
+    float over = arcBand * weight * fall * arcGas * beam(cos(theta))
+      * mix(0.5, 0.35, foot);
+    vec3 arcColor = mix(uMist, uPrimary, smoothstep(DISK_IN, DISK_OUT - 0.6, r));
 
     float ring = exp(-pow((r - RING) / 0.028, 2.0)) * 1.4;
     float glow = 0.22 * exp(-max(r - 1.0, 0.0) * 1.3)
