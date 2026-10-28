@@ -145,49 +145,50 @@ const fragmentShader = /* glsl */ `
   // ARC_IN to ARC_TOP and, at the sides, lies on that ring's far half. The
   // 6-norm of the two heights rises past both where they cross, as in the
   // reference (task black-hole-disk-colors, 2).
-  vec2 bandHeights(float t, float x, float lean) {
+  vec2 bandHeights6(float t, float x, float lean) {
     float arc = ARC_IN + (ARC_TOP - ARC_IN) * t;
     float rho = DISK_IN + (DISK_OUT - DISK_IN) * t;
-    return vec2(
-      sqrt(max(arc * arc - x * x, 0.0)),
-      lean * sqrt(max(rho * rho - x * x, 0.0))
-    );
+    float circle = max(arc * arc - x * x, 0.0);
+    float ring = max(rho * rho - x * x, 0.0);
+    float lean2 = lean * lean;
+    // why: sixth powers by multiplication; sqrt and pow cost far more here.
+    return vec2(circle * circle * circle, lean2 * lean2 * lean2 * ring * ring * ring);
   }
 
-  float bandHeight(float t, float x, float lean) {
-    vec2 h = pow(bandHeights(t, x, lean), vec2(6.0));
-    return pow(h.x + h.y, 1.0 / 6.0);
+  float bandHeight6(float t, float x, float lean) {
+    vec2 h = bandHeights6(t, x, lean);
+    return h.x + h.y;
   }
 
   // invariant: a band's height grows with t, so the band through (x, y) is
-  // found by bisection; past -0.2 or 1.3 it is clamped, beyond both fades.
-  float bandAt(float x, float y, float lean) {
+  // found by bisection, comparing sixth powers (y >= 0, so the order holds);
+  // past -0.2 or 1.3 it is clamped, beyond both fades.
+  float bandAt(float x, float y6, float lean) {
     float low = -0.2;
     float high = 1.3;
     for (int k = 0; k < 12; k++) {
       float mid = 0.5 * (low + high);
-      if (bandHeight(mid, x, lean) < y) low = mid;
+      if (bandHeight6(mid, x, lean) < y6) low = mid;
       else high = mid;
     }
     return 0.5 * (low + high);
   }
 
-  // The disk's light at q (disk-aligned screen coordinates): x for its near
-  // half, in front of the horizon, y for its far half, behind it. A few
-  // rows around q give it thickness; the streaks are read once, at q, so
-  // the rows never smear them into a blur.
-  vec2 disk(vec2 q, float lean) {
+  // The disk's light at q (disk-aligned screen coordinates), without its
+  // gas: x for its near half, in front of the horizon, y for its far half,
+  // behind it. A few rows around q give it thickness; the gas is read once,
+  // at q, so the rows never smear it into a blur.
+  vec2 diskRows(vec2 q, float lean) {
     vec2 lit = vec2(0.0);
-    vec2 centre = vec2(q.x, q.y / lean);
-    float streaks = diskGas(length(centre), atan(centre.y, centre.x));
     for (int k = -1; k <= 1; k++) {
       float y = q.y + float(k) * THICK * 0.5;
       vec2 onDisk = vec2(q.x, y / lean);
       float radius = length(onDisk);
       float band = smoothstep(DISK_IN - 0.05, DISK_IN + 0.2, radius)
         * (1.0 - smoothstep(DISK_OUT - 0.45, DISK_OUT, radius));
+      if (band <= 0.0) continue;
       float heat = 0.85 * pow(DISK_IN / max(radius, DISK_IN), 1.1);
-      float light = band * heat * streaks
+      float light = band * heat
         * beam(onDisk.x / max(radius, 1e-4))
         * (1.0 - abs(float(k)) * 0.3);
       if (y < 0.0) lit.x = max(lit.x, light);
@@ -205,53 +206,86 @@ const fragmentShader = /* glsl */ `
     float lean = max(sin(uTilt), 0.02);
     float r = length(q);
     float theta = atan(q.y, q.x);
+    float sine = sin(theta);
+    float cosine = cos(theta);
 
-    vec2 lit = disk(q, lean);
     vec2 onPlane = vec2(q.x, q.y / lean);
     float planeRadius = length(onPlane);
     float planeAngle = atan(onPlane.y, onPlane.x);
     vec3 diskColor = diskTint(planeRadius);
+    // why: the gas is the costly part (64 hashes a read), so it is read only
+    // where some light uses it, and the plane's once for the disk and feet;
+    // -1 marks it unread. The gas is positive, so max over rows commutes.
+    float planeGas = -1.0;
+    vec2 lit = diskRows(q, lean);
+    if (lit.x + lit.y > 0.0) {
+      planeGas = diskGas(planeRadius, planeAngle);
+      lit *= planeGas;
+    }
+
+    float outside = smoothstep(0.99, 1.01, r);
+    float upper = step(0.0, q.y);
 
     // The vertical disk's top: bands of the horizontal disk's own colour and
     // gas (bandAt), white by the horizon and primary at its outer edge, each
     // running down the sides into the far half where that ring lies.
-    float band = bandAt(abs(q.x), max(q.y, 0.0), lean);
-    float rho = DISK_IN + (DISK_OUT - DISK_IN) * clamp(band, 0.0, 1.0);
-    vec2 heights = pow(bandHeights(band, abs(q.x), lean), vec2(6.0));
-    // why: where the band lies on the far half, it shows the far
-    // half's own gas and light; where it arcs, the gas round the arc.
-    float lying = smoothstep(0.35, 0.65, heights.y / max(heights.x + heights.y, 1e-6));
-    float topGas = mix(diskGas(rho, theta), diskGas(rho, planeAngle), lying);
-    float topBand = smoothstep(-0.12, 0.04, band) * (1.0 - smoothstep(0.73, 1.1, band));
-    // why: round the arc, the arc's own fall-off at half the disk's light,
-    // so it keeps its filaments instead of burning white; on the far half,
-    // the disk's own heat and whole light, to match the disk it joins.
-    float arcRadius = ARC_IN + (ARC_TOP - ARC_IN) * clamp(band, 0.0, 1.0);
-    float heat = mix(
-      0.5 * pow(ARC_IN / arcRadius, 2.2),
-      0.85 * pow(DISK_IN / rho, 1.1),
-      lying
-    );
-    float top = topBand * heat * topGas
-      * beam(mix(cos(theta), onPlane.x / max(planeRadius, 1e-4), lying));
+    float top = 0.0;
+    float rho = DISK_IN;
+    float x = abs(q.x);
+    float y2 = q.y * q.y;
+    float y6 = y2 * y2 * y2;
+    // why: the bands fade out below t = -0.12 and past t = 1.1; outside
+    // that span (most of the quad) the top is dark and is not searched.
+    if (upper * outside > 0.0
+      && bandHeight6(-0.12, x, lean) < y6
+      && bandHeight6(1.1, x, lean) > y6) {
+      float band = bandAt(x, y6, lean);
+      rho = DISK_IN + (DISK_OUT - DISK_IN) * clamp(band, 0.0, 1.0);
+      vec2 heights = bandHeights6(band, x, lean);
+      // why: where the band lies on the far half, it shows the far
+      // half's own gas and light; where it arcs, the gas round the arc.
+      float lying = smoothstep(0.35, 0.65, heights.y / max(heights.x + heights.y, 1e-6));
+      float arcGas = lying < 1.0 ? diskGas(rho, theta) : 0.0;
+      float flatGas = lying > 0.0 ? diskGas(rho, planeAngle) : 0.0;
+      float topGas = mix(arcGas, flatGas, lying);
+      float topBand = smoothstep(-0.12, 0.04, band) * (1.0 - smoothstep(0.73, 1.1, band));
+      // why: round the arc, the arc's own fall-off at half the disk's light,
+      // so it keeps its filaments instead of burning white; on the far half,
+      // the disk's own heat and whole light, to match the disk it joins.
+      float arcRadius = ARC_IN + (ARC_TOP - ARC_IN) * clamp(band, 0.0, 1.0);
+      float heat = mix(
+        0.5 * pow(ARC_IN / arcRadius, 2.2),
+        0.85 * pow(DISK_IN / rho, 1.1),
+        lying
+      );
+      top = topBand * heat * topGas
+        * beam(mix(cosine, onPlane.x / max(planeRadius, 1e-4), lying));
+    }
 
     // The vertical disk's bottom: ARC_OUT below, its feet widened along the
     // horizontal disk's plane to FOOT_OUT and taking its gas.
     // hazard: the fade-out must start past ARC_IN, or the band vanishes.
-    float rise = smoothstep(-0.2, 0.6, sin(theta));
-    float foot = 1.0 - smoothstep(0.1, 0.33, abs(sin(theta)));
-    float outer = mix(mix(ARC_OUT, ARC_TOP, rise), FOOT_OUT, foot);
-    float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.04, r)
-      * (1.0 - smoothstep(outer - 0.1, outer + 0.04, r));
-    float arcGas = mix(diskGas(r, theta), diskGas(planeRadius, planeAngle), foot);
-    // why: dim below the horizon, 35%, whole at the feet.
-    float weight = max(mix(0.35, 1.0, smoothstep(-0.3, 0.4, sin(theta))), foot);
-    float fall = mix(pow(ARC_IN / r, 2.2), pow(ARC_IN / r, 0.8), foot);
-    float bottom = arcBand * weight * fall * arcGas * beam(cos(theta))
-      * mix(0.5, 0.35, foot);
+    float foot = 1.0 - smoothstep(0.1, 0.33, abs(sine));
     // why: below, only dark blue (task black-hole-disk-colors, 5); towards
     // the sides it starts from the disk's colour, so the middle row has no seam.
-    float below = smoothstep(0.1, 0.34, -sin(theta));
+    float below = smoothstep(0.1, 0.34, -sine);
+    float bottom = 0.0;
+    if (upper < 1.0 && outside > 0.0) {
+      float rise = smoothstep(-0.2, 0.6, sine);
+      float outer = mix(mix(ARC_OUT, ARC_TOP, rise), FOOT_OUT, foot);
+      float arcBand = smoothstep(ARC_IN - 0.02, ARC_IN + 0.04, r)
+        * (1.0 - smoothstep(outer - 0.1, outer + 0.04, r));
+      if (arcBand > 0.0) {
+        float roundGas = foot < 1.0 ? diskGas(r, theta) : 0.0;
+        if (foot > 0.0 && planeGas < 0.0) planeGas = diskGas(planeRadius, planeAngle);
+        float arcGas = mix(roundGas, foot > 0.0 ? planeGas : 0.0, foot);
+        // why: dim below the horizon, 35%, whole at the feet.
+        float weight = max(mix(0.35, 1.0, smoothstep(-0.3, 0.4, sine)), foot);
+        float fall = mix(pow(ARC_IN / r, 2.2), pow(ARC_IN / r, 0.8), foot);
+        bottom = arcBand * weight * fall * arcGas * beam(cosine)
+          * mix(0.5, 0.35, foot);
+      }
+    }
     vec3 bottomColor = mix(diskColor, uPrimary, below);
 
     // why: under the horizon the photon ring is the one thin white line;
@@ -261,8 +295,6 @@ const fragmentShader = /* glsl */ `
     float glow = 0.22 * exp(-max(r - 1.0, 0.0) * 1.3)
       * (1.0 - smoothstep(SPAN * 0.7, SPAN, r));
 
-    float outside = smoothstep(0.99, 1.01, r);
-    float upper = step(0.0, q.y);
     // why: where the top's bands lie on the far half, the brighter of the
     // two shows; summed, the join burned into a white blot.
     float farLight = lit.y * outside;
