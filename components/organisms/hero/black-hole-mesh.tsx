@@ -60,7 +60,7 @@ const fragmentShader = /* glsl */ `
   const float DISK_IN = ${DISK.inner.toFixed(2)};
   const float DISK_OUT = ${DISK.outer.toFixed(2)};
   const float ARC_OUT = ${HOLE.halfHeight.toFixed(2)};
-  const float ARC_IN = 1.06;
+  const float ARC_IN = 1.05;
   const float RING = 1.04;
   // The disk's own thickness, in horizon radii, and how much brighter its
   // approaching (left) side is than its receding one: 1 ± BEAM.

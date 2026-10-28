@@ -1,35 +1,36 @@
 import { viewFit } from './glass-motion.ts'
 import { sheetScale } from './grid-motion.ts'
 
-// why: the tasks' numbers at 1440×900 (cosmos 28–30, black-hole-scale 1–3):
-// a 192 px horizon, a disk ~4 diameters wide (outer radius 4.2 horizon
-// radii), its back bent into arcs up to 1.4 radii above and below; it rests
-// at the centre, 32% down, its sphere and arcs 10% clear of every edge.
+// why: at 1440×900 (cosmos 28–30, black-hole-scale 1–3): a 192 px horizon,
+// a disk drawn close in, 3 diameters wide (outer radius 3 horizon radii),
+// its back bent into arcs up to 1.25 radii above and below; it rests at the
+// centre, 32% down, its sphere and arcs 10% clear of every edge.
 export const HOLE = {
   /** Horizon diameter in CSS px at the design size. */
   horizon: 192,
   /** The design size the numbers above are measured at. */
   designHeight: 900,
   /** The body's half extent, in horizon radii: the disk's outer edge … */
-  halfWidth: 4.2,
+  halfWidth: 3,
   /** … and the arcs' outer edge, drawn close to the horizon. */
-  halfHeight: 1.4,
+  halfHeight: 1.25,
   /** Resting point, as a share of the hero's width and height. */
   rest: { x: 0.5, y: 0.32 },
   /** Share of the hero kept clear on every side. */
   margin: 0.1
 } as const
 
-// why: the disk turns faster near the horizon, like a real one, but slowly
-// overall: 40 s a turn at the inner edge, 80 s at the outer one (asked for
-// slower twice after black-hole-behind's 3 and 6 s).
+// why: the disk hugs the black hole, from 1.15 to 3 horizon radii, and
+// turns faster near the horizon, like a real one, but slowly overall: 80 s
+// a turn at the inner edge, 160 s at the outer one (asked slower three
+// times after black-hole-behind's 3 and 6 s).
 export const DISK = {
   /** Inner and outer edges, in horizon radii. */
-  inner: 1.5,
-  outer: 4.2,
+  inner: 1.15,
+  outer: 3,
   /** Seconds per turn at the inner and outer edges. */
-  innerTurn: 40,
-  outerTurn: 80
+  innerTurn: 80,
+  outerTurn: 160
 } as const
 
 // why: what lies on this layer is behind the black hole and is only seen
