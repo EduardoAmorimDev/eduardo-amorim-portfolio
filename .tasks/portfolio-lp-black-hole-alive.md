@@ -56,6 +56,21 @@ balança ±3°; as estrelas piscam; o céu fica parado no scroll; e a sombra é 
 11. Sempre, o logo de vidro volta à Hero, no lugar de antes (canto superior direito), à frente
     do buraco negro e atrás do texto, inclinado 5 px na direção do buraco negro.
 
+### Segunda revisão (2026-10-28)
+
+> Substituem 1 (o fluxo deixa de ser aerodinâmico) e 11 (o logo vai para o centro).
+
+12. Sempre, as duas distorções são radiais: a lente de perto e, a partir de 2,4 R (inteira em
+    3,6 R), um segundo empurrão radial de a²/r, com a = 1,92 R. Não sobram pontas nos lados.
+13. Sempre, o logo de vidro fica no centro da Hero, com o dobro do tamanho, atrás do texto e à
+    frente do buraco negro.
+    - O buraco negro o puxa até 8 px, menos com a distância (metade a 400 px).
+    - O mouse, sobre a Hero, também o puxa até 8 px (metade a 500 px). O mouse tem prioridade: a
+      atração dele substitui a do buraco negro, entrando e saindo em ~0,25 s.
+    - Sob movimento reduzido, o mouse não puxa.
+14. Sempre, as estrelas pequenas têm metade do brilho de antes e só 30% delas piscam. Há mais uma
+    estrela grande e brilhante no canto superior esquerdo, em (6%; 9%).
+
 ## Out of scope
 
 - Testes (decisão do usuário).
@@ -113,6 +128,12 @@ balança ±3°; as estrelas piscam; o céu fica parado no scroll; e a sombra é 
     "Contornar pelas bordas"); "Vamos adicionar o elemento 3D logo na Hero novamente (...) atrás
     do copy da Hero e na frente do buraco negro (...) puxado em direção ao buraco negro (...) uns
     5px".
+  - Segunda revisão: "A distorção aerodinâmica está me encomodando, defina ela como radial
+    também"; "A logo deve dobrar de tamanho e estar no centro da tela, atrás do COPY (...) o
+    buraco nogro deve puxar a logo em sua direção por no máximo 8px, mas o cursor do mouse pode
+    puxar também, em no máximo 8px, o cursor tem prioridade"; "diminua em 50% o brilho das
+    estrelas, deixe que apenas 30% pisquem, Adicione 1 estrela grande e brilhante no canto
+    superior esquerdo".
 
 This task is the record of decision. If a linked document diverges, ask before building.
 
