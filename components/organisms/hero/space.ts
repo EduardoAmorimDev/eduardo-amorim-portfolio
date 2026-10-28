@@ -30,16 +30,6 @@ export const BRIGHT_STARS: readonly BrightStar[] = [
   { at: [0.905, 0.72], core: 3, halo: 14, spikes: 22 }
 ]
 
-// why: the planet's rim rises in a wide arc, as in the reference: radius 2
-// hero widths, top at 84% of the hero, ~6.4% of the width lower at the
-// corners (task space, 6).
-export const PLANET = {
-  /** Radius, in hero widths. */
-  radius: 2,
-  /** Top of the rim, as a share of the hero's height. */
-  top: 0.84
-} as const
-
 export type Random = () => number
 export type Box = { left: number; top: number; right: number; bottom: number }
 
@@ -96,18 +86,4 @@ export const starGlow = (star: Star, seconds: number) => {
   const wave =
     0.5 + 0.5 * Math.cos(2 * Math.PI * (seconds / star.period + star.phase))
   return star.brightness * (SPACE.twinkleLow + (1 - SPACE.twinkleLow) * wave)
-}
-
-/**
- * The planet's top edge at `x` px in a `width` × `height` hero: the circle
- * of PLANET.radius widths whose top is PLANET.top down the hero.
- */
-export const planetEdge = (x: number, width: number, height: number) => {
-  const radius = PLANET.radius * width
-  const dx = x - width / 2
-  return (
-    PLANET.top * height +
-    radius -
-    Math.sqrt(Math.max(radius * radius - dx * dx, 0))
-  )
 }
