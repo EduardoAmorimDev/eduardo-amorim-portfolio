@@ -41,10 +41,27 @@ Decisões reversíveis, registradas antes do código:
   - em `HOLE`: `halfHeight` (1,22, a borda de baixo) e `topHeight` (1,30, a borda de cima);
   - no shader: `outer = mix(1,22, 1,30, smoothstep(−0,2, 0,6, sen θ))`. Embaixo, onde
     sen θ ≤ −0,2 (θ de 191° a 349°), a borda fica exatamente 1,22.
-- **Pés do arco (`foot`):** `foot = 1 − smoothstep(0,15, 0,42, |sen θ|)`, de 1 sobre a horizontal
-  a 0 perto de 25°. A borda de fora cresce até 1,6 R conforme `foot`. Nessa faixa, o gás e o
+- **Pés do arco (`foot`):** `foot = 1 − smoothstep(0,1, 0,33, |sen θ|)`, de 1 sobre a horizontal
+  a 0 perto de 19°. A borda de fora cresce até 1,6 R conforme `foot`. Nessa faixa, o gás e o
   brilho passam ao do disco horizontal, lido no plano dele (raio e ângulo de `disk()`), com
   peso inteiro.
+- **Pés até 19°, não 25°:** com o corte em 0,42, os pés tocariam a parte de baixo a 200° e
+  a 340° (|sen θ| = 0,34), que o critério 4 manda deixar intacta.
+- **Como a sonda mede (C1, C3, C4, C6).** As medidas da primeira versão não serviam:
+  - C1 comparava com o token `background`, que é claro. O fundo real é a cor do `body`.
+  - C3 e C4 usavam um limiar de luminância 0,2 num raio só. O arco esmaece suave, e o gás
+    tem vãos, então esse limiar cortava ~0,1 R antes da borda.
+  - C6 usava um pixel por raio, que cai nos vãos entre filamentos. A referência a 2 R caiu
+    num vão (luminância 0,06).
+
+  Passam a ler:
+  - C3 e C4: o pixel mais claro a ±8° do raio, com limiar 0,05. C3 vê a diferença entre a
+    borda de cima e a de baixo, que deve ser 0,08 R ±0,03 (1,30 − 1,22). C4 vê a borda de
+    baixo entre 1,10 e 1,22 R, e o fonte garante a borda de baixo igual à de antes.
+  - C6: o brilho médio numa faixa de 9 px de altura e ±0,05 R.
+
+  Medidas resultantes: em cima, 1,285 R; embaixo, 1,180 R; mínimo de C6, 92%.
+
 - **O canvas da constelação (`hero-lens`) fica:** o laço da Hero tira dele o tamanho. Sem título,
   ele não desenha nada.
 
@@ -69,7 +86,7 @@ edge stays 1.22"
 
 ### S3 - Ligado ao horizontal · 1 file · ~12 KB
 
-**C5** - O fonte alarga os pés até 1,6 R onde |sen θ| < 0,42 e usa o gás do disco horizontal ali
+**C5** - O fonte alarga os pés até 1,6 R onde |sen θ| < 0,33 e usa o gás do disco horizontal ali
 (5). Proof: `source.ts` › "feet widen into the disk"
 
 **C6** - Sobre a horizontal do centro, dos dois lados, de 1,05 R a 2 R, a luminância nunca cai
