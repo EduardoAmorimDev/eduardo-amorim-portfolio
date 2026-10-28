@@ -37,6 +37,19 @@ import {
 // invariant: a hero px maps to the clip space of the lens' layer behind,
 // which spans OVERSCAN heroes wide and tall, centred on the hero.
 const toClip = /* glsl */ `
+  // why: 1 at the top of the hero, 0.7 by its middle, 0.5 at 75%, 0.2 at
+  // 90% and about 0 by 8 px above its foot, linear between (task
+  // black-hole-alive, 7, as revised).
+  float starFade(float y, float height) {
+    float s = y / height;
+    float foot = max((height - 8.0) / height, 0.91);
+    if (s < 0.5) return mix(1.0, 0.7, max(s, 0.0) / 0.5);
+    if (s < 0.75) return mix(0.7, 0.5, (s - 0.5) / 0.25);
+    if (s < 0.9) return mix(0.5, 0.2, (s - 0.75) / 0.15);
+    if (s < foot) return mix(0.2, 0.02, (s - 0.9) / (foot - 0.9));
+    return 0.0;
+  }
+
   vec4 heroToClip(vec2 px) {
     vec2 share = px / uHero;
     return vec4(
@@ -70,9 +83,7 @@ const starVertex = /* glsl */ `
     float wave = period > 0.0
       ? 0.5 + 0.5 * cos(6.283185307 * (uTime / period + phase))
       : 1.0;
-    // why: the stars fade with the gradient, whole down to 10% of the hero
-    // and gone from 80% (task black-hole-alive, 7).
-    float fade = 1.0 - smoothstep(0.1, 0.8, position.y / uHero.y);
+    float fade = starFade(position.y, uHero.y);
     vGlow = fade * brightness * (period > 0.0 ? mix(uLow, 1.0, wave) : 1.0);
     vColor = tint;
     vSize = size;
@@ -116,6 +127,7 @@ const skyFragment = /* glsl */ `
   vec4 over(vec4 top, vec4 under) {
     return top + under * (1.0 - top.a);
   }
+  ${toClip}
 
   vec4 brightStar(vec2 p, vec4 a, float spikes) {
     vec2 d = p - a.xy;
@@ -133,8 +145,7 @@ const skyFragment = /* glsl */ `
     float diagonal = exp(-pow(e.y / thin, 2.0)) * max(1.0 - abs(e.x) / (0.55 * reach), 0.0)
       + exp(-pow(e.x / thin, 2.0)) * max(1.0 - abs(e.y) / (0.55 * reach), 0.0);
     float rays = pow(cross, 1.5) * 0.8 + pow(diagonal, 2.0) * 0.3;
-    // why: the bright stars fade with the gradient too (black-hole-alive, 7).
-    float fade = 1.0 - smoothstep(0.1, 0.8, a.y / uHero.y);
+    float fade = starFade(a.y, uHero.y);
     float light = fade * clamp(core + halo + rays, 0.0, 1.0);
     vec3 color = mix(uPrimary, uMist, clamp(core + rays * 0.8 + 0.35, 0.0, 1.0));
     return vec4(color * light, light);

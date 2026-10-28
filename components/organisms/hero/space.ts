@@ -28,7 +28,9 @@ export type BrightStar = {
 export const BRIGHT_STARS: readonly BrightStar[] = [
   { at: [0.9, 0.2], core: 8, halo: 80, spikes: 140 },
   { at: [0.92, 0.56], core: 4, halo: 32, spikes: 56 },
-  { at: [0.905, 0.72], core: 3, halo: 14, spikes: 22 }
+  { at: [0.905, 0.72], core: 3, halo: 14, spikes: 22 },
+  // why: a large one in the bottom right corner (task black-hole-alive, 8).
+  { at: [0.935, 0.84], core: 8, halo: 80, spikes: 140 }
 ]
 
 export type Random = () => number
