@@ -21,16 +21,16 @@ export const HOLE = {
 } as const
 
 // why: the disk hugs the black hole, from 1.15 to 3 horizon radii, and
-// turns faster near the horizon, like a real one, but slowly overall: 80 s
-// a turn at the inner edge, 160 s at the outer one (asked slower three
-// times after black-hole-behind's 3 and 6 s).
+// turns faster near the horizon, like a real one, but slowly overall: about
+// 73 s a turn at the inner edge, 145 s at the outer one (80 and 160 s,
+// then 1.1 times as fast, as asked).
 export const DISK = {
   /** Inner and outer edges, in horizon radii. */
   inner: 1.15,
   outer: 3,
   /** Seconds per turn at the inner and outer edges. */
-  innerTurn: 80,
-  outerTurn: 160
+  innerTurn: 80 / 1.1,
+  outerTurn: 160 / 1.1
 } as const
 
 // why: what lies on this layer is behind the black hole and is only seen
