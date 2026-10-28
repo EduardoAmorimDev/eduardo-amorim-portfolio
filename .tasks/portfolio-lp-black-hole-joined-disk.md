@@ -54,10 +54,11 @@ buraco negro: 90° em cima, 270° embaixo, 0° e 180° nos lados.
 
 ### S3 — Disco vertical ligado ao horizontal
 
-5. Sempre, nos lados (θ a até 20° de 0° ou de 180°), o disco vertical se abre no horizontal:
-   - a borda de fora dele desce em direção ao plano do disco até tocar a borda de dentro do
-     horizontal (1,15 R);
-   - o gás ali é amostrado no mesmo raio e com o mesmo brilho do disco horizontal.
+5. Sempre, nos lados (θ a até ~20° de 0° ou de 180°), os pés do disco vertical se alargam ao longo
+   do plano do disco horizontal até 1,6 R e se fundem nele, como na referência.
+   - Nessa faixa, o gás do vertical é amostrado no plano do disco, no mesmo raio e ângulo do
+     horizontal, e tem o brilho inteiro, sem o desconto de 0,6 dos lados.
+   - O arco de cima parece sair do disco, e não atravessá-lo.
 6. Sempre, sobre a horizontal do centro, dos dois lados e de 1,05 R a 2 R, o brilho do buraco
    negro (o alfa do quadrado dele) não cai abaixo de 60% do brilho a 2 R. Não há faixa escura
    entre os dois discos.
@@ -135,9 +136,16 @@ buraco negro: 90° em cima, 270° embaixo, 0° e 180° nos lados.
   - "note como a parte de cima do buraco negro tem o disco de acresção um pouco mais grosso que a
     parte de baixo, note também que o disco de acresção parece uma coisa só, o disco de acresção
     vertical e horizontal estão conectados."
-- Referência indicada: `/home/joao-eduardo/Downloads/buraco-negro-de-4k-3840-x-2160-ad3na6i2911401im.webp`.
-  **Não abriu.** O arquivo é uma página HTML de 200 KB (`file` diz "HTML document"), salva no
-  lugar da imagem. Os critérios vêm só da descrição do usuário acima.
+- A primeira referência indicada (`Downloads/buraco-negro-de-4k-…webp`) não abriu: era uma página
+  HTML de 200 KB. O usuário mandou a correta:
+  `.tasks/references/portfolio-lp-black-hole-joined-disk.png`. Transcrição:
+  - a sombra é redonda e escura, com um anel fino e claro (ciano) colado nela em toda a volta;
+  - um disco largo e inclinado, de filamentos coloridos, vai a ~4,5 raios da sombra para os
+    lados;
+  - sobre a sombra, um arco grosso, de ~1,0 a ~1,32 raio, sobe do disco. Seus pés se alargam
+    ao longo do plano do disco até ~1,6 raio de cada lado e se fundem nele;
+  - sob a sombra, abaixo do disco, um arco fino, de ~0,1 raio de largura;
+  - as cores (ciano e magenta) não entram: o projeto usa `mist`, `primary` e `ink`.
 
 This task is the record of decision. If a linked document diverges, ask before building.
 
