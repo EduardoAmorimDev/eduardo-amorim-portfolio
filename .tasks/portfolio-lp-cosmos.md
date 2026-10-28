@@ -7,6 +7,10 @@
 > px viram 192 px) e 29 (a velocidade passa a 10–30 px/s, e só a esfera e os arcos ficam a 10%
 > das bordas).
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-behind.md` (2026-10-28):** 14 (além
+> do `logo`, `cursor`, `wave`, `atom` e `brick` entram atrás do buraco negro) e 30 em parte (as
+> voltas do disco passam a 3 e 6 s).
+
 ## Intent
 
 Hoje a Hero não conta a história que o dono do portfólio quer contar (astronomia, gravidade):
@@ -151,6 +155,7 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
     O disco é frio, no azul da marca: `mist` no miolo, indo a `primary` na borda, sem tons quentes
     (laranja, amarelo, vermelho). Em janelas mais
     estreitas que 1440 px, o tamanho encolhe na mesma proporção dos ícones, como a luz faz hoje.
+
 29. Enquanto não houver movimento reduzido, o buraco negro vaga por cima da malha num caminho
     aleatório e suave, novo a cada carregamento:
     - velocidade entre 20 e 60 px/s;
@@ -161,6 +166,7 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
 
     Sob movimento reduzido, fica parado em repouso, no centro horizontal e a 32% da altura da
     Hero.
+
 30. Enquanto não houver movimento reduzido, o disco de acreção gira: o padrão de brilho dele dá ao
     menos uma volta a cada 20 s.
 31. Sempre, o buraco negro ilumina o `logo` de vidro com a cor do disco. A face do `logo` voltada
@@ -221,23 +227,23 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
 
 ## Observable
 
-| Surface | Decision | Landing |
-| --- | --- | --- |
-| tela `/` › `#hero` | estado em repouso, sem ponteiro | 16, 17, 20, 28, 29 |
+| Surface            | Decision                            | Landing                                                                               |
+| ------------------ | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| tela `/` › `#hero` | estado em repouso, sem ponteiro     | 16, 17, 20, 28, 29                                                                    |
 | tela `/` › `#hero` | carregando (modelos ainda chegando) | existing - `Suspense` sem fallback; a malha e o buraco negro desenham antes do `logo` |
-| tela `/` › `#hero` | erro (WebGL indisponível) | Unresolved 2 |
-| tela `/` › `#hero` | toque, sem hover | 27, e a malha sem depressão do ponteiro (18 exige mouse) |
-| tela `/` › `#hero` | movimento reduzido | 22, 27, 29 |
-| tela `/` › `#hero` | densidade e ordem | 12, 13, 14, 15 |
-| tela `/` › `#hero` | janela estreita (375×667) | 12, 13, 28 |
-| tela `/` › seções | estado em repouso e movimento | 33–36 |
-| tela `/` › seções | movimento reduzido | 36 |
-| tela `/` › `#faq` | abrir e fechar | 4, 5, 6, 7 |
-| tela `/` › títulos | glitch | 8–11 |
-| tela `/` › cards | aparência | 37, 38 |
-| tela `/` | ação destrutiva | n/a - não há |
-| tela `/` | não autorizado | n/a - página pública, sem login |
-| texto da página | estrutura e tom | n/a - lorem, conteúdo real é Unresolved 1 |
+| tela `/` › `#hero` | erro (WebGL indisponível)           | Unresolved 2                                                                          |
+| tela `/` › `#hero` | toque, sem hover                    | 27, e a malha sem depressão do ponteiro (18 exige mouse)                              |
+| tela `/` › `#hero` | movimento reduzido                  | 22, 27, 29                                                                            |
+| tela `/` › `#hero` | densidade e ordem                   | 12, 13, 14, 15                                                                        |
+| tela `/` › `#hero` | janela estreita (375×667)           | 12, 13, 28                                                                            |
+| tela `/` › seções  | estado em repouso e movimento       | 33–36                                                                                 |
+| tela `/` › seções  | movimento reduzido                  | 36                                                                                    |
+| tela `/` › `#faq`  | abrir e fechar                      | 4, 5, 6, 7                                                                            |
+| tela `/` › títulos | glitch                              | 8–11                                                                                  |
+| tela `/` › cards   | aparência                           | 37, 38                                                                                |
+| tela `/`           | ação destrutiva                     | n/a - não há                                                                          |
+| tela `/`           | não autorizado                      | n/a - página pública, sem login                                                       |
+| texto da página    | estrutura e tom                     | n/a - lorem, conteúdo real é Unresolved 1                                             |
 
 ## Swept
 
@@ -253,24 +259,24 @@ Medidas em CSS px e numa janela de 1440×900, salvo quando indicado. "Movimento 
 
 ## Impact
 
-| Front | What changes |
-|---|---|
-| domain | termo novo: `BlackHole` — o corpo que substitui `HeroLight` na cena da Hero: horizonte, anel e disco, vagando (29) |
-| domain | termo novo: lente (`lens`) — o círculo que segue o ponteiro, com constelações e o H1 vazado (24–27) |
-| domain | termo existente: `HeroLight` / `lightDrift` (`light-drift.ts`) deixam de existir; quem depende hoje: `hero-scene.tsx`, `e2e/light-helpers.ts`, `e2e/hero-light.spec.ts`, `e2e/reduced-motion.spec.ts` ("the light holds still…"), `e2e/offscreen.spec.ts` ("the hero light resumes…") |
-| domain | termo existente: `GLASS_LAYOUT` passa de 3 ícones a 1 (`logo`); quem depende: `glass-elements.tsx`, `glass-motion.test.ts`, `e2e/hero.spec.ts` ("only the cursor, atom and logo models are loaded") |
-| domain | termo existente: `grid-motion.ts` (`bendShift`, `GRID.maxShift = 12`, raio 160, fade de 600 ms) muda de sentido, de "empurrar para longe" para "afundar em direção ao corpo", e ganha perspectiva; quem depende: `hero-grid.tsx`, `grid-motion.test.ts`, `e2e/grid-helpers.ts`, `e2e/hero-grid.spec.ts` (os 6 testes), `e2e/reduced-motion.spec.ts` ("hero grid stays straight…"), `e2e/theme.spec.ts` ("hero grid is drawn in mist…") |
-| domain | termo existente: `lib/glitch.ts` (`BURST` de 6 quadros, 8 px, tremor de 2 px; gatilho por entrada e hover) passa a um quadro sutil e gatilho aleatório; quem depende: `glitch-text.tsx`, `lib/glitch.test.ts`, `e2e/glitch.spec.ts` (entrada, hover, 6 quadros, tremor, 8 px), `e2e/reduced-motion.spec.ts` ("no glitch…" continua) |
-| layout | `hero-copy.tsx` sai do canto inferior esquerdo para o centro; `e2e/sections.spec.ts` ("hero copy fits the first screen…") passa a medir a nova posição |
-| desempenho | a malha deixa de desenhar só quando o ponteiro mexe e passa a animar sempre (buraco negro vagando). O custo entra na pausa fora da tela (39); dentro da tela é trabalho novo, que a tarefa de desempenho não mediu |
-| tarefa anterior | `.tasks/portfolio-lp-corrections.md` recebe no topo a lista dos critérios substituídos: 3, 4, 5, 7–10, 15 e 16; o 17 em parte, porque a regra de não sobrepor rajadas continua |
-| stored data | nothing to migrate - nada persiste |
+| Front           | What changes                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| domain          | termo novo: `BlackHole` — o corpo que substitui `HeroLight` na cena da Hero: horizonte, anel e disco, vagando (29)                                                                                                                                                                                                                                                                                                                     |
+| domain          | termo novo: lente (`lens`) — o círculo que segue o ponteiro, com constelações e o H1 vazado (24–27)                                                                                                                                                                                                                                                                                                                                    |
+| domain          | termo existente: `HeroLight` / `lightDrift` (`light-drift.ts`) deixam de existir; quem depende hoje: `hero-scene.tsx`, `e2e/light-helpers.ts`, `e2e/hero-light.spec.ts`, `e2e/reduced-motion.spec.ts` ("the light holds still…"), `e2e/offscreen.spec.ts` ("the hero light resumes…")                                                                                                                                                  |
+| domain          | termo existente: `GLASS_LAYOUT` passa de 3 ícones a 1 (`logo`); quem depende: `glass-elements.tsx`, `glass-motion.test.ts`, `e2e/hero.spec.ts` ("only the cursor, atom and logo models are loaded")                                                                                                                                                                                                                                    |
+| domain          | termo existente: `grid-motion.ts` (`bendShift`, `GRID.maxShift = 12`, raio 160, fade de 600 ms) muda de sentido, de "empurrar para longe" para "afundar em direção ao corpo", e ganha perspectiva; quem depende: `hero-grid.tsx`, `grid-motion.test.ts`, `e2e/grid-helpers.ts`, `e2e/hero-grid.spec.ts` (os 6 testes), `e2e/reduced-motion.spec.ts` ("hero grid stays straight…"), `e2e/theme.spec.ts` ("hero grid is drawn in mist…") |
+| domain          | termo existente: `lib/glitch.ts` (`BURST` de 6 quadros, 8 px, tremor de 2 px; gatilho por entrada e hover) passa a um quadro sutil e gatilho aleatório; quem depende: `glitch-text.tsx`, `lib/glitch.test.ts`, `e2e/glitch.spec.ts` (entrada, hover, 6 quadros, tremor, 8 px), `e2e/reduced-motion.spec.ts` ("no glitch…" continua)                                                                                                    |
+| layout          | `hero-copy.tsx` sai do canto inferior esquerdo para o centro; `e2e/sections.spec.ts` ("hero copy fits the first screen…") passa a medir a nova posição                                                                                                                                                                                                                                                                                 |
+| desempenho      | a malha deixa de desenhar só quando o ponteiro mexe e passa a animar sempre (buraco negro vagando). O custo entra na pausa fora da tela (39); dentro da tela é trabalho novo, que a tarefa de desempenho não mediu                                                                                                                                                                                                                     |
+| tarefa anterior | `.tasks/portfolio-lp-corrections.md` recebe no topo a lista dos critérios substituídos: 3, 4, 5, 7–10, 15 e 16; o 17 em parte, porque a regra de não sobrepor rajadas continua                                                                                                                                                                                                                                                         |
+| stored data     | nothing to migrate - nada persiste                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## Decided
 
-| Decision | Shape | Alternative rejected |
-|---|---|---|
-| None - tudo aqui é reversível: nenhum dado persistido, nenhum contrato consumido por fora e nenhuma dependência nova (41). Onde a malha mora (canvas 2D ou cena WebGL) e como o disco é desenhado (geometria ou shader) se decidem no build e ficam no `Landing` do checklist | - | - |
+| Decision                                                                                                                                                                                                                                                                      | Shape | Alternative rejected |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------- |
+| None - tudo aqui é reversível: nenhum dado persistido, nenhum contrato consumido por fora e nenhuma dependência nova (41). Onde a malha mora (canvas 2D ou cena WebGL) e como o disco é desenhado (geometria ou shader) se decidem no build e ficam no `Landing` do checklist | -     | -                    |
 
 ## Sources
 
@@ -331,7 +337,7 @@ This task is the record of decision. If a linked document diverges, ask before b
 
 ## Unresolved
 
-| # | Kind | Question | Until answered |
-|---|---|---|---|
-| 1 | blocks go-live | Destino real dos CTAs e conteúdo real (herdado da tarefa anterior). | A Hero continua com lorem e o CTA leva a `#contato`. |
-| 2 | open | Fallback para o caso raro de o navegador não ter WebGL (aparelho antigo, aceleração desligada, modo de economia): o que a Hero mostra no lugar da malha, do buraco negro e da lente? Não afeta quem tem WebGL, que é quase todo visitante. | Hoje a cena 3D simplesmente não aparece nesse caso. Nenhum critério cobre o fallback até a resposta. |
+| #   | Kind           | Question                                                                                                                                                                                                                                   | Until answered                                                                                       |
+| --- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 1   | blocks go-live | Destino real dos CTAs e conteúdo real (herdado da tarefa anterior).                                                                                                                                                                        | A Hero continua com lorem e o CTA leva a `#contato`.                                                 |
+| 2   | open           | Fallback para o caso raro de o navegador não ter WebGL (aparelho antigo, aceleração desligada, modo de economia): o que a Hero mostra no lugar da malha, do buraco negro e da lente? Não afeta quem tem WebGL, que é quase todo visitante. | Hoje a cena 3D simplesmente não aparece nesse caso. Nenhum critério cobre o fallback até a resposta. |

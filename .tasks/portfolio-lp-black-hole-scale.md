@@ -3,6 +3,9 @@
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-behind.md` (2026-10-28):** 12 (10 a
+> 30 px/s viram 5 a 15 px/s).
+
 ## Intent
 
 O buraco negro da Hero ainda não tem o peso que o dono do portfólio quer:

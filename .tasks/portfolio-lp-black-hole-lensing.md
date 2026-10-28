@@ -3,6 +3,10 @@
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-behind.md` (2026-10-28):** 7 (a malha
+> sai da Hero), 8 e 9 (a lente deixa de ler o canvas da malha e passa a ler a camada de trás, com
+> os modelos) e Decided 1 (o formato de `behind`).
+
 ## Intent
 
 O buraco negro da Hero simula só a própria luz. O disco tem a metade de trás dobrada por cima e
