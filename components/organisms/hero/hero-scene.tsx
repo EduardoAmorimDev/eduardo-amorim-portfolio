@@ -2,6 +2,7 @@
 import { Suspense, useMemo, type RefObject } from 'react'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import { readThemeColor } from '@/lib/color-tokens'
+import { BehindText } from './behind-text'
 import { BEHIND_LAYER } from './black-hole'
 import { BlackHole } from './black-hole-mesh'
 import { GlassElements } from './glass-elements'
@@ -25,6 +26,7 @@ export const HeroScene = ({ hole }: HeroSceneProps) => {
       <fog attach="fog" args={[background, 8, 16]} />
       <StudioEnvironment />
       <BlackHole hole={hole} behind={BEHIND_LAYER} />
+      <BehindText />
       {/* why: Suspense renders nothing until the models have loaded. */}
       <Suspense fallback={null}>
         <GlassElements />
