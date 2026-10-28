@@ -1,8 +1,8 @@
 import { viewFit } from './glass-motion.ts'
 import { sheetScale } from './grid-motion.ts'
 
-// why: at 1440×900: a 144 px horizon (a quarter off 192), a disk out to 5
-// horizon radii (360 px, a quarter wider on screen than 288), its back
+// why: at 1440×900: a 144 px horizon (a quarter off 192), a disk out to 4
+// horizon radii (288 px on screen, as before the horizon shrank), its back
 // bent into a ring up to 1.22 radii below and 1.43 above; it rests at the
 // centre, 32% down, its sphere and arcs 10% clear of every edge.
 export const HOLE = {
@@ -11,7 +11,7 @@ export const HOLE = {
   /** The design size the numbers above are measured at. */
   designHeight: 900,
   /** The body's half extent, in horizon radii: the disk's outer edge … */
-  halfWidth: 5,
+  halfWidth: 4,
   /** … the vertical disk's outer edge below the horizon … */
   halfHeight: 1.22,
   /** … and above it, 1.5 times as wide as the 0.25 it was: 1.43. */
@@ -22,14 +22,14 @@ export const HOLE = {
   margin: 0.1
 } as const
 
-// why: the disk hugs the black hole, from 1.15 to 5 horizon radii, and
+// why: the disk hugs the black hole, from 1.15 to 4 horizon radii, and
 // turns faster near the horizon, like a real one, but slowly overall: about
 // 73 s a turn at the inner edge, 145 s at the outer one (80 and 160 s,
 // then 1.1 times as fast, as asked).
 export const DISK = {
   /** Inner and outer edges, in horizon radii. */
   inner: 1.15,
-  outer: 5,
+  outer: 4,
   /** Seconds per turn at the inner and outer edges. */
   innerTurn: 80 / 1.1,
   outerTurn: 160 / 1.1
