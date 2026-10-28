@@ -1,12 +1,12 @@
-// why: the task's numbers (space, criteria 2, 3 and 6; black-hole-alive, 3:
-// 60% of the stars blink, from 15% to whole, in 1.5 to 4 s), measured at
-// 1440×900 in CSS px; the user takes them as starting values.
+// why: the task's numbers (space, criteria 2, 3 and 6; black-hole-alive, 3
+// and 14: 30% of the stars blink, from 15% to whole, in 1.5 to 4 s, at half
+// the brightness they had), measured at 1440×900 in CSS px.
 export const SPACE = {
   /** Stars inside a 1440×900 hero; the density holds at any size. */
   stars: 2000,
   designArea: 1440 * 900,
   /** Share of stars that twinkle, how far down and how slowly. */
-  twinkleShare: 0.6,
+  twinkleShare: 0.3,
   twinkleLow: 0.15,
   twinkleSeconds: [1.5, 4],
   /** Share of stars tinted towards primary or steel. */
@@ -29,8 +29,10 @@ export const BRIGHT_STARS: readonly BrightStar[] = [
   { at: [0.9, 0.2], core: 8, halo: 80, spikes: 140 },
   { at: [0.92, 0.56], core: 4, halo: 32, spikes: 56 },
   { at: [0.905, 0.72], core: 3, halo: 14, spikes: 22 },
-  // why: a large one in the bottom right corner (task black-hole-alive, 8).
-  { at: [0.935, 0.84], core: 8, halo: 80, spikes: 140 }
+  // why: a large one in the bottom right corner (task black-hole-alive, 8)
+  // and one in the top left (14).
+  { at: [0.935, 0.84], core: 8, halo: 80, spikes: 140 },
+  { at: [0.06, 0.09], core: 8, halo: 80, spikes: 140 }
 ]
 
 export type Random = () => number
@@ -73,8 +75,9 @@ export const createStars = (random: Random, area: Box): Star[] => {
         x: left + random() * cell,
         y: top + random() * cell,
         size: random() < 0.75 ? 1 : between(random, [1.4, 2]),
-        // why: most stars faint, a few bright, as in the reference sky.
-        brightness: 0.3 + 0.7 * random() ** 2.2,
+        // why: most stars faint, a few bright, as in the reference sky;
+        // halved, so the bright ones stand out (black-hole-alive, 14).
+        brightness: 0.5 * (0.3 + 0.7 * random() ** 2.2),
         tint: shade < SPACE.tintShare / 2 ? 1 : shade < SPACE.tintShare ? 2 : 0,
         period: twinkles ? between(random, SPACE.twinkleSeconds) : 0,
         phase: random()

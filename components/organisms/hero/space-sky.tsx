@@ -87,8 +87,9 @@ const starVertex = /* glsl */ `
     vGlow = fade * brightness * (period > 0.0 ? mix(uLow, 1.0, wave) : 1.0);
     vColor = tint;
     vSize = size;
-    // why: the brightest quarter (0.3 + 0.7·0.75^2.2) carries spikes.
-    vSpikes = brightness > 0.672 ? 1.0 : 0.0;
+    // why: the brightest quarter (0.5·(0.3 + 0.7·0.75^2.2)) carries spikes,
+    // and every extra bright star.
+    vSpikes = brightness > 0.336 ? 1.0 : 0.0;
   }
 `
 
