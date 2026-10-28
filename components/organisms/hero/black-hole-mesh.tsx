@@ -116,18 +116,18 @@ const fragmentShader = /* glsl */ `
     vec2 around = vec2(cos(phase), sin(phase)) * 2.6;
     float swirl = fbm(vec3(around * 0.8, radius * 2.0));
     float strand = fbm(vec3(around, (radius + swirl * 0.35) * 9.0 * GLOW));
-    return smoothstep(0.42 - edge, 0.7 + edge, strand);
+    return smoothstep(0.34 - edge, 0.7 + edge, strand);
   }
 
-  // The ring's gas: wisps over a faint haze, never so bright they merge.
+  // The ring's gas: wisps over a glowing body of gas, so it reads full.
   float gas(float radius, float angle) {
-    return GLOW * (0.05 * GLOW + 1.3 * wisps(radius, angle, 0.06));
+    return GLOW * (0.24 * GLOW + 1.1 * wisps(radius, angle, 0.08));
   }
 
-  // The tilted disk's gas: crisper wisps, so its slow turn stays visible
-  // seen nearly edge-on.
+  // The tilted disk's gas: a full, glowing body of gas with crisper wisps
+  // over it, so its slow turn stays visible seen nearly edge-on.
   float diskGas(float radius, float angle) {
-    return GLOW * (0.04 * GLOW + 1.7 * wisps(radius, angle, 0.0));
+    return GLOW * (0.3 * GLOW + 1.4 * wisps(radius, angle, 0.04));
   }
 
   // Doppler beaming: the side turning towards the viewer (cos < 0, the
