@@ -46,6 +46,31 @@ Decisões reversíveis, registradas antes do código:
   da Hero e na subida 1. Rejeitado: o laço calcular a caixa por conta própria, como hoje, o que
   deixa o teste de unidade medindo uma caixa diferente da que roda.
 
+Decisões reversíveis descobertas no build, registradas antes do código que as fecha:
+
+- **Pontos de passagem a até 270 px um do outro** (`WANDER.maxHop`, 0,9 × `maxSpeed` ×
+  `maxLeg`). Com metade da velocidade, um ponto sorteado em qualquer lugar da caixa (até ~700 px
+  em 1440) dava pernas que nem a 30 px/s cabiam em 10 s: a primeira perna chegou a 11 s (C20).
+  Vale também para o primeiro ponto, a partir do de partida. Rejeitado: aceitar pernas mais
+  longas, que quebra C20.
+- **C18 com limiar de 0,1 px, não 0,5.** Sob movimento reduzido, a horizontal logo dentro da
+  borda de baixo do poço, na coluna medida, desce 0,31 px (calculado com `displace`). O 0,5 px
+  veio de `portfolio-lp-gravity` C6 e não desta tarefa: o critério 11 só fixa a linha do centro
+  (60 a 120 px). A leitura por centroide alcança 0,1 px; a mudança fica visível neste diff.
+
+- **Medidas que crescem com o buraco negro.** A espessura máxima do anel (C26 de
+  `portfolio-lp-gravity`) e o alcance da busca do anel passam a valer por 96 px de horizonte,
+  porque o critério 2 desta tarefa faz o anel crescer com ele (5,5 px medidos a 192 px). Pelo
+  mesmo motivo, `horizonIn` procura o anel até 4 px mais 8% do raio além da borda da calota
+  escura; com 4 px fixos, falhava em ~1 de cada 10 quadros com o horizonte maior. Rejeitado:
+  afinar o anel no shader, que contradiz o critério 2.
+- **Buraco negro achado na tela nos testes de malha com relógio parado** (`holeNow`). Em
+  movimento, ele parte do ponto de repouso empurrado para dentro da caixa nova, que começa em
+  ~319 px. Ali, os testes que supunham 288 px mediam o poço no lugar errado.
+- **Brilho do `logo` lido só no canto dele** (à direita de 3,5 raios e acima de 0,9 raio do
+  centro do buraco negro). O brilho do disco maior entrava na metade virada para o buraco negro
+  e baixava a média dela.
+
 ## Checks
 
 Medidas em CSS px, em 1440×900, salvo quando indicado. Os testes e2e que dependem de tempo usam
@@ -67,7 +92,8 @@ os e2e, com `npx playwright test <arquivo> -g "<nome>"`.
   disk crosses in front of the horizon". Proof: `e2e/black-hole.spec.ts` "the far half arches
   over the top of the horizon". Proof: `e2e/black-hole.spec.ts` "a thinner, fainter arc runs
   under the horizon". Proof: `e2e/black-hole.spec.ts` "one side of the disk is at least 1.5
-  times brighter". Proof: `e2e/black-hole.spec.ts` "the disk's tilt changes on screen".
+  times brighter". Proof: `e2e/black-hole.spec.ts` "a thin bright photon ring hugs the horizon"
+  (o anel tem até 4 px por 96 px de horizonte). Proof: `e2e/black-hole.spec.ts` "the disk's tilt changes on screen".
 - **C5** (3) Em 1440×900, 1024×768, 768×1024 e 375×667, em 10 min de caminho e em qualquer
   subida, a esfera e os arcos (1,65 raio do horizonte no tamanho daquela altura e daquela
   subida) ficam a 10% de cada borda. Proof: `components/organisms/hero/black-hole-path.test.ts`
@@ -113,7 +139,7 @@ os e2e, com `npx playwright test <arquivo> -g "<nome>"`.
 - **C17** (11) Parada, a subida é 0,5 em qualquer instante. Proof:
   `components/organisms/hero/black-hole.test.ts` "a still black hole holds at half lift".
 - **C18** (11) Sob movimento reduzido, toda horizontal que passa pelo poço na coluna medida desce
-  mais de 0,5 px, e a mais próxima do centro desce de 60 a 120 px. A coluna fica logo além do
+  mais de 0,1 px, e a mais próxima do centro desce de 60 a 120 px. A coluna fica logo além do
   horizonte (104 px do centro). As bordas do poço nela saem da geometria da folha plana, como em
   `portfolio-lp-gravity` C6. Proof: `e2e/hero-grid.spec.ts` "horizontals through the black
   hole's well sink, 60 to 120px at half lift".
