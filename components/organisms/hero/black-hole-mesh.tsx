@@ -31,6 +31,10 @@ const SPAN = 9.5
 const INTENSITY = 320
 // why: the light takes the disk's colour: mist warmed towards the brand blue.
 const LIGHT_BLEND = 0.4
+// why: for now the black hole is a bare black sphere, only bending the light
+// behind it (task black-hole-bare, 1): no disks, no photon ring, no glow,
+// no light. The code stays whole; true brings them all back.
+const SHOW_DISKS = false
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -55,6 +59,7 @@ const fragmentShader = /* glsl */ `
   varying vec2 vUv;
 
   #define TAU 6.283185307179586
+  const bool SHOW_DISKS = ${SHOW_DISKS};
   const float SPAN = ${SPAN.toFixed(2)};
   const float DISK_IN = ${DISK.inner.toFixed(2)};
   const float DISK_OUT = ${DISK.outer.toFixed(2)};
@@ -220,6 +225,12 @@ const fragmentShader = /* glsl */ `
     vec2 q = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
     float lean = max(sin(uTilt), 0.02);
     float r = length(q);
+    if (!SHOW_DISKS) {
+      // why: the horizon alone, black, its edge smoothed over 0.02 radii.
+      gl_FragColor = vec4(vec3(0.0), 1.0 - smoothstep(0.99, 1.01, r));
+      #include <colorspace_fragment>
+      return;
+    }
     float glow = 0.22 * exp(-max(r - 1.0, 0.0) * 1.3)
       * (1.0 - smoothstep(SPAN * 0.7, SPAN, r));
     // why: most of the quad lies past the arcs and the disk, where only the
@@ -453,13 +464,15 @@ export const BlackHole = ({ hole, behind }: BlackHoleProps) => {
           toneMapped={false}
         />
       </mesh>
-      <pointLight
-        // why: a light only reaches the layers it is on; the disk lights
-        // what lies behind as well (task black-hole-behind, 5).
-        ref={lamp => lamp?.layers.enable(behind)}
-        color={light}
-        intensity={INTENSITY}
-      />
+      {SHOW_DISKS && (
+        <pointLight
+          // why: a light only reaches the layers it is on; the disk lights
+          // what lies behind as well (task black-hole-behind, 5).
+          ref={lamp => lamp?.layers.enable(behind)}
+          color={light}
+          intensity={INTENSITY}
+        />
+      )}
       <BentLight hole={hole} behind={behind} />
     </group>
   )
