@@ -19,7 +19,6 @@ type HeroProps = {
  */
 export const Hero = ({ id, children }: HeroProps) => {
   const section = useRef<HTMLElement>(null)
-  const grid = useRef<HTMLCanvasElement>(null)
   const lens = useRef<HTMLCanvasElement>(null)
   // why: the field writes the black hole's place here every frame and the
   // 3D scene reads it, so the hole and the well it digs never drift apart.
@@ -31,7 +30,7 @@ export const Hero = ({ id, children }: HeroProps) => {
     strength: 1,
     lift: 0
   })
-  useHeroField({ section, grid, lens, hole })
+  useHeroField({ section, lens, hole })
 
   return (
     <section
@@ -39,15 +38,8 @@ export const Hero = ({ id, children }: HeroProps) => {
       ref={section}
       className="relative h-svh overflow-clip select-none"
     >
-      {/* why: first in the DOM, so the transparent 3D canvas paints over it;
-          it never takes the pointer, which the field hears on the window.
-          The black hole draws it bent and hides it while it does. */}
-      <canvas
-        ref={grid}
-        data-testid="hero-grid"
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 size-full opacity-50"
-      />
+      {/* why: no grid for now (task black-hole-behind, 1); what lies behind
+          the black hole is the glass icons, seen through its lens. */}
       {/* why: no OrbitControls, so the camera stays put: the viewer can neither
           drag nor zoom. dpr: at least 1.5× even on 1× screens; MSAA alone left
           the thin glass edges stair-stepped. alpha: the sky stays transparent,
@@ -63,7 +55,7 @@ export const Hero = ({ id, children }: HeroProps) => {
         camera={{ position: HERO_CAMERA.position, fov: HERO_CAMERA.fov }}
       >
         <RenderGate />
-        <HeroScene hole={hole} grid={grid} />
+        <HeroScene hole={hole} />
       </Canvas>
       <canvas
         ref={lens}

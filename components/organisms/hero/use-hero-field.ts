@@ -40,7 +40,8 @@ const REACH_SLACK = 4
 
 type FieldElements = {
   section: HTMLElement
-  grid: HTMLCanvasElement
+  /** The grid's canvas; without one, no grid is drawn. */
+  grid: HTMLCanvasElement | null
   lens: HTMLCanvasElement
   hole: RefObject<HoleBody>
 }
@@ -55,9 +56,9 @@ const damp = (from: number, to: number, rate: number, seconds: number) =>
  * pointer) and costs nothing while stopped.
  */
 const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
-  const gridContext = grid.getContext('2d')
+  const gridContext = grid?.getContext('2d') ?? null
   const lensContext = lens.getContext('2d')
-  if (!gridContext || !lensContext) return null
+  if (!lensContext) return null
   const gridColor = readThemeColor('grid-line')
   const lensColor = readColorToken('mist')
   const solid = section.querySelector<HTMLElement>('[data-lens="solid"]')
@@ -113,10 +114,11 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   const resize = () => {
-    width = grid.clientWidth
-    height = grid.clientHeight
+    // invariant: the lens' canvas covers the hero, as the grid's does.
+    width = lens.clientWidth
+    height = lens.clientHeight
     dpr = window.devicePixelRatio || 1
-    for (const canvas of [grid, lens]) {
+    for (const canvas of grid ? [grid, lens] : [lens]) {
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
     }
@@ -198,6 +200,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   const drawGrid = () => {
+    if (!gridContext) return
     const body = hole.current
     const pointer = well.strength > 0 ? well : null
     const wells = wellsOf(geometry, pointer, body.horizon > 0 ? body : null)
@@ -391,7 +394,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   const observer = new ResizeObserver(resize)
-  observer.observe(grid)
+  observer.observe(lens)
   window.addEventListener('pointermove', onMove, { passive: true })
   window.addEventListener('scroll', follow, { passive: true })
   document.documentElement.addEventListener('pointerleave', onLeave)
@@ -424,7 +427,8 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
 
 type HeroFieldRefs = {
   section: RefObject<HTMLElement | null>
-  grid: RefObject<HTMLCanvasElement | null>
+  /** The grid's canvas; the hero draws none for now (black-hole-behind 1). */
+  grid?: RefObject<HTMLCanvasElement | null>
   lens: RefObject<HTMLCanvasElement | null>
   hole: RefObject<HoleBody>
 }
@@ -439,10 +443,10 @@ export const useHeroField = ({ section, grid, lens, hole }: HeroFieldRefs) => {
   const field = useRef<ReturnType<typeof createHeroField>>(null)
 
   useEffect(() => {
-    if (!section.current || !grid.current || !lens.current) return
+    if (!section.current || !lens.current) return
     const created = createHeroField({
       section: section.current,
-      grid: grid.current,
+      grid: grid?.current ?? null,
       lens: lens.current,
       hole
     })
