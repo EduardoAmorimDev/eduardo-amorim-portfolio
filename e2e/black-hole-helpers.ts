@@ -118,7 +118,9 @@ const isRound = ({ width, height }: Box) =>
 // why: the photon ring is near white; the logo's glass, which walls in the
 // logo's own dark hole, is a deep blue far below this.
 const RING_LIT = 0.5
-const RING_REACH = 4
+// why: the ring sits at 1.04 horizon radii and widens with the horizon; the
+// dark cap's edge stops short of it by a few px plus a share of its radius.
+const RING_REACH = { px: 4, share: 0.08 }
 
 /** Whether a bright photon ring arches over the box's top half. */
 const ringed = (pixels: Pixels, box: Box) => {
@@ -127,7 +129,8 @@ const ringed = (pixels: Pixels, box: Box) => {
   for (let degrees = 30; degrees <= 150; degrees += 15) {
     const angle = (degrees * Math.PI) / 180
     let brightest = 0
-    for (let reach = -1; reach <= RING_REACH; reach += 0.5)
+    const furthest = RING_REACH.px + RING_REACH.share * radius
+    for (let reach = -1; reach <= furthest; reach += 0.5)
       brightest = Math.max(
         brightest,
         luminanceAt(
