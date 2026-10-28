@@ -6,6 +6,9 @@
 > **Substituídos em parte por `.tasks/portfolio-lp-black-hole-apple.md` (2026-10-28):** 5 (tabelas
 > de θ₊/θ₋) e 8 em parte (o `logo` deixa de seguir o ponteiro).
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-joined-disk.md` (2026-10-28):** 3–8 (os
+> modelos saem da Hero).
+
 ## Intent
 
 A lente gravitacional da Hero (`portfolio-lp-black-hole-lensing`) distorce só a malha. O

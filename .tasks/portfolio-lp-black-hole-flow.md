@@ -3,6 +3,9 @@
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
 
+> **Substituídos em parte por `.tasks/portfolio-lp-black-hole-joined-disk.md` (2026-10-28):** 7–9 (a
+> parede de texto sai da Hero).
+
 ## Intent
 
 A lente em forma de maçã (`portfolio-lp-black-hole-apple`) tem três problemas na tela:
