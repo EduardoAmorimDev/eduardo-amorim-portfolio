@@ -12,7 +12,6 @@ import {
   holeScale,
   horizonRadius,
   liftScale,
-  restPoint,
   wellStrength
 } from './black-hole'
 import { createWander, holeBox, type Wander } from './black-hole-path'
@@ -95,9 +94,18 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
     }
   }
 
+  /**
+   * Where the black hole starts, and rests under reduced motion: the top
+   * left corner of its box (task black-hole-wide, 7).
+   */
+  const corner = () => {
+    const box = holeBox(width, height)
+    return { x: box.left, y: box.top }
+  }
+
   /** A new path from where the black hole is, or rest under reduced motion. */
   const resetPath = () => {
-    const rest = restPoint(width, height)
+    const rest = corner()
     const box = holeBox(width, height)
     const { x, y } = hole.current.horizon ? hole.current : rest
     const start = {
@@ -152,9 +160,7 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   const advance = (seconds: number) => {
-    placeHole(
-      wander && !still ? wander.step(seconds) : restPoint(width, height)
-    )
+    placeHole(wander && !still ? wander.step(seconds) : corner())
     const aim = still ? null : target
     if (aim) {
       if (well.strength === 0) Object.assign(well, aim)

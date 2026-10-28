@@ -1,16 +1,20 @@
 import { HOLE, horizonRadius } from './black-hole.ts'
 import type { Point } from './grid-motion.ts'
-import { PLANET } from './space.ts'
 
-// why: 2.5 to 7.5 px/s, half the pace of black-hole-behind 11, a new turn
-// every 4 to 10 s (cosmos 29), never more than 4 px in one frame, never
-// stopping.
+// why: 2.5 to 7.5 px/s, half the pace of black-hole-behind 11, never more
+// than 4 px in one frame, never stopping; a new turn every 6 to 16 s, so
+// a hop reaches ~108 px and the path roams the whole hero (task
+// black-hole-wide, 8) instead of circling where it began.
 export const WANDER = {
   minSpeed: 2.5,
   maxSpeed: 7.5,
   /** Seconds each leg of the path takes. */
-  minLeg: 4,
-  maxLeg: 10,
+  minLeg: 6,
+  maxLeg: 16,
+  /** Waypoints drawn per hop; the one nearest the current goal corner wins. */
+  aim: 8,
+  /** A goal corner counts as reached within this share of the diagonal. */
+  reached: 0.15,
   /** Largest change of speed from one leg to the next, in px/s. */
   maxSpeedStep: 1,
   /** Longest frame the path advances by; 7.5 px/s × 1/15 s = 0.5 px. */
@@ -55,15 +59,7 @@ export const wanderBox = (
   const reach = Math.max(HOLE.halfHeight, HOLE.topHeight) * horizon
   const x = width * HOLE.margin + reach
   const y = height * HOLE.margin + reach
-  // why: the planet lies in front of the black hole (task space, 7), so it
-  // keeps its arcs above the planet's top instead of sinking behind it.
-  const abovePlanet = PLANET.top * height - reach
-  return {
-    left: x,
-    top: y,
-    right: width - x,
-    bottom: Math.max(y, Math.min(height - y, abovePlanet))
-  }
+  return { left: x, top: y, right: width - x, bottom: height - y }
 }
 
 /**
@@ -135,13 +131,43 @@ export const createWander = (random: () => number, box: Box, start: Point) => {
   })
   const longest = WANDER.maxHop * WANDER.maxSpeed * WANDER.maxLeg
   /** A random point of the box within WANDER.maxHop of `from`. */
-  const near = (from: Point) => {
+  const reachable = (from: Point) => {
     for (let attempt = 0; attempt < WANDER.tries; attempt++) {
       const point = anywhere()
       if (Math.hypot(point.x - from.x, point.y - from.y) <= longest)
         return point
     }
     return anywhere()
+  }
+  // why: the corners in turn, top right first, as the path starts top left
+  // (task black-hole-wide, 7–8), so it crosses the hero instead of circling.
+  const corners: Point[] = [
+    { x: box.right, y: box.top },
+    { x: box.right, y: box.bottom },
+    { x: box.left, y: box.bottom },
+    { x: box.left, y: box.top }
+  ]
+  const diagonal = Math.hypot(box.right - box.left, box.bottom - box.top)
+  let goal = 0
+  /** Of WANDER.aim reachable points, the one nearest the goal corner. */
+  const near = (from: Point) => {
+    const target = corners[goal % corners.length] ?? from
+    if (
+      Math.hypot(target.x - from.x, target.y - from.y) <=
+      WANDER.reached * diagonal
+    )
+      goal++
+    const aim = corners[goal % corners.length] ?? from
+    let best = reachable(from)
+    for (let draw = 1; draw < WANDER.aim; draw++) {
+      const point = reachable(from)
+      if (
+        Math.hypot(point.x - aim.x, point.y - aim.y) <
+        Math.hypot(best.x - aim.x, best.y - aim.y)
+      )
+        best = point
+    }
+    return best
   }
 
   /**
