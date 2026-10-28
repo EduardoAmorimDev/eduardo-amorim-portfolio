@@ -13,6 +13,10 @@ import {
   type Texture
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
+import {
+  onReducedMotionChange,
+  prefersReducedMotion
+} from '@/lib/media-preferences'
 import { BEHIND_LAYER } from './black-hole'
 import {
   GLASS_LAYOUT,
@@ -22,9 +26,11 @@ import {
 } from './glass-motion'
 import type { HoleBody } from './grid-motion'
 
-// why: the logo leans this many px towards the black hole, as if pulled by
-// it (task black-hole-alive, 11).
-const PULL = 5
+// why: the logo is pulled by the black hole and by the mouse, each at most
+// 8 px, weaker with distance (half at `reach` px); the mouse wins while it
+// is over the hero, easing in and out at `swap` per second, and the logo
+// follows the pull at `follow` per second (task black-hole-alive, 13).
+const PULL = { most: 8, holeReach: 400, mouseReach: 500, swap: 4, follow: 6 }
 
 // why: the models come from canvas-lab (assets/glass/<name>.glb); each is
 // centred on its origin with its largest side at 1 unit. Only their geometry
@@ -96,7 +102,7 @@ const GlassPart = ({ part, backdrop, layer }: GlassPartProps) => (
       buffer={backdrop}
       transparent
       opacity={GLASS_OPACITY}
-      samples={8}
+      samples={4}
       thickness={0.35}
       roughness={0.04}
       ior={1.45}
@@ -118,11 +124,18 @@ const GlassPart = ({ part, backdrop, layer }: GlassPartProps) => (
 type GlassElementProps = {
   layout: GlassLayout
   backdrop: Texture
-  /** When given, the icon leans PULL px towards the black hole. */
+  /** When given, the black hole and the mouse pull the icon (PULL). */
   hole?: RefObject<HoleBody>
+  /** Times its designed size. */
+  grow?: number
 }
 
-const GlassElement = ({ layout, backdrop, hole }: GlassElementProps) => {
+const GlassElement = ({
+  layout,
+  backdrop,
+  hole,
+  grow = 1
+}: GlassElementProps) => {
   const { scene } = useGLTF(modelUrl(layout.name), false)
   // why: the view at the icon's own depth, so anchors reach the visible edges
   // at that distance; the selectors re-render only on resize.
@@ -135,20 +148,75 @@ const GlassElement = ({ layout, backdrop, hole }: GlassElementProps) => {
   const fit = Math.min(1, viewport.width / LAYOUT_WIDTH)
   const group = useRef<Group>(null)
   const onScreen = useMemo(() => new Vector3(), [])
+  const gl = useThree(state => state.gl)
+  const mouse = useRef<{ x: number; y: number } | null>(null)
+  const pull = useRef({ x: 0, y: 0, mouse: 0 })
+  const still = useRef(true)
 
-  useFrame(() => {
+  useEffect(() => {
+    if (!hole) return
+    still.current = prefersReducedMotion()
+    const stopMotion = onReducedMotionChange(() => {
+      still.current = prefersReducedMotion()
+    })
+    // why: only a mouse pulls, as with the hero's other pointer effects.
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse') return
+      const box = gl.domElement.getBoundingClientRect()
+      const x = event.clientX - box.left
+      const y = event.clientY - box.top
+      mouse.current =
+        x >= 0 && y >= 0 && x <= box.width && y <= box.height ? { x, y } : null
+    }
+    const onLeave = () => {
+      mouse.current = null
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    document.documentElement.addEventListener('pointerleave', onLeave)
+    return () => {
+      stopMotion()
+      window.removeEventListener('pointermove', onMove)
+      document.documentElement.removeEventListener('pointerleave', onLeave)
+    }
+  }, [hole, gl])
+
+  useFrame((_, delta) => {
     const body = group.current
     const black = hole?.current
     if (!body || !black?.horizon || !size.width) return
     onScreen.set(home.x, home.y, layout.depth).project(camera)
     const x = ((onScreen.x + 1) / 2) * size.width
     const y = ((1 - onScreen.y) / 2) * size.height
-    const dx = black.x - x
-    const dy = black.y - y
-    const gap = Math.hypot(dx, dy) || 1
+    /** The pull towards (tx, ty) px: at most PULL.most, half at `reach`. */
+    const towards = (tx: number, ty: number, reach: number) => {
+      const dx = tx - x
+      const dy = ty - y
+      const gap = Math.hypot(dx, dy) || 1
+      const strength = PULL.most / (1 + (gap / reach) ** 2)
+      return { x: (dx / gap) * strength, y: (dy / gap) * strength }
+    }
+    const fromHole = towards(black.x, black.y, PULL.holeReach)
+    const point = still.current ? null : mouse.current
+    const fromMouse = point
+      ? towards(point.x, point.y, PULL.mouseReach)
+      : { x: 0, y: 0 }
+    const now = pull.current
+    const swap = Math.min(1, PULL.swap * delta)
+    now.mouse += ((point ? 1 : 0) - now.mouse) * swap
+    // why: the mouse has priority: while it is over the hero its pull
+    // replaces the black hole's.
+    const aimX = fromHole.x + (fromMouse.x - fromHole.x) * now.mouse
+    const aimY = fromHole.y + (fromMouse.y - fromHole.y) * now.mouse
+    const follow = still.current ? 1 : Math.min(1, PULL.follow * delta)
+    now.x += (aimX - now.x) * follow
+    now.y += (aimY - now.y) * follow
     // invariant: px to world units at the icon's depth.
-    const unit = (PULL * view.width) / size.width / gap
-    body.position.set(home.x + dx * unit, home.y - dy * unit, layout.depth)
+    const unit = view.width / size.width
+    body.position.set(
+      home.x + now.x * unit,
+      home.y - now.y * unit,
+      layout.depth
+    )
   })
 
   // why: each mesh is re-rendered with its transform baked into one matrix,
@@ -172,7 +240,7 @@ const GlassElement = ({ layout, backdrop, hole }: GlassElementProps) => {
       ref={group}
       position={[home.x, home.y, layout.depth]}
       rotation={[...layout.pose]}
-      scale={layout.size * fit}
+      scale={layout.size * fit * grow}
     >
       {parts.map(part => (
         <GlassPart
@@ -214,13 +282,21 @@ type GlassLogoProps = {
 }
 
 /**
- * The glass logo alone, in front of the black hole and behind the copy,
- * leaning PULL px towards the black hole (task black-hole-alive, 11).
+ * The glass logo alone, twice its size, in the middle of the hero: in
+ * front of the black hole and behind the copy, pulled by the black hole and
+ * the mouse (PULL; task black-hole-alive, 13).
  */
 export const GlassLogo = ({ hole }: GlassLogoProps) => {
   const backdrop = useMemo(() => createBackdrop(), [])
   useEffect(() => () => backdrop.dispose(), [backdrop])
   const logo = GLASS_LAYOUT.find(layout => layout.name === 'logo')
   if (!logo) return null
-  return <GlassElement layout={logo} backdrop={backdrop} hole={hole} />
+  return (
+    <GlassElement
+      layout={{ ...logo, anchor: [0, 0] }}
+      backdrop={backdrop}
+      hole={hole}
+      grow={2}
+    />
+  )
 }
