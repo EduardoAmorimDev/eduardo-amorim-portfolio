@@ -27,11 +27,13 @@ Toca `space.ts`, `space-sky.tsx`, `hero.tsx`, `hero-planet.tsx` (sai), `black-ho
 
 Decisões reversíveis:
 
-- **Disco 2 vezes maior, com a mesma cara.** No shader, `GROWTH = 2` e `shape(r) = DISK_IN + (r −
-DISK_IN) / GROWTH`. Brilho, borda, cor, espessura dos filamentos e queda do arco usam `shape`,
-  e a geometria (raios, faixas, elipse dos pés) usa o raio real. Rejeitado: só trocar
-  `DISK.outer` para 8. O brilho cai com `r^1,1` e a cor muda até 3,4 R, então a metade de fora
-  sairia apagada e azul.
+- **Disco 2 vezes maior, com a mesma cara.** No shader, `LOOK_OUT = 4` e `look(r) = DISK_IN + (r −
+DISK_IN) · (LOOK_OUT − DISK_IN) / (DISK_OUT − DISK_IN)`, um fator de ~2,4. Os arcos usam
+  `arcLook`, com fator 2. Brilho, borda, cor, espessura dos filamentos e queda do arco usam esses
+  raios; a geometria (raios, faixas, elipse dos pés) usa o raio real. O nome do primeiro rascunho,
+  `GROWTH = 2`, foi trocado no build porque o disco cresceu de 4 a 8, mas a parte de dentro
+  ficou em 1,15. Rejeitado: só trocar `DISK.outer` para 8. O brilho cai com `r^1,1` e a cor muda
+  até 3,4 R, então a metade de fora sairia apagada e azul.
 - **`THICK` 0,06 → 0,12, `FOOT_OUT` 1,6 → 2,15 e `SPAN` 5 → 9,5**, para acompanhar o disco.
 - **Inclinação:** `DISK_POSE.slant = 20°`, passado ao `uRoll` do mesh. O fluxo da lente continua
   horizontal.
@@ -54,7 +56,8 @@ DISK_IN) / GROWTH`. Brilho, borda, cor, espessura dos filamentos e queda do arco
 
 - **Saída rápida no shader do buraco negro**, decidida no build, quando a GPU foi a 7,5–8,4 ms
   com o quadrado 3,6 vezes maior. Onde r > 2,3 e o raio no plano da linha mais próxima passa de
-  DISK_OUT + 0,4, o pixel só tem o brilho de fora (`uPrimary · glow`), e o resto é pulado.
+  DISK_IN + 1,1·(DISK_OUT − DISK_IN) (8,69, onde as faixas de cima já apagaram; corrigido depois
+  do Verifier, que achou o corte antigo, 8,4, cedo demais), o pixel só tem o brilho de fora (`uPrimary · glow`), e o resto é pulado.
   Depois disso: 6,4–6,7 ms. Rejeitado: diminuir o `SPAN`, que cortaria o brilho antes de ele
   sumir.
 
@@ -68,7 +71,9 @@ pequenas desenham halo e raios (2–3). Proof: `grep` nos shaders e a captura
 
 ### S3 - Buraco negro · 4 files · ~40 KB
 
-**C3** - `DISK.outer` 8, `HOLE.topHeight` 1,8, `HOLE.halfHeight` 1,39 e `GROWTH` 2 no shader (4).
+**C3** - `DISK.outer` 8, `HOLE.topHeight` 1,8, `HOLE.halfHeight` 1,39. No shader, `LOOK_OUT` 4: o
+disco lê a aparência do raio que tinha no disco de 4 R, um fator de ~2,4. Os arcos usam
+`arcLook`, com fator 2, porque as faixas deles dobraram (4).
 Proof: `source.ts` › "disks"
 **C4** - `DISK_POSE.tilt` 7° e `slant` 20°, este no `uRoll` (5–6). Proof: `source.ts` › "pose" e a
 captura (a borda direita do disco acima da esquerda)
