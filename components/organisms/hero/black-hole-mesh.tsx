@@ -226,10 +226,11 @@ const fragmentShader = /* glsl */ `
     // why: most of the quad lies past the arcs and the disk, where only the
     // glow shows; it skips the rest, which would add nothing there.
     // invariant: past r = 2.3 no arc, foot or ring reaches (ARC_TOP 1.8,
-    // FOOT_OUT 2.15); past plane radius DISK_OUT + 0.4 no disk row nor top
-    // band (it fades out by t = 1.1, plane radius 8.29) does.
+    // FOOT_OUT 2.15); past the plane radius of band t = 1.1, where the top
+    // bands have faded out (1.15 + 6.85 · 1.1 = 8.69), no disk row nor
+    // top band does.
     float nearest = length(vec2(q.x, max(abs(q.y) - THICK * 0.5, 0.0) / lean));
-    if (r > 2.3 && nearest > DISK_OUT + 0.4) {
+    if (r > 2.3 && nearest > DISK_IN + (DISK_OUT - DISK_IN) * 1.1) {
       vec3 faint = uPrimary * glow;
       float faintAlpha = clamp(max(max(faint.r, faint.g), faint.b), 0.0, 1.0);
       gl_FragColor = vec4(min(faint / max(faintAlpha, 1e-4), vec3(1.0)), faintAlpha);
