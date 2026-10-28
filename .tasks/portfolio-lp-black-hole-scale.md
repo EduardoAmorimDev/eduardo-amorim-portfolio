@@ -90,7 +90,8 @@ ela) a 1 (o mais longe).
 - Mudar o poço do ponteiro, a lente, o H1 ou o laptop. Nada disso foi pedido.
 - Fazer a posição na tela mudar com a subida (o buraco negro "subir" na tela). A subida muda o
   tamanho e a distorção; o caminho na tela continua o de hoje, mais lento.
-- Mudar a luz que o buraco negro joga no `logo` com a subida. A intensidade continua a de hoje.
+- Mudar a luz que o buraco negro joga no `logo` com a subida. A intensidade não muda com a
+  subida; com o dobro do tamanho, ela dobra (de 160 para 320 cd; ver Sources).
 
 ## Observable
 
@@ -151,6 +152,11 @@ ela) a 1 (o mais longe).
   - **Números da subida (7–11):** "vamos ver como fica, se precisar eu te falo pra aumentar o gap
     entre 0,8 e 1,2. Por agora siga o recomendado mesmo" — 0,88 a 1,12 ×, ciclo de 10 a 14 s,
     distorção de 1 a 0,5 ×.
+- Resposta do usuário durante o build (2026-10-28), sobre a luz no `logo`: "320, dobrada".
+  - **O problema:** com o disco maior atrás do vidro, a 160 cd o lado voltado ficava de 3% a 13%
+    mais claro, e o teste herdado de 5% (`portfolio-lp-cosmos` 31) falhava em ~1 de 4
+    execuções.
+  - **A 320 cd:** fica de 11% a 15% mais claro, em todas as execuções.
 - Folgas do caminho calculadas com `horizonRadius`, `sheetScale` e `HOLE` do código atual (main em
   `68efb10`), com 2× e subida máxima de 1,12 ×.
 

@@ -4,8 +4,8 @@
 > by its number. Nothing under `Unresolved` gets settled while building.
 
 > **Substituídos em parte por `.tasks/portfolio-lp-black-hole-scale.md` (2026-10-27):** 4 (40–80
-> px vira 80–160 px na subida 0) e 5 (280 px viram 560 px); o 6 ganha o fator da subida (0,88
-> a 1,12 ×).
+> px vira 80–160 px na subida 0) e 5 (280 px viram 560 px); o 6 passa de 96 a 192 px no repouso
+> e ganha o fator da subida (0,88 a 1,12 ×).
 
 ## Intent
 

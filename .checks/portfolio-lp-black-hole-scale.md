@@ -15,7 +15,8 @@ Sources:
 ## Out of scope
 
 - Poço do ponteiro, lente, H1, laptop; posição na tela mudando com a subida; luz no `logo`
-  mudando com a subida — `Out of scope` da tarefa.
+  mudando com a subida — `Out of scope` da tarefa. A luz dobra com o tamanho (320 cd), por
+  decisão do usuário registrada na tarefa.
 
 ## Landing
 
@@ -83,12 +84,18 @@ Decisões reversíveis descobertas no build, registradas antes do código que as
   falha em 10 quadros com 4 px fixos, não de uma derivação. É um detector, não um valor que um
   check afirme.
 
-- **Luz do buraco negro dobrada** (`INTENSITY` de 160 para 320 cd), junto com o tamanho. O quad
-  maior fica atrás do `logo` de vidro, e o brilho dele, atravessando o vidro, clareia as duas
-  metades por igual. A face voltada para o buraco negro ficou só 3% mais clara (`portfolio-lp-
-cosmos` 31 pede o lado voltado mais claro; a prova herdada exige 5%). Com 96 px de horizonte,
-  a mesma prova passa; com 320 cd e 192 px, também. A luz não muda com a subida, como a tarefa
-  pede (`Out of scope`). Rejeitado: afrouxar a prova para 3%, que baixaria a barra herdada.
+- **Luz do buraco negro dobrada** (`INTENSITY` de 160 para 320 cd), junto com o tamanho.
+  Decidido pelo usuário depois da rodada 2 do Verifier ("320, dobrada"); a tarefa foi emendada.
+  O quad maior fica atrás do `logo` de vidro, e o brilho dele, atravessando o vidro, clareia as
+  duas metades.
+  - **A 160 cd:** o lado voltado ficou de 3% a 13% mais claro, e a prova herdada de 5%
+    (`portfolio-lp-cosmos` 31) falhou em ~1 de 4 execuções. O "só 3%" registrado antes era uma
+    execução só, não o típico.
+  - **A 320 cd:** de 11% a 15%, em todas.
+
+  A luz não muda com a subida. Rejeitados: voltar a 160 cd e estabilizar a medida, e baixar a
+  barra herdada.
+
 - **Prova da força do poço tolera quadros sem horizonte legível**: até 3 de 27, porque o
   detector falha num quadro raro.
 
@@ -215,6 +222,12 @@ package.json`.
 - observability: n/a - sem telemetria; custo de quadro coberto por C24
 
 ## Handoff
+
+Depois da rodada 2 do Verifier (FAIL: 29 de 29 provados; a luz dobrada contradizia a tarefa):
+
+- o usuário decidiu "320, dobrada", e a tarefa foi emendada;
+- o traço do C28 para do lado de onde parte, sem atravessar o horizonte;
+- `portfolio-lp-gravity` anota 96 → 192 px no critério 6.
 
 Rodada 2 do Verifier (FAIL na rodada 1, 27 de 27 provados como escritos). A força do poço na
 página não tinha prova que falhasse: C28 cobre isso, e foi feito vermelho com a falha injetada.
