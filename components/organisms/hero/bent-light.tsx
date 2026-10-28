@@ -23,7 +23,7 @@ const TABLE_SIZE = 512
 // why: the layer behind is drawn this many times the hero's width and
 // height, centred on it, so a ray bent past an edge still finds what lies
 // there (task black-hole-behind, 6–7); one texel per CSS px.
-const OVERSCAN = 2
+export const OVERSCAN = 2
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -125,8 +125,10 @@ export const BentLight = ({ hole, behind }: BentLightProps) => {
     return texture
   }, [])
   const size = useThree(state => state.size)
+  // why: no MSAA; it was for the glass icons' thin edges, which left the
+  // hero, and was most of the ~46 ms the pass cost (task space, Landing).
   const target = useFBO(size.width * OVERSCAN, size.height * OVERSCAN, {
-    samples: 4
+    samples: 0
   })
   const uniforms = useMemo(
     () => ({
@@ -195,6 +197,9 @@ export const BentLight = ({ hole, behind }: BentLightProps) => {
         uniforms={uniforms}
         transparent
         premultipliedAlpha
+        // why: what lies behind keeps the brand's colours; ACES would wash
+        // primary and mist out, as the black hole, drawn untoned, never is.
+        toneMapped={false}
         depthTest={false}
         depthWrite={false}
       />
