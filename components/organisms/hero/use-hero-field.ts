@@ -8,7 +8,7 @@ import {
 } from '@/lib/media-preferences'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import {
-  holeLift,
+  LIFT,
   holeScale,
   horizonAt,
   liftScale,
@@ -81,15 +81,11 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   let running = false
   let frame = 0
   let last = 0
-  // invariant: the black hole's rise and fall advances only while the loop
-  // runs, so it resumes where it paused, like its path.
-  let lifted = 0
-
   // why: the black hole sits on the sheet, so it shrinks with depth like
-  // the cells around it (task gravity, criterion 6); risen off it, it looks
-  // larger and its well weakens (task black-hole-scale, criteria 8–9).
+  // the cells around it (task gravity, criterion 6). It no longer rises and
+  // sinks: it holds at half lift, so its size and lens stay fixed.
   const placeHole = (at: Point) => {
-    const lift = holeLift(lifted, still)
+    const lift = LIFT.still
     hole.current = {
       x: at.x,
       y: at.y,
@@ -157,7 +153,6 @@ const createHeroField = ({ section, grid, lens, hole }: FieldElements) => {
   }
 
   const advance = (seconds: number) => {
-    if (!still) lifted += seconds
     placeHole(
       wander && !still ? wander.step(seconds) : restPoint(width, height)
     )
