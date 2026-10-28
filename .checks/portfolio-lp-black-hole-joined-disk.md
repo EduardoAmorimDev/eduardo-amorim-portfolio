@@ -39,8 +39,9 @@ Decisões reversíveis, registradas antes do código:
 
 - **Bordas do disco vertical:**
   - em `HOLE`: `halfHeight` (1,22, a borda de baixo) e `topHeight` (1,30, a borda de cima);
-  - no shader: `outer = mix(1,22, 1,30, smoothstep(−0,2, 0,6, sen θ))`. Embaixo, onde
-    sen θ ≤ −0,2 (θ de 191° a 349°), a borda fica exatamente 1,22.
+  - no shader: `outer = mix(1,22, 1,30, smoothstep(−0,2, 0,6, sen θ))`. Embaixo, de 200°
+    a 340° (onde `rise` e `foot` valem 0), a borda fica exatamente 1,22. Entre 191° e 200° e
+    entre 340° e 349°, os pés já a alargam.
 - **Pés do arco (`foot`):** `foot = 1 − smoothstep(0,1, 0,33, |sen θ|)`, de 1 sobre a horizontal
   a 0 perto de 19°. A borda de fora cresce até 1,6 R conforme `foot`. Nessa faixa, o gás e o
   brilho passam ao do disco horizontal, lido no plano dele (raio e ângulo de `disk()`), com
@@ -83,7 +84,7 @@ borda de baixo. A borda é o último raio antes de 1,8 R em que o pixel mais cla
 passa de luminância 0,05 (3). Proof: `probe.mjs` › "thicker on top"
 
 **C4** - No raio para baixo, pela mesma medida, ele acaba a 1,22 R ±0,05. O fonte fixa a borda
-de baixo em 1,22 onde sen θ ≤ −0,2, e de 200° a 340° `rise` e `foot` valem 0 (4). Proof:
+de baixo em 1,22 de 200° a 340°, onde `rise` e `foot` valem 0 (4). Proof:
 `probe.mjs` › "unchanged below" e `source.ts` › "bottom edge stays 1.22"
 
 **C5** - O fonte alarga os pés até 1,6 R onde |sen θ| < 0,33 e usa o gás do disco horizontal ali

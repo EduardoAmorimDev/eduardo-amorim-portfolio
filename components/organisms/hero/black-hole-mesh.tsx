@@ -178,8 +178,8 @@ const fragmentShader = /* glsl */ `
     vec3 diskColor = mix(uMist, uPrimary, depth);
 
     // The vertical disk: the horizontal one's far half, bent round the
-    // horizon. It reaches ARC_TOP above and ARC_OUT below (untouched where
-    // sin θ ≤ −0.2); at the sides its feet widen along the horizontal
+    // horizon. It reaches ARC_TOP above and ARC_OUT below (untouched from
+    // 200° to 340°); at the sides its feet widen along the horizontal
     // disk's plane to FOOT_OUT and take its gas, so the two read as one.
     // hazard: the fade-out must start past ARC_IN, or the band vanishes.
     float rise = smoothstep(-0.2, 0.6, sin(theta));
