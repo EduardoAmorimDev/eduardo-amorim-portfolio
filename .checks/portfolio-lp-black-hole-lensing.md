@@ -59,6 +59,31 @@ Decisões reversíveis, registradas antes do código:
 - **`showSceneOnly` (e2e) zera a opacidade da malha** em vez de só escondê-la: o buraco negro
   desenha a malha com a opacidade do canvas, e `visibility` passa a ser dele.
 
+Decisões reversíveis descobertas no build, registradas antes do código que as fecha:
+
+- **C8 lê d = 476 à direita do centro, não abaixo.** A imagem espelhada abaixo do centro vem
+  da parte do círculo acima dele, e a 476 px ela fica além do topo da Hero (o centro está a
+  288 px). À direita, a imagem cai entre o horizonte e a borda interna do disco (1,5 raio), sem
+  nada por cima.
+- **C20 compara o centro da lente com o ponto em que o laço pôs o buraco negro naquele quadro**
+  (gravado pelo `arc` do recorte do horizonte, em `data-drawn-hole`). É dali que o quadrado do
+  horizonte é posicionado. A caixa do horizonte nos pixels é inteira e erra até meio px, então
+  só confirma o ponto, a até 2 px. O círculo é ajustado por mínimos quadrados em raio e centro,
+  ao longo de 14 raios a até 45° da vertical, sem os raios que ficam a mais de 3 px do primeiro
+  ajuste (o `logo`, a borda de um disco inclinado). Rejeitado: o centro da caixa do horizonte,
+  cujo erro (±0,5 px mais a caixa recortada pelo disco) passa de 1 px sozinho.
+- **Testes em movimento com 120 s de limite**, como o `hero-grid.spec` faz. Rodam 6 s de quadros
+  com envio da malha à GPU, e passaram de 30 s com a máquina em carga 37.
+- **"the black hole grows and shrinks as it rises" com 60 s de limite.** Roda 12 s de quadros
+  pelo relógio parado e passou a levar ~32 s, com a malha enviada à GPU a cada quadro. Enviada
+  uma vez só, levou 27,4 s; sem mipmaps, 31,8 s, então eles não pesam. Não foi possível medir a
+  `main` (o build em worktree falhou com `node_modules` ligado). O teste não muda; só o limite.
+- **C8 mede com faixas largas.** A lente comprime as imagens espelhadas na direção do raio
+  (0,27× a d = 96 px, 0,17× a 192 e 0,05× a 476). Um traço de 3 px vira 0,16 px a 476, abaixo
+  do que a captura distingue. O teste desenha faixas de 8, 12 e 40 px, que viram ~2 px, e mede o
+  centro delas. A tolerância de ±4 px não muda. Rejeitado: baixar o limiar de detecção até o
+  ruído do brilho do disco.
+
 ## Checks
 
 Comandos: unidade `node --test --test-name-pattern="<nome>" components/organisms/hero/deflection.test.ts`;
