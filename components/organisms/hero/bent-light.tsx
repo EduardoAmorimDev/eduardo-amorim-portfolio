@@ -10,6 +10,8 @@ import {
   PerspectiveCamera,
   RedFormat,
   Vector2,
+  type Mesh,
+  type Object3D,
   type ShaderMaterial
 } from 'three'
 import { FIELD, FLOW, bendAt, deflectionTable } from './deflection'
@@ -79,6 +81,20 @@ const fragmentShader = /* glsl */ `
   }
 `
 
+/** Whether anything that draws lies on `layer` under `root`, shown. */
+const drawsOn = (root: Object3D, layer: number) => {
+  let found = false
+  root.traverseVisible(object => {
+    if (found || !object.layers.isEnabled(layer)) return
+    found =
+      'isMesh' in object ||
+      'isPoints' in object ||
+      'isLine' in object ||
+      'isSprite' in object
+  })
+  return found
+}
+
 type BentLightProps = {
   /** Where the hero's field puts the black hole, in hero px. */
   hole: RefObject<HoleBody>
@@ -125,6 +141,7 @@ export const BentLight = ({ hole, behind }: BentLightProps) => {
     [deflection, target]
   )
   const material = useRef<ShaderMaterial>(null)
+  const lens = useRef<Mesh>(null)
   const wide = useRef<PerspectiveCamera>(null)
 
   useEffect(() => () => deflection.dispose(), [deflection])
@@ -133,6 +150,13 @@ export const BentLight = ({ hole, behind }: BentLightProps) => {
     const shader = material.current?.uniforms
     const { x, y, horizon, lift } = hole.current
     if (!shader || !horizon || !(camera instanceof PerspectiveCamera)) return
+    // why: with nothing on the layer behind (the hero holds only the black
+    // hole for now), the lens would bend an empty picture: its off-screen
+    // render and full-screen pass took ~46 ms a frame at 1440×900 on an
+    // integrated GPU. Anything put behind turns them back on.
+    const shown = drawsOn(scene, behind)
+    if (lens.current) lens.current.visible = shown
+    if (!shown) return
     // invariant: the same eye as the camera, its view OVERSCAN times as
     // wide and tall, so the hero sits in the middle of the layer drawn.
     wide.current ??= new PerspectiveCamera()
@@ -162,7 +186,7 @@ export const BentLight = ({ hole, behind }: BentLightProps) => {
   return (
     // invariant: drawn before the horizon, disk and logo (renderOrder 0),
     // which all lie in front of what is behind.
-    <mesh frustumCulled={false} renderOrder={-1}>
+    <mesh ref={lens} frustumCulled={false} renderOrder={-1}>
       <planeGeometry />
       <shaderMaterial
         ref={material}
