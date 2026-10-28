@@ -152,7 +152,7 @@ ela) a 1 (o mais longe).
   - **Números da subida (7–11):** "vamos ver como fica, se precisar eu te falo pra aumentar o gap
     entre 0,8 e 1,2. Por agora siga o recomendado mesmo" — 0,88 a 1,12 ×, ciclo de 10 a 14 s,
     distorção de 1 a 0,5 ×.
-- Resposta do usuário durante o build (2026-10-28), sobre a luz no `logo`: "320, dobrada".
+- Resposta do usuário durante o build (2026-10-27), sobre a luz no `logo`: "320, dobrada".
   - **O problema:** com o disco maior atrás do vidro, a 160 cd o lado voltado ficava de 3% a 13%
     mais claro, e o teste herdado de 5% (`portfolio-lp-cosmos` 31) falhava em ~1 de 4
     execuções.
