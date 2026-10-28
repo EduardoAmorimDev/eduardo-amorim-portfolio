@@ -65,7 +65,8 @@ const fragmentShader = /* glsl */ `
     // hazard: pow() of a negative base is undefined in GLSL (NaN above the
     // centre, black-hole-flow 1); the angle's share comes from a square.
     float sine2 = (q.y * q.y) / (theta * theta);
-    float share = pow(sine2, ${(FIELD.exponent / 2).toFixed(2)});
+    // hazard: pow(0, 0) is undefined in GLSL; a radial lens has share 1.
+    float share = ${FIELD.exponent > 0 ? `pow(sine2, ${(FIELD.exponent / 2).toFixed(2)})` : '1.0'};
     float beta = share > 1e-6 ? theta - uBend * bentBy(theta / share) : theta;
     // invariant: as behindPoint (deflection.ts); with y down the flow keeps
     // its form, a²·(x, −y)/r².

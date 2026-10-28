@@ -8,7 +8,8 @@ export const CRITICAL_IMPACT = (3 * Math.sqrt(3)) / 2
 
 // why: the Einstein ring at 1.6 horizon radii above and below the black
 // hole, half risen (black-hole-apple, 4; it was 2 in black-hole-lensing).
-export const EINSTEIN = { radius: 1.6, lift: LIFT.still } as const
+// why: 1.2 times wider, 1.92 (task black-hole-wide, 10).
+export const EINSTEIN = { radius: 1.92, lift: LIFT.still } as const
 
 // why: midpoint steps of the deflection integral; within 0.1% of the weak
 // field at b = 1000 and 0.05% of the strong field at 1.001 b_c.
@@ -81,13 +82,12 @@ export const sourceRadius = (theta: number, bend: number) =>
 
 const rings = new Map<number, number>()
 
-// why: the lens follows a dipole whose poles are left and right of the
-// shadow, bending as the field line through each point (black-hole-flow,
-// 2): |sin φ|^0.5 keeps it near whole at most angles and drops it only at
-// the poles; the light also flows round a circle of 1.6 horizon radii, as
-// a liquid round a cylinder (black-hole-flow, 3).
-export const FIELD = { exponent: 0.5 } as const
-export const FLOW = { radius: 1.6 } as const
+// why: the lens is radial, the same at every angle (|sin φ|^0; it was a
+// dipole, black-hole-flow 2), and the light also flows round a circle of
+// 1.92 horizon radii, as a liquid round a cylinder; both 1.2 times wider
+// than before (task black-hole-wide, 9–10).
+export const FIELD = { exponent: 0 } as const
+export const FLOW = { radius: 1.92 } as const
 
 /** How much of the lens reaches `angle` radians off the poles' axis. */
 export const fieldShare = (angle: number) =>
