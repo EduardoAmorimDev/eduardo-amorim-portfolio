@@ -1,18 +1,18 @@
 import { HOLE, LIFT, horizonAt } from './black-hole.ts'
 import type { Point } from './grid-motion.ts'
 
-// why: the tasks' limits (cosmos 29, black-hole-scale 12): 10 to 30 px/s,
-// half the first pace, a new turn every 4 to 10 s, never more than 4 px in
-// one frame, never stopping.
+// why: the tasks' limits (cosmos 29, black-hole-behind 11): 5 to 15 px/s,
+// half the last pace, a new turn every 4 to 10 s, never more than
+// 4 px in one frame, never stopping.
 export const WANDER = {
-  minSpeed: 10,
-  maxSpeed: 30,
+  minSpeed: 5,
+  maxSpeed: 15,
   /** Seconds each leg of the path takes. */
   minLeg: 4,
   maxLeg: 10,
   /** Largest change of speed from one leg to the next, in px/s. */
-  maxSpeedStep: 4,
-  /** Longest frame the path advances by; 30 px/s × 1/15 s = 2 px. */
+  maxSpeedStep: 2,
+  /** Longest frame the path advances by; 15 px/s × 1/15 s = 1 px. */
   maxFrame: 1 / 15,
   /** The turn at each waypoint, so every leg really changes direction. */
   minTurn: Math.PI / 12,

@@ -20,16 +20,21 @@ export const HOLE = {
   margin: 0.1
 } as const
 
-// why: the disk turns faster near the horizon, like a real one, yet every
-// radius completes a turn in at most 20 s (criterion 30).
+// why: the disk turns faster near the horizon, like a real one, and fast
+// enough to be seen going round it: 3 s a turn at the inner edge, 6 s at
+// the outer one (task black-hole-behind, 9).
 export const DISK = {
   /** Inner and outer edges, in horizon radii. */
   inner: 1.5,
   outer: 4.2,
   /** Seconds per turn at the inner and outer edges. */
-  innerTurn: 8,
-  outerTurn: 16
+  innerTurn: 3,
+  outerTurn: 6
 } as const
+
+// why: what lies on this layer is behind the black hole and is only seen
+// through its lens (task black-hole-behind, 5); the camera sees layer 0.
+export const BEHIND_LAYER = 1
 
 // why: the disk is seen 15° above its plane, so it reads as a tilted ring
 // (task gravity, criteria 10 and 14–15): the tilt swings 12–18° every 16 s
