@@ -3,7 +3,7 @@ import { sheetScale } from './grid-motion.ts'
 
 // why: the tasks' numbers at 1440×900 (cosmos 28–30, black-hole-scale 1–3):
 // a 192 px horizon, a disk ~4 diameters wide (outer radius 4.2 horizon
-// radii), its back bent into arcs up to 1.65 radii above and below; it rests
+// radii), its back bent into arcs up to 1.4 radii above and below; it rests
 // at the centre, 32% down, its sphere and arcs 10% clear of every edge.
 export const HOLE = {
   /** Horizon diameter in CSS px at the design size. */
@@ -12,8 +12,8 @@ export const HOLE = {
   designHeight: 900,
   /** The body's half extent, in horizon radii: the disk's outer edge … */
   halfWidth: 4.2,
-  /** … and the arcs' outer edge. */
-  halfHeight: 1.65,
+  /** … and the arcs' outer edge, drawn close to the horizon. */
+  halfHeight: 1.4,
   /** Resting point, as a share of the hero's width and height. */
   rest: { x: 0.5, y: 0.32 },
   /** Share of the hero kept clear on every side. */
@@ -21,15 +21,15 @@ export const HOLE = {
 } as const
 
 // why: the disk turns faster near the horizon, like a real one, but slowly
-// overall: 20 s a turn at the inner edge, 40 s at the outer one (asked for
-// "bem devagar" after black-hole-behind's 3 and 6 s).
+// overall: 40 s a turn at the inner edge, 80 s at the outer one (asked for
+// slower twice after black-hole-behind's 3 and 6 s).
 export const DISK = {
   /** Inner and outer edges, in horizon radii. */
   inner: 1.5,
   outer: 4.2,
   /** Seconds per turn at the inner and outer edges. */
-  innerTurn: 20,
-  outerTurn: 40
+  innerTurn: 40,
+  outerTurn: 80
 } as const
 
 // why: what lies on this layer is behind the black hole and is only seen

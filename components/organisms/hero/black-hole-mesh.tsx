@@ -60,11 +60,11 @@ const fragmentShader = /* glsl */ `
   const float DISK_IN = ${DISK.inner.toFixed(2)};
   const float DISK_OUT = ${DISK.outer.toFixed(2)};
   const float ARC_OUT = ${HOLE.halfHeight.toFixed(2)};
-  const float ARC_IN = 1.08;
+  const float ARC_IN = 1.06;
   const float RING = 1.04;
   // The disk's own thickness, in horizon radii, and how much brighter its
   // approaching (left) side is than its receding one: 1 ± BEAM.
-  const float THICK = 0.1;
+  const float THICK = 0.06;
   const float BEAM = 0.45;
 
   float hash(vec2 p) {
@@ -95,6 +95,18 @@ const fragmentShader = /* glsl */ `
     return 0.15 + 1.25 * pow(streak, 1.8);
   }
 
+  // The tilted disk's own streaks: finer and with more contrast than the
+  // arcs' gas, so its slow turn stays visible seen nearly edge-on.
+  float diskGas(float radius, float angle) {
+    float share = clamp((radius - DISK_IN) / (DISK_OUT - DISK_IN), 0.0, 1.0);
+    float turn = mix(uInnerTurn, uOuterTurn, share);
+    float phase = angle - TAU * uTime / turn;
+    vec2 circle = vec2(cos(phase), sin(phase)) * (1.6 + radius * 1.1);
+    float streak = noise(circle * 3.4 + radius * 4.3) * 0.65
+      + noise(circle * 8.1) * 0.35;
+    return 0.08 + 1.6 * pow(streak, 2.6);
+  }
+
   // Doppler beaming: the side turning towards the viewer (cos < 0, the
   // left) is brighter than the side turning away.
   float beam(float cosine) {
@@ -103,19 +115,22 @@ const fragmentShader = /* glsl */ `
 
   // The disk's light at q (disk-aligned screen coordinates): x for its near
   // half, in front of the horizon, y for its far half, behind it. A few
-  // rows around q give it thickness.
+  // rows around q give it thickness; the streaks are read once, at q, so
+  // the rows never smear them into a blur.
   vec2 disk(vec2 q, float lean) {
     vec2 lit = vec2(0.0);
-    for (int k = -2; k <= 2; k++) {
+    vec2 centre = vec2(q.x, q.y / lean);
+    float streaks = diskGas(length(centre), atan(centre.y, centre.x));
+    for (int k = -1; k <= 1; k++) {
       float y = q.y + float(k) * THICK * 0.5;
       vec2 onDisk = vec2(q.x, y / lean);
       float radius = length(onDisk);
       float band = smoothstep(DISK_IN - 0.05, DISK_IN + 0.2, radius)
         * (1.0 - smoothstep(DISK_OUT - 0.45, DISK_OUT, radius));
       float heat = 0.85 * pow(DISK_IN / max(radius, DISK_IN), 1.1);
-      float light = band * heat * gas(radius, atan(onDisk.y, onDisk.x))
+      float light = band * heat * streaks
         * beam(onDisk.x / max(radius, 1e-4))
-        * (1.0 - abs(float(k)) * 0.22);
+        * (1.0 - abs(float(k)) * 0.3);
       if (y < 0.0) lit.x = max(lit.x, light);
       else lit.y = max(lit.y, light);
     }
