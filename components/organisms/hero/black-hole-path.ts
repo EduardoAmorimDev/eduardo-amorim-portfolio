@@ -1,4 +1,4 @@
-import { HOLE, LIFT, horizonAt } from './black-hole.ts'
+import { HOLE, horizonRadius } from './black-hole.ts'
 import type { Point } from './grid-motion.ts'
 
 // why: the tasks' limits (cosmos 29, black-hole-behind 11): 5 to 15 px/s,
@@ -57,11 +57,11 @@ export const wanderBox = (
 }
 
 /**
- * The black hole's box in a `width` × `height` hero: sized for its largest
- * look, at the hero's foot, where the sheet is nearest, and fully risen.
+ * The black hole's box in a `width` × `height` hero, for its fixed size
+ * (black-hole-apple, 7).
  */
 export const holeBox = (width: number, height: number) =>
-  wanderBox(width, height, horizonAt(width, height, height) * LIFT.highest)
+  wanderBox(width, height, horizonRadius(width, height))
 
 /** One leg: a quadratic curve from `from` towards `via`, ending at `to`. */
 type Leg = {
