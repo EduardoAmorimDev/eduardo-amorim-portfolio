@@ -208,7 +208,6 @@ export const Handheld = ({
                   height={page.height}
                   tabIndex={-1}
                   aria-hidden
-                  sandbox="allow-scripts allow-same-origin"
                   scrolling="no"
                   className="pointer-events-none border-0"
                   style={{ borderRadius: spec.pageRadius }}

@@ -249,7 +249,6 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
                 height={size.height}
                 tabIndex={-1}
                 aria-hidden
-                sandbox="allow-scripts allow-same-origin"
                 scrolling="no"
                 className="pointer-events-none absolute border-0 opacity-0"
                 style={{
