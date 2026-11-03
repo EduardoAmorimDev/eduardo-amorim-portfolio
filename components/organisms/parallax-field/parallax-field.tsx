@@ -17,132 +17,85 @@ import {
 const spread = (count: number) =>
   Array.from({ length: count }, (_, index) => (index + 0.5) / count)
 
-const BAR_COLORS = ['bg-primary', 'bg-steel', 'bg-mist'] as const
-
-// why: each group reads as a few lines of code: indent and length vary per
-// line, in % of the group so every bar stays inside its edge band.
-const CODE_LINES = [
-  { indent: 0, width: 70 },
-  { indent: 18, width: 60 },
-  { indent: 18, width: 82 },
-  { indent: 36, width: 44 },
-  { indent: 0, width: 52 }
-]
-
-const Octahedron = () => (
-  <svg
-    viewBox="0 0 100 120"
-    data-shape="octahedron"
-    className="motion-safe:animate-float w-20 drop-shadow-[0_0_24px_var(--color-primary)] lg:w-28"
-  >
-    <polygon points="50,4 92,60 50,72" className="fill-primary" />
-    <polygon points="50,4 8,60 50,72" className="fill-primary/70" />
-    <polygon points="8,60 50,72 50,116" className="fill-steel" />
-    <polygon points="92,60 50,72 50,116" className="fill-steel/70" />
-  </svg>
-)
-
-const RoundedCube = () => (
-  <svg
-    viewBox="0 0 100 100"
-    data-shape="rounded-cube"
-    className="motion-safe:animate-float w-16 [stroke-width:10] drop-shadow-[0_0_20px_var(--color-steel)] [stroke-linejoin:round] lg:w-24"
-  >
-    <polygon
-      points="50,12 86,30 50,48 14,30"
-      className="fill-mist/80 stroke-mist/80"
-    />
-    <polygon
-      points="14,30 50,48 50,88 14,70"
-      className="fill-steel stroke-steel"
-    />
-    <polygon
-      points="86,30 50,48 50,88 86,70"
-      className="fill-primary stroke-primary"
-    />
-  </svg>
-)
-
-// why: a fixed low-discrepancy draw per index, so every dot gets its own
-// twinkle period (3 to 8 s) and phase, the same on the server and the client.
+// why: a fixed low-discrepancy draw per index, so every star gets its own
+// place, size, twinkle period and phase, the same on the server and client.
 const draw = (index: number, step: number) => (index * step) % 1
 
-const BACK = spread(28).map((top, index) => {
+// why: the page between the black hole and the Earth is a trip through
+// space (task hero-gargantua): fine stars far back, brighter ones nearer,
+// and blurred dust rushing past the edges in front.
+const BACK = spread(90).map((top, index) => {
   const period = 3 + 5 * draw(index, 0.618034)
   return {
     top,
-    left: (index * 37 + 11) % 96,
-    ring: index % 7 === 3,
+    left: 100 * draw(index, 0.7548777),
+    size: 1 + Math.round(draw(index, 0.5698403)),
+    opacity: 0.25 + 0.5 * draw(index, 0.3247179),
     period,
     phase: period * draw(index, 0.414214)
   }
 })
 
-const MID = spread(8).map((top, index) => ({
+const MID = spread(18).map((top, index) => ({
   top,
-  left: index % 2 === 0 ? 1 + (index % 3) : 90 + (index % 3) * 0.5,
-  octahedron: index % 2 === 0
+  left: 100 * draw(index, 0.4142135),
+  size: 2 + Math.round(draw(index, 0.2360679))
 }))
 
-const FRONT = spread(12).map((top, index) => ({
+const FRONT = spread(10).map((top, index) => ({
   top,
-  side: index % 2 === 0 ? 'left-[2%]' : 'right-[2%]'
+  left:
+    index % 2 === 0 ? 2 + 6 * draw(index, 0.618) : 88 + 8 * draw(index, 0.31),
+  size: 6 + Math.round(10 * draw(index, 0.7071067))
 }))
 
 const CONTENT: Record<ParallaxLayer, ReactNode> = {
-  back: BACK.map(({ top, left, ring, period, phase }) =>
-    ring ? (
-      <span
-        key={`${top}`}
-        data-ring
-        style={{ top: `${top * 100}%`, left: `${left}%` }}
-        className="border-steel/30 motion-safe:animate-ring-pulse absolute size-40 rounded-full border"
-      />
-    ) : (
-      <span
-        key={`${top}`}
-        data-dot
-        style={{
-          top: `${top * 100}%`,
-          left: `${left}%`,
-          animationDuration: `${period.toFixed(2)}s`,
-          animationDelay: `-${phase.toFixed(2)}s`
-        }}
-        className="bg-steel/60 motion-safe:animate-twinkle absolute size-1.5 rounded-full"
-      />
-    )
-  ),
-  mid: MID.map(({ top, left, octahedron }) => (
-    <div
+  back: BACK.map(({ top, left, size, opacity, period, phase }) => (
+    <span
       key={`${top}`}
-      data-mid-shape
-      className="motion-safe:animate-sway absolute"
-      style={{ top: `${top * 100}%`, left: `${left}%` }}
-    >
-      {octahedron ? <Octahedron /> : <RoundedCube />}
-    </div>
+      data-star="far"
+      style={{
+        top: `${top * 100}%`,
+        left: `${left}%`,
+        width: size,
+        height: size,
+        opacity,
+        animationDuration: `${period.toFixed(2)}s`,
+        animationDelay: `-${phase.toFixed(2)}s`
+      }}
+      className="bg-mist motion-safe:animate-twinkle absolute rounded-full"
+    />
   )),
-  front: FRONT.map(({ top, side }, group) => (
-    <div
+  mid: MID.map(({ top, left, size }) => (
+    <span
       key={`${top}`}
-      data-code-bars
-      className={`absolute w-[11%] space-y-3 opacity-70 blur-[10px] ${side}`}
-      style={{ top: `${top * 100}%` }}
-    >
-      {CODE_LINES.map(({ indent, width }, line) => (
-        <span
-          key={line}
-          data-code-bar
-          className={`block h-3 rounded-full ${BAR_COLORS[(group + line) % BAR_COLORS.length]}`}
-          style={{ marginLeft: `${indent}%`, width: `${width}%` }}
-        />
-      ))}
-    </div>
+      data-star="near"
+      style={{
+        top: `${top * 100}%`,
+        left: `${left}%`,
+        width: size,
+        height: size
+      }}
+      className="bg-mist absolute rounded-full shadow-[0_0_8px_2px_rgb(from_var(--color-primary)_r_g_b/45%)]"
+    />
+  )),
+  front: FRONT.map(({ top, left, size }) => (
+    <span
+      key={`${top}`}
+      data-dust
+      style={{
+        top: `${top * 100}%`,
+        left: `${left}%`,
+        width: size,
+        height: size
+      }}
+      className="bg-mist/20 absolute rounded-full blur-[6px]"
+    />
   ))
 }
 
-// why: back and mid sit behind the sections, the blurred front bars over
-// them; all three are decoration only.
+// why: back and mid sit behind the sections, the blurred dust over them;
+// all three are decoration only.
 const DEPTH: Record<ParallaxLayer, string> = {
   back: '-z-10',
   mid: '-z-10',
