@@ -22,10 +22,6 @@ export const STAGES = {
   zoom: [0.8, 0.96]
 } as const satisfies Record<string, Window>
 
-// why: the carousel's end (laptop open and lit); from here on the scroll
-// only drives the dive, so this is where the section holds once reached.
-export const CAROUSEL_END = 0.72
-
 /** 0..1 inside `window`, eased in and out, clamped outside it. */
 export const ease = (p: number, [start, end]: Window) =>
   MathUtils.smoothstep(p, start, end)

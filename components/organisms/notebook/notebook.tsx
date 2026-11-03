@@ -6,7 +6,7 @@ import { RenderGate } from '@/components/atoms/render-gate'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { DeviceCopy } from './device-copy'
 import { NotebookScene } from './notebook-scene'
-import { CAMERA, CAROUSEL_END } from './stages'
+import { CAMERA } from './stages'
 import { useScrollProgress } from './use-scroll-progress'
 
 // why: the embedded pages start loading a screen before the section, well
@@ -24,12 +24,12 @@ type NotebookProps = { id: string }
  * Phone, tablet, then a laptop that opens, carried across the stage by the
  * scroll, each beside a chapter of the story; the camera then dives into the
  * laptop's screen, whose page is the projects section that follows, and the
- * real section takes over unnoticed. Once open, the laptop stays open.
+ * real section takes over unnoticed; scrolling back plays it all in reverse.
  */
 export const Notebook = ({ id }: NotebookProps) => {
   const section = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
-  const progress = useScrollProgress(section, { holdFrom: CAROUSEL_END })
+  const progress = useScrollProgress(section)
   const screenLive = useNearViewport(section, SCREEN_LEAD)
 
   useEffect(() => {

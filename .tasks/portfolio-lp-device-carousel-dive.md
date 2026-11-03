@@ -27,9 +27,10 @@ para a seção de projetos sem ligação com ele.
    palco some (opacidade 1 → 0) e a página real assume. Em 1440 × 900, a diferença entre o
    último quadro do palco e a página real é de 2,67% dos pixels (> 40/255): as formas do parallax,
    que só existem na página real, e a borda das letras.
-5. Dado que o scroll chegou ao fim do carrossel (`p ≥ 0,72`, laptop aberto) vindo de antes,
-   quando o usuário rola para cima o carrossel não volta: o laptop fica aberto. O mergulho continua
-   seguindo o scroll nos dois sentidos, então ao voltar dos projetos o laptop se afasta.
+5. Sempre, o carrossel e o mergulho seguem o scroll nos dois sentidos: rolar para cima depois dos
+   projetos afasta a câmera do laptop e traz de volta o tablet e o celular. A trava do fim do
+   carrossel foi removida a pedido do usuário (2026-11-03): "Agora faz sentido remover a trava do
+   fim do carrosel".
 6. Sempre, o palco é calculado a partir da câmera em repouso (`CAMERA`), não da posição da câmera
    no meio do mergulho; voltar do mergulho mostra os aparelhos no tamanho certo.
 7. Sempre, enquanto o palco está oculto (`visibility: hidden`), os cliques chegam à página real.
@@ -45,8 +46,8 @@ para a seção de projetos sem ligação com ele.
 - failure modes: existing - fundo `bg-ink` atrás dos iframes enquanto `/embed/projetos` carrega.
 - idempotency and retry: n/a.
 - authorization: n/a - página pública; `/embed/projetos` tem `robots: noindex, nofollow`.
-- concurrency and ordering: 5 - a trava só vai de falso para verdadeiro.
-- data lifecycle: n/a - a trava vive na memória da página.
+- concurrency and ordering: n/a - sem trava, o estado é função do scroll.
+- data lifecycle: n/a - nada é guardado.
 - external-dependency failure: n/a - o conteúdo agora é do próprio site.
 - state transitions: 3, 4, 5.
 - observability: n/a.
