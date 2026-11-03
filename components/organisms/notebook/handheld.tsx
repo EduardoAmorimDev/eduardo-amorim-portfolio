@@ -138,7 +138,8 @@ export const Handheld = ({
     : spec.page
   // invariant: with `transform`, drei maps 1 CSS px to distanceFactor / 400
   // units, so the page is exactly as wide as the display.
-  const distanceFactor = (spec.screenWidth / spec.page.width) * 400
+  const unitsPerPx = spec.screenWidth / spec.page.width
+  const distanceFactor = unitsPerPx * 400
 
   return (
     <group>
@@ -157,6 +158,15 @@ export const Handheld = ({
             occlude="blending"
             distanceFactor={distanceFactor}
             pointerEvents="none"
+            // hazard: left to itself, drei measures the page once to size the
+            // hole the page shows through, and on the tablet's turn it read
+            // the portrait size, cropping the landscape page; a plane sized
+            // from the spec cannot go stale.
+            geometry={
+              <planeGeometry
+                args={[page.width * unitsPerPx, page.height * unitsPerPx]}
+              />
+            }
           >
             <div
               className="bg-ink"
