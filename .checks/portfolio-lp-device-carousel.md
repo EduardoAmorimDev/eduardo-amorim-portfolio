@@ -64,7 +64,7 @@ Proof: sonda - screenshot em `p = 0,10` após ter passado por 1
 Proof: sonda - screenshot em `p = 0,10` após ir até 0,60 (smartphone de volta)
 
 **C10** - Recarregar recomeça em `p = 0`
-Proof: existing - a trava vive num `useRef`, que nasce `false` a cada carga
+Proof: sonda - recarregar parado em `p = 1` (scroll restaurado) e rolar a `p = 0,10`: smartphone de volta
 
 **C11** - Em 390 × 844 cada dispositivo parado cabe inteiro na tela
 Proof: sonda - screenshots no viewport 390 × 844 em `0,25`, `0,50`, `1`

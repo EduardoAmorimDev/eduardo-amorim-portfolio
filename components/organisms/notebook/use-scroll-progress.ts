@@ -22,6 +22,10 @@ export const useScrollProgress = (
   // invariant: only ever goes false → true, and lives in memory, so a reload
   // starts the animation over.
   const held = useRef(false)
+  // why: the browser restores the scroll on reload, so a page reloaded at or
+  // below the end would hold at once; holding needs the end to be reached
+  // from before it, by scrolling, in this visit.
+  const seenBeforeEnd = useRef(false)
 
   useEffect(() => {
     const update = () => {
@@ -31,7 +35,8 @@ export const useScrollProgress = (
       const scrollable = height - window.innerHeight
       progress.current =
         scrollable > 0 ? MathUtils.clamp(-top / scrollable, 0, 1) : 0
-      if (holdAtEnd && progress.current >= HOLD_FROM) {
+      if (progress.current < HOLD_FROM) seenBeforeEnd.current = true
+      else if (holdAtEnd && seenBeforeEnd.current) {
         held.current = true
         progress.current = 1
       }

@@ -59,12 +59,12 @@ constante única (`STAGES`), como `STRAIGHTEN`/`OPEN`/`POWER_ON` hoje:
 
 ### Estado final travado
 
-8. Dado que `p` chegou a 1 ao menos uma vez nesta carga da página, quando o usuário rola para cima
+8. Dado que o scroll levou `p` de antes do fim até o fim (`p ≥ 0,99`, onde o laptop já está aberto e aceso) ao menos uma vez nesta carga da página, quando o usuário rola para cima
    (inclusive para antes da seção e de volta), o progresso usado pela animação continua 1: laptop
    aberto, ligado, no centro; smartphone e tablet não reaparecem.
-9. Dado que `p` ainda não chegou a 1, quando o usuário rola para cima, a animação volta junto com o
+9. Dado que `p` ainda não chegou a 0,99, quando o usuário rola para cima, a animação volta junto com o
    scroll (comportamento de hoje), em qualquer fase.
-10. Quando a página é recarregada, a trava se perde e o carrossel recomeça em `p = 0`.
+10. Quando a página é recarregada, a trava se perde, inclusive quando o navegador restaura o scroll no fim da seção ou abaixo dela: rolar para cima volta a animação.
 
 ### Todas as telas
 

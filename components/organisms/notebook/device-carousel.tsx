@@ -16,9 +16,9 @@ import {
 } from './stages'
 
 // why: the room each handheld needs at rest, with a margin; the tablet's
-// frame is square so it fits both before and after it turns.
+// frame is square and holds its 45° diagonal (~3.44) mid-turn.
 const PHONE_FRAME: Frame = { width: 1.6, height: 3 }
-const TABLET_FRAME: Frame = { width: 3.3, height: 3.3 }
+const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
 // why: the phone starts this far behind the stage, a turn and a bit away
 // from facing the viewer, and spins towards the camera as it comes.
 const PHONE_START = { z: -5, spin: -(Math.PI * 2 + Math.PI / 6) }
