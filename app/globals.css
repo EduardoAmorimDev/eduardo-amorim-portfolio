@@ -17,10 +17,11 @@
 @theme {
   --text-display: 3.9375rem;
   --text-display--line-height: 0.89;
-  /* why: the hero title (task gravity, criteria 22–23): 2.5 × display
-     (157.5 px) at 1440 px wide, shrinking with the window down to 72 px. */
-  --text-hero: clamp(4.5rem, 10.9375vw, 9.84375rem);
-  --text-hero--line-height: 0.89;
+  /* why: the hero title, editorial beside the black hole (task
+     hero-gargantua): ~92 px at 1440 px wide, never under 48 or over 108 px. */
+  --text-hero: clamp(3rem, 6.4vw, 6.75rem);
+  --text-hero--line-height: 0.95;
+  --text-hero--letter-spacing: -0.02em;
   --text-title-lg: 3rem;
   --text-title-lg--line-height: 1.2;
   --text-title-lg--letter-spacing: -0.02em;
@@ -49,6 +50,21 @@
   --animate-twinkle: twinkle 5s ease-in-out infinite;
   --animate-ring-pulse: ring-pulse 12s ease-in-out infinite;
   --animate-sway: sway 14s ease-in-out infinite;
+  /* why: the hero's copy rises into place after the scene fades in from
+     black (task hero-gargantua); each line waits its --rise-delay. */
+  --animate-rise: rise 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--rise-delay, 0s)
+    both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: 0 24px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
 
   @keyframes float {
     0%,
@@ -127,29 +143,6 @@
   --glitch-a: var(--color-primary);
   --glitch-b: var(--color-mist);
   --grid-line: var(--color-mist);
-}
-
-/* why: the hero lens (components/organisms/hero/use-hero-field.ts) sets
-   --lens-x and --lens-y (px of the title's own box) and --lens-in and
-   --lens-out on both; -1px means closed. The solid title fades out and its
-   1 px mist outline fades in from --lens-out to --lens-in, so the lens has
-   no edge (task gravity, criteria 18 and 20). */
-@utility lens-solid {
-  mask-image: radial-gradient(
-    circle at var(--lens-x, 0px) var(--lens-y, 0px),
-    transparent var(--lens-in, -1px),
-    #000 var(--lens-out, -1px)
-  );
-}
-
-@utility lens-outline {
-  color: transparent;
-  -webkit-text-stroke: 1px var(--color-mist);
-  mask-image: radial-gradient(
-    circle at var(--lens-x, 0px) var(--lens-y, 0px),
-    #000 var(--lens-in, -1px),
-    transparent var(--lens-out, -1px)
-  );
 }
 
 /* why: the cards' frosted glass (task cosmos, criterion 37): mist at 5%

@@ -1,11 +1,14 @@
 'use client'
+import { PerformanceMonitor } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { useRef, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { RenderGate } from '@/components/atoms/render-gate'
-import { HERO_CAMERA } from './glass-motion'
-import type { HoleBody } from './grid-motion'
-import { HeroScene } from './hero-scene'
-import { useHeroField } from './use-hero-field'
+import { Gargantua } from './gargantua'
+
+// why: the image is soft light, so one shader pass per CSS px suffices, and
+// each pass traces a ray, the scene's whole cost; a GPU that cannot keep up
+// traces fewer, larger pixels, which the film grain hides.
+const DPR = { full: 1, reduced: 0.7 }
 
 type HeroProps = {
   id?: string
@@ -14,56 +17,39 @@ type HeroProps = {
 }
 
 /**
- * The first screen: the gravitational grid, the black hole and the glass
- * logo, the lens that follows the mouse, and the copy over them all.
+ * The first screen: a ray-traced black hole with its lensed disk, filling
+ * the screen, and the copy beside it (task hero-gargantua).
  */
 export const Hero = ({ id, children }: HeroProps) => {
-  const section = useRef<HTMLElement>(null)
-  const lens = useRef<HTMLCanvasElement>(null)
-  // why: the field writes the black hole's place here every frame and the
-  // 3D scene reads it, so the hole and the well it digs never drift apart.
-  const hole = useRef<HoleBody>({
-    x: 0,
-    y: 0,
-    horizon: 0,
-    scale: 1,
-    strength: 1,
-    lift: 0
-  })
-  useHeroField({ section, lens, hole })
+  const [dpr, setDpr] = useState(DPR.full)
 
   return (
     <section
       id={id}
-      ref={section}
-      // why: from pure black at the top to the page's ink at the foot (task
-      // space, 5), where the next section begins.
-      className="to-ink relative h-svh overflow-clip bg-linear-to-b from-black select-none"
+      className="relative h-svh overflow-clip bg-black select-none"
     >
-      {/* why: no grid for now (task black-hole-behind, 1); what lies behind
-          the black hole is the glass icons, seen through its lens. */}
-      {/* why: no OrbitControls, so the camera stays put: the viewer can neither
-          drag nor zoom. dpr: at least 1.5× even on 1× screens; MSAA alone left
-          the thin glass edges stair-stepped. alpha: the sky stays transparent,
-          showing the page background and the grid. */}
-      {/* why: the black hole and the logo are decoration (criterion 42);
-          the hero's meaning is its copy. */}
+      {/* why: decoration (criterion 42): the hero's meaning is its copy. */}
       <Canvas
         aria-hidden="true"
         className="isolate"
         data-testid="hero-scene"
-        dpr={[1.5, 2]}
-        gl={{ alpha: true }}
-        camera={{ position: HERO_CAMERA.position, fov: HERO_CAMERA.fov }}
+        dpr={dpr}
+        gl={{ antialias: false }}
       >
+        <PerformanceMonitor
+          onDecline={() => setDpr(DPR.reduced)}
+          onIncline={() => setDpr(DPR.full)}
+          flipflops={3}
+          onFallback={() => setDpr(DPR.reduced)}
+        />
         <RenderGate />
-        <HeroScene hole={hole} />
+        <Gargantua />
       </Canvas>
-      <canvas
-        ref={lens}
-        data-testid="hero-lens"
+      {/* why: the frame melts into the page's ink at its foot, where the
+          next section begins. */}
+      <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 size-full"
+        className="to-background pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-linear-to-b from-transparent"
       />
       {children}
     </section>
