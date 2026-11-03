@@ -15,8 +15,14 @@ import { Workflow } from '@/components/organisms/workflow'
 
 // why: isolate keeps the backdrop and parallax layers' z-index inside each
 // block, behind and over its sections but never the hero or the notebook.
-const Decorated = ({ children }: { children: ReactNode }) => (
-  <div className="relative isolate">
+const Decorated = ({
+  children,
+  className = ''
+}: {
+  children: ReactNode
+  className?: string
+}) => (
+  <div className={`relative isolate ${className}`}>
     <SectionsBackdrop />
     <ParallaxField />
     {children}
@@ -37,7 +43,10 @@ export default function Home() {
           <Solutions />
         </Decorated>
         <Notebook id="notebook" />
-        <Decorated>
+        {/* why: pulled up a screen, under the notebook's last one, so the
+            cases sit exactly where the laptop's page fills the window when
+            the notebook lets go, and the real section takes over from it. */}
+        <Decorated className="-mt-[100svh]">
           <Cases />
           <Workflow />
           <Testimonials />

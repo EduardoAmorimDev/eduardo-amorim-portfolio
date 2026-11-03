@@ -6,8 +6,9 @@ import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
 import { DeviceCarousel } from './device-carousel'
 
-// why: the latest landing page, shown live on the laptop's screen.
-const SCREEN_URL = 'https://kune-joaoeduardoajs-projects.vercel.app/en'
+// why: the projects section alone (app/embed/projetos), shown live on every
+// device's screen, laid out at that device's width.
+const SCREEN_URL = '/embed/projetos'
 // invariant: the laptop floats around y = 0; the floor sits below its lowest
 // point in every pose, plus room for the bobbing.
 const FLOOR_Y = -2

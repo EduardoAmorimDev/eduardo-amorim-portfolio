@@ -1,18 +1,29 @@
 'use client'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Suspense, useRef, useState, type RefObject } from 'react'
-import { MathUtils, type Group } from 'three'
-import { Handheld, PHONE, TABLET } from './handheld'
-import { Laptop, LAPTOP_FRAME } from './laptop'
 import {
+  MathUtils,
+  Matrix4,
+  Quaternion,
+  type Group,
+  type PerspectiveCamera
+} from 'three'
+import { Handheld, PHONE, TABLET } from './handheld'
+import { Laptop, LAPTOP_FRAME, type ScreenView } from './laptop'
+import {
+  CAMERA,
+  CAMERA_REST,
   ease,
   fitIn,
   floatAt,
+  isSideLayout,
   local,
   offstage,
+  restX,
   SMOOTHING,
   STAGES,
   stageLift,
+  stageViewport,
   type Frame
 } from './stages'
 
@@ -25,22 +36,34 @@ const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
 const PHONE_START = { z: -5, spin: -(Math.PI * 2 + Math.PI / 6) }
 // why: like the laptop's crooked start, each handheld arrives leaning
 // (radians, on top of the camera tilt and the phone's spin) and straightens
-// as it reaches the centre.
+// as it reaches its rest.
 const PHONE_LEAN = { x: 0.45, z: 0.3 }
 const TABLET_LEAN = { x: 0.4, y: -0.6, z: -0.2 }
 // why: the open lid rises well above the laptop's pivot, so at full size
 // it would touch the heading; lowering it centres the open laptop instead.
 const LAPTOP_DROP = 0.45
+// why: which side each chapter's text takes when side by side; the devices
+// rest on the other side, alternating like a story told left and right.
+const TEXT_SIDE = { phone: 'left', tablet: 'right', laptop: 'left' } as const
 // hazard: runs before the laptop (-1) and every <Html> (0), so they all read
 // this frame's progress and poses instead of the previous frame's.
 const BEFORE_DEVICES = -2
+// hazard: the dive reads where the laptop's screen is this frame, so it runs
+// after the laptop has posed (-1) and before <Html> (0) reads the camera.
+const AFTER_LAPTOP = -0.5
+
+const lookAtMatrix = new Matrix4()
 
 type DeviceCarouselProps = {
   progress: RefObject<number>
   screenUrl?: string
 }
 
-/** Phone, then tablet, then laptop, swapped across the stage by the scroll. */
+/**
+ * Phone, then tablet, then laptop, swapped across the stage by the scroll;
+ * at the end the camera dives into the laptop's screen until its page fills
+ * the window.
+ */
 export const DeviceCarousel = ({
   progress,
   screenUrl
@@ -52,13 +75,16 @@ export const DeviceCarousel = ({
   // while two of them cross the stage together.
   const smoothed = useRef(0)
   const laptopProgress = useRef(0)
+  const screenView = useRef<ScreenView | null>(null)
   const [landscape, setLandscape] = useState(false)
-  const viewport = useThree(state => state.viewport)
-  const phoneFit = fitIn(viewport, PHONE_FRAME)
-  const tabletFit = fitIn(viewport, TABLET_FRAME)
-  const laptopDrop = -LAPTOP_DROP * fitIn(viewport, LAPTOP_FRAME)
+  const size = useThree(state => state.size)
+  const viewport = stageViewport(size)
+  const side = isSideLayout(size)
+  const phoneFit = fitIn(viewport, PHONE_FRAME, side)
+  const tabletFit = fitIn(viewport, TABLET_FRAME, side)
+  const laptopDrop = -LAPTOP_DROP * fitIn(viewport, LAPTOP_FRAME, side)
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ clock }, delta) => {
     if (!phone.current || !tablet.current || !laptop.current) return
     smoothed.current = MathUtils.damp(
       smoothed.current,
@@ -70,12 +96,17 @@ export const DeviceCarousel = ({
     const bob = floatAt(clock.elapsedTime)
     // why: the camera sits above the stage looking down at it; tilting the
     // handhelds back by that angle makes their glass face the viewer.
-    const tilt = -Math.atan2(camera.position.y, camera.position.z)
+    const tilt = -Math.atan2(CAMERA.position[1], CAMERA.position[2])
 
     const phoneIn = ease(p, STAGES.phoneIn)
     const phoneOut = ease(p, STAGES.phoneOut)
+    const phoneRest = restX(viewport, side, TEXT_SIDE.phone)
     phone.current.position.set(
-      -phoneOut * offstage(viewport, PHONE_FRAME),
+      MathUtils.lerp(
+        phoneRest,
+        -offstage(viewport, PHONE_FRAME, side),
+        phoneOut
+      ),
       bob,
       MathUtils.lerp(PHONE_START.z, 0, phoneIn)
     )
@@ -90,9 +121,14 @@ export const DeviceCarousel = ({
     const tabletIn = phoneOut
     const tabletOut = ease(p, STAGES.tabletOut)
     const turn = ease(p, STAGES.tabletTurn)
-    const tabletSide = offstage(viewport, TABLET_FRAME)
+    const tabletOff = offstage(viewport, TABLET_FRAME, side)
+    const tabletRest = restX(viewport, side, TEXT_SIDE.tablet)
     tablet.current.position.set(
-      (1 - tabletIn) * tabletSide - tabletOut * tabletSide,
+      MathUtils.lerp(
+        MathUtils.lerp(tabletOff, tabletRest, tabletIn),
+        -tabletOff,
+        tabletOut
+      ),
       bob,
       0
     )
@@ -109,14 +145,41 @@ export const DeviceCarousel = ({
     if (nextLandscape !== landscape) setLandscape(nextLandscape)
 
     const laptopIn = tabletOut
-    laptop.current.position.x =
-      (1 - laptopIn) * offstage(viewport, LAPTOP_FRAME)
+    laptop.current.position.x = MathUtils.lerp(
+      offstage(viewport, LAPTOP_FRAME, side),
+      restX(viewport, side, TEXT_SIDE.laptop),
+      laptopIn
+    )
     laptop.current.visible = laptopIn > 0
     laptopProgress.current = local(p, STAGES.laptop)
   }, BEFORE_DEVICES)
 
+  useFrame(({ camera }) => {
+    const view = screenView.current
+    if (!view) return
+    const dive = ease(smoothed.current, STAGES.zoom)
+    // invariant: the camera only ever leaves its resting pose for the dive,
+    // so at dive 0 it is exactly where the scene was laid out from.
+    if (dive === 0) {
+      camera.position.copy(CAMERA_REST.position)
+      camera.quaternion.copy(CAMERA_REST.quaternion)
+      return
+    }
+    // why: at this distance the page, laid out at the window's size, fills
+    // the field of view exactly, pixel for pixel with the real section.
+    const fov = MathUtils.degToRad((camera as PerspectiveCamera).fov)
+    const distance = view.pageHeight / (2 * Math.tan(fov / 2))
+    const eye = view.centre.clone().addScaledVector(view.normal, distance)
+    const facing = new Quaternion().setFromRotationMatrix(
+      lookAtMatrix.lookAt(eye, view.centre, view.up)
+    )
+    camera.position.lerpVectors(CAMERA_REST.position, eye, dive)
+    camera.quaternion.slerpQuaternions(CAMERA_REST.quaternion, facing, dive)
+    camera.updateMatrixWorld()
+  }, AFTER_LAPTOP)
+
   return (
-    <group position-y={stageLift(viewport)}>
+    <group position-y={stageLift(viewport, side)}>
       <group ref={phone}>
         <group scale={phoneFit}>
           <Handheld spec={PHONE} screenUrl={screenUrl} />
@@ -129,7 +192,12 @@ export const DeviceCarousel = ({
       </group>
       <group ref={laptop} position-y={laptopDrop}>
         <Suspense fallback={null}>
-          <Laptop progress={laptopProgress} screenUrl={screenUrl} />
+          <Laptop
+            progress={laptopProgress}
+            screenUrl={screenUrl}
+            side={side}
+            viewRef={screenView}
+          />
         </Suspense>
       </group>
     </group>

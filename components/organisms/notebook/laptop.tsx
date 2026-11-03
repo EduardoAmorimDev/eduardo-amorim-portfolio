@@ -2,8 +2,8 @@
 import { Html, useGLTF } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, type RefObject } from 'react'
-import { MathUtils, Mesh, type Group, type Object3D } from 'three'
-import { fitIn, floatAt, type Frame } from './stages'
+import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
+import { fitIn, floatAt, stageViewport, type Frame } from './stages'
 
 // why: the model comes from canvas-lab (assets/laptop.glb) and is built in
 // metres; these names are its contract with the animation below.
@@ -19,8 +19,7 @@ export const LAPTOP_FRAME: Frame = { width: 4.2, height: 3.4 }
 // why: the visible display of the model, in metres; same values as
 // SCREEN_SIZE in canvas-lab/src/models/laptop-nodes.js.
 const SCREEN_SIZE = { width: 0.287, height: 0.197 }
-// why: the site renders at a desktop width, so it shows its desktop layout;
-// the height follows the screen's aspect ratio.
+// why: the glass in the page's CSS px; the height follows its aspect ratio.
 const PAGE_WIDTH = 1280
 const PAGE_HEIGHT = Math.round(
   (PAGE_WIDTH * SCREEN_SIZE.height) / SCREEN_SIZE.width
@@ -41,6 +40,9 @@ const PAGE_DROP = 0.001
 // why: in the page's own CSS px; the page is shown at ~0.35× on a 1440 px
 // wide window, so 10 px reads as ~3-4 px on screen.
 const PAGE_RADIUS = 10
+// invariant: with `transform`, one CSS px of the page is this many units in
+// the lid's own space.
+const UNITS_PER_PX = DISTANCE_FACTOR / 400
 
 // why: the "crooked" pose it starts in, still facing the viewer; every angle
 // eases to 0 so it ends square to the camera.
@@ -80,14 +82,30 @@ const findParts = (root: Object3D) => {
   return { base, lid, screen }
 }
 
+/**
+ * Where the page on the laptop's glass sits in the world, for a camera to
+ * dive into it: its centre, the way it faces, its up, and the height of the
+ * viewport-sized page on it.
+ */
+export type ScreenView = {
+  centre: Vector3
+  normal: Vector3
+  up: Vector3
+  pageHeight: number
+}
+
 type LaptopProps = {
   /** The laptop's own progress (0..1), already damped by the carousel. */
   progress: RefObject<number>
   /** Page shown live on the laptop's screen; without one it stays black. */
   screenUrl?: string
+  /** Whether the copy sits beside the stage, which leaves it half the width. */
+  side: boolean
+  /** Filled every frame with where the page sits, once the model has loaded. */
+  viewRef: RefObject<ScreenView | null>
 }
 
-export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
+export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
   const { scene } = useGLTF(MODEL_URL, false)
   const body = useRef<Group>(null)
   const page = useRef<HTMLIFrameElement>(null)
@@ -96,10 +114,18 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
   // animated through `parts` below, because a hook's value cannot be mutated.
   const anchor = useMemo(() => findParts(scene), [scene])
   const parts = useRef<ReturnType<typeof findParts>>(null)
-  // why: viewport is how many scene units fit on screen at the camera's
-  // target; the selector re-renders only on resize, never per frame.
-  const viewport = useThree(state => state.viewport)
-  const fit = fitIn(viewport, LAPTOP_FRAME)
+  // why: the selector re-renders only on resize, never per frame.
+  const size = useThree(state => state.size)
+  const fit = fitIn(stageViewport(size), LAPTOP_FRAME, side)
+  // why: the page is laid out at the window's own size, so it is the very
+  // layout of the real section below; scaled to fit the glass (letterboxed
+  // where the shapes differ), it fills the window exactly once the camera
+  // has dived in, and the real page can take over unnoticed.
+  const pageScale = Math.min(PAGE_WIDTH / size.width, PAGE_HEIGHT / size.height)
+  const pagePosition = useMemo(() => {
+    const { x, y, z } = anchor.screen.position
+    return new Vector3(x, y - SCREEN_GAP, z - PAGE_DROP)
+  }, [anchor])
 
   useFrame(({ clock }) => {
     if (!body.current) return
@@ -131,9 +157,22 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
     // why: fading the page in over the black backing reads as the screen
     // turning on.
     if (page.current) page.current.style.opacity = String(power)
-  }, BEFORE_HTML)
 
-  const { x, y, z } = anchor.screen.position
+    const { lid } = parts.current
+    lid.updateWorldMatrix(true, false)
+    const centre = lid.localToWorld(pagePosition.clone())
+    // invariant: the page faces the lid's local -y with its top towards +z
+    // (the +90° on X below); transformDirection also normalises.
+    const normal = new Vector3(0, -1, 0).transformDirection(lid.matrixWorld)
+    const up = new Vector3(0, 0, 1).transformDirection(lid.matrixWorld)
+    const lidScale = lid.getWorldScale(new Vector3()).x
+    viewRef.current = {
+      centre,
+      normal,
+      up,
+      pageHeight: size.height * pageScale * UNITS_PER_PX * lidScale
+    }
+  }, BEFORE_HTML)
 
   return (
     // why: the model's origin is the bottom centre of its base; lowering it
@@ -157,34 +196,41 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
           wrapperClass="will-change-transform"
           occlude="blending"
           distanceFactor={DISTANCE_FACTOR}
-          position={[x, y - SCREEN_GAP, z - PAGE_DROP]}
+          position={pagePosition}
           rotation-x={Math.PI / 2}
           pointerEvents="none"
         >
           <div
-            className="bg-ink"
-            style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }}
+            className="bg-ink relative overflow-hidden"
+            // why: rounding the black backing keeps the glass's corners;
+            // the page itself stays square, like the real one it becomes.
+            style={{
+              width: PAGE_WIDTH,
+              height: PAGE_HEIGHT,
+              borderRadius: PAGE_RADIUS
+            }}
           >
             {/* why: pointer-events none and tabIndex -1 keep the page a
                 picture: the wheel scrolls the portfolio (driving the
                 animation) instead of the embedded site, and focus skips it.
-                scrolling="no" hides the embedded page's scrollbar, which a
-                cross-origin site cannot be styled to hide. */}
+                scrolling="no" hides the embedded page's scrollbar. */}
             {screenUrl && (
               <iframe
                 ref={page}
                 src={screenUrl}
-                title="Preview of the Kune landing page"
-                width={PAGE_WIDTH}
-                height={PAGE_HEIGHT}
+                title="Preview of the projects section on a laptop"
+                width={size.width}
+                height={size.height}
                 tabIndex={-1}
                 aria-hidden
                 sandbox="allow-scripts allow-same-origin"
                 scrolling="no"
-                className="pointer-events-none border-0 opacity-0"
-                // why: rounding the page, not its black backing, keeps the
-                // corners black like the glass instead of see-through.
-                style={{ borderRadius: PAGE_RADIUS }}
+                className="pointer-events-none absolute border-0 opacity-0"
+                style={{
+                  left: (PAGE_WIDTH - size.width) / 2,
+                  top: (PAGE_HEIGHT - size.height) / 2,
+                  transform: `scale(${pageScale})`
+                }}
               />
             )}
           </div>

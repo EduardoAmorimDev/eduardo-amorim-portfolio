@@ -28,7 +28,7 @@ export const PHONE: HandheldSpec = {
   depth: 0.1,
   corner: 0.17,
   pageRadius: 42,
-  title: 'Preview of the Kune landing page on a phone'
+  title: 'Preview of the projects section on a phone'
 }
 
 export const TABLET: HandheldSpec = {
@@ -39,7 +39,7 @@ export const TABLET: HandheldSpec = {
   depth: 0.08,
   corner: 0.14,
   pageRadius: 24,
-  title: 'Preview of the Kune landing page on a tablet'
+  title: 'Preview of the projects section on a tablet'
 }
 
 // why: rounds the slab's front and back edges; must stay under depth / 2.
