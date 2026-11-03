@@ -30,9 +30,9 @@ import {
 // frame is square and holds its 45° diagonal (~3.44) mid-turn.
 const PHONE_FRAME: Frame = { width: 1.6, height: 3 }
 const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
-// why: the phone starts this far behind the stage, a turn and a bit away
-// from facing the viewer, and spins towards the camera as it comes.
-const PHONE_START = { z: -5, spin: -(Math.PI * 2 + Math.PI / 6) }
+// why: the phone starts this far behind the stage, edge-on to the viewer,
+// and turns a quarter (90°) to face the camera as it comes.
+const PHONE_START = { z: -5, spin: -Math.PI / 2 }
 // why: like the laptop's crooked start, each handheld arrives leaning
 // (radians, on top of the camera tilt and the phone's spin) and straightens
 // as it reaches its rest.
