@@ -1,10 +1,9 @@
 'use client'
 import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   AdditiveBlending,
-  BackSide,
   Color,
   MathUtils,
   Quaternion,
@@ -13,12 +12,8 @@ import {
   type Mesh
 } from 'three'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
-import {
-  onReducedMotionChange,
-  prefersReducedMotion
-} from '@/lib/media-preferences'
+import { useReducedMotionRef } from '@/lib/use-reduced-motion-ref'
 import type { VisitorPlace } from '@/lib/visitor-place'
-import { GlobeVapor } from './globe-vapor'
 import { landDots, loadLandMask, toSphere } from './land-dots'
 
 // why: enough lattice points that the continents read as dotted shapes at
@@ -65,55 +60,88 @@ void main() {
 }
 `
 
-const HALO_VERTEX = /* glsl */ `
-varying float vRim;
+const GLOW_VERTEX = /* glsl */ `
+varying vec2 vUv;
 void main() {
-  vec3 normal = normalize(normalMatrix * normal);
-  vRim = 1.0 - abs(normal.z);
+  vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `
 
-const HALO_FRAGMENT = /* glsl */ `
+const GLOW_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
-varying float vRim;
+varying vec2 vUv;
 void main() {
-  // why: a thin, soft atmosphere hugging the limb, not a neon ring.
-  float rim = smoothstep(0.55, 1.0, vRim);
-  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.92, 1.0, vRim)) * 0.55);
+  // invariant: the plane spans 4 globe radii, so d is in globe radii.
+  float d = length(vUv - 0.5) * 4.0;
+  // why: the light the Earth gives off: brightest at its limb, falling off
+  // softly into space, and dimmer across its face, seen through it.
+  float outside = exp(-pow(max(d - 1.0, 0.0) * 2.6, 1.1));
+  float glow = d < 1.0 ? mix(0.25, 1.0, smoothstep(0.6, 1.0, d)) : outside;
+  gl_FragColor = vec4(uColor * glow * 0.5, 1.0);
 }
 `
+
+const CORE_VERTEX = /* glsl */ `
+varying float vFacing;
+void main() {
+  vFacing = normalize(normalMatrix * normal).z;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+const CORE_FRAGMENT = /* glsl */ `
+uniform vec3 uCore;
+uniform vec3 uSky;
+varying float vFacing;
+void main() {
+  // why: a see-through body lit from within at the limb, like an
+  // atmosphere seen edge-on.
+  float rim = pow(1.0 - clamp(vFacing, 0.0, 1.0), 2.4);
+  gl_FragColor = vec4(uCore + uSky * rim * 0.9, 0.3 + rim * 0.45);
+}
+`
+
+/** Where the pointer is over the section's canvas, -1..1, and its tilt. */
+export type GlobePointer = {
+  x: number
+  y: number
+  inside: boolean
+  smoothX: number
+  smoothY: number
+}
 
 type GlobeSceneProps = {
   /** Where to put the pin; null while unknown or when it cannot be found. */
   place: VisitorPlace | null
+  /** Written here from the canvas's pointer events; the vapour reads it. */
+  pointerRef: RefObject<GlobePointer>
 }
 
 type Viewport = { width: number; height: number }
 
 // why: like the hero's black hole, the Earth sits right of the copy on wide
 // screens and above it on tall ones; radius in scene units at the origin.
-const layoutFor = ({ width, height }: Viewport) =>
+export const layoutFor = ({ width, height }: Viewport) =>
   width > height
     ? { x: width * 0.2, y: 0, scale: Math.min(height * 0.3, width * 0.2) }
     : { x: 0, y: height * 0.2, scale: Math.min(width * 0.4, height * 0.22) }
 
 /** The dotted Earth, its halo, and the pin on the visitor's place. */
-export const GlobeScene = ({ place }: GlobeSceneProps) => {
+export const GlobeScene = ({ place, pointerRef }: GlobeSceneProps) => {
   const globe = useRef<Group>(null)
   const ring = useRef<Mesh>(null)
   const label = useRef<HTMLDivElement>(null)
   const [dots, setDots] = useState<Float32Array | null>(null)
   const dpr = useThree(state => state.viewport.dpr)
   const layout = layoutFor(useThree(state => state.viewport))
-  const still = useRef(false)
+  const still = useReducedMotionRef()
   const gl = useThree(state => state.gl)
   // invariant: the globe's turn is its aim (pin or idle spin) plus what the
   // visitor's drag added (offset) plus the cursor's tilt (hover).
   const aim = useRef({ x: 0, y: 0 })
   const offset = useRef({ x: 0, y: 0 })
   const velocity = useRef({ x: 0, y: 0 })
-  const hover = useRef({ x: 0, y: 0, inside: false, smoothX: 0, smoothY: 0 })
   const drag = useRef({ id: -1, x: 0, y: 0, at: 0, touchedAt: -Infinity })
 
   useEffect(() => {
@@ -132,9 +160,9 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
     }
     const move = (event: PointerEvent) => {
       const { left, top, width, height } = canvas.getBoundingClientRect()
-      hover.current.x = ((event.clientX - left) / width) * 2 - 1
-      hover.current.y = ((event.clientY - top) / height) * 2 - 1
-      hover.current.inside = true
+      pointerRef.current.x = ((event.clientX - left) / width) * 2 - 1
+      pointerRef.current.y = ((event.clientY - top) / height) * 2 - 1
+      pointerRef.current.inside = true
       const current = drag.current
       if (event.pointerId !== current.id) return
       const now = performance.now()
@@ -157,9 +185,9 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
       drag.current = { ...drag.current, id: -1 }
     }
     const leave = () => {
-      hover.current.x = 0
-      hover.current.y = 0
-      hover.current.inside = false
+      pointerRef.current.x = 0
+      pointerRef.current.y = 0
+      pointerRef.current.inside = false
     }
     canvas.addEventListener('pointerdown', down)
     canvas.addEventListener('pointermove', move)
@@ -173,14 +201,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
       canvas.removeEventListener('pointercancel', up)
       canvas.removeEventListener('pointerleave', leave)
     }
-  }, [gl])
-  useEffect(() => {
-    const sync = () => {
-      still.current = prefersReducedMotion()
-    }
-    sync()
-    return onReducedMotionChange(sync)
-  }, [])
+  }, [gl, pointerRef])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -199,17 +220,8 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
         0.12
       ),
       dot: new Color(readColorToken('mist')),
-      rim: new Color(readColorToken('primary')).lerp(
-        new Color(readColorToken('mist')),
-        0.25
-      ),
-      pin: new Color(readColorToken('mist')),
-      // why: the vapour glows a pale violet, the brand's mist touched by its
-      // primary, bright enough to read as light on the dark.
-      vapor: new Color(readColorToken('mist')).lerp(
-        new Color(readColorToken('primary')),
-        0.3
-      )
+      rim: new Color(readColorToken('sky')),
+      pin: new Color(readColorToken('mist'))
     }),
     []
   )
@@ -223,8 +235,12 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
     }),
     [colors, dpr]
   )
-  const haloUniforms = useMemo(
+  const glowUniforms = useMemo(
     () => ({ uColor: { value: colors.rim } }),
+    [colors]
+  )
+  const coreUniforms = useMemo(
+    () => ({ uCore: { value: colors.core }, uSky: { value: colors.rim } }),
     [colors]
   )
 
@@ -288,7 +304,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
         turned.y *= home
       }
     }
-    const tilt = hover.current
+    const tilt = pointerRef.current
     const reach = still.current ? 0 : 1
     tilt.smoothX = MathUtils.damp(
       tilt.smoothX,
@@ -329,28 +345,29 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
 
   return (
     <group position={[layout.x, layout.y, 0]} scale={layout.scale}>
-      <mesh scale={1.08}>
-        <sphereGeometry args={[1, 64, 64]} />
+      {/* why: the light the Earth gives off, behind it, facing the camera. */}
+      <mesh renderOrder={-2}>
+        <planeGeometry args={[4, 4]} />
         <shaderMaterial
-          uniforms={haloUniforms}
-          vertexShader={HALO_VERTEX}
-          fragmentShader={HALO_FRAGMENT}
-          side={BackSide}
+          uniforms={glowUniforms}
+          vertexShader={GLOW_VERTEX}
+          fragmentShader={GLOW_FRAGMENT}
           transparent
           depthWrite={false}
+          depthTest={false}
           blending={AdditiveBlending}
         />
       </mesh>
-      <GlobeVapor pointer={hover} still={still} color={colors.vapor} />
       <group ref={globe}>
         {/* why: a tinted, see-through body: it shades the globe without
             hiding the far side's land. */}
         <mesh renderOrder={-1}>
           <sphereGeometry args={[0.99, 64, 64]} />
-          <meshBasicMaterial
-            color={colors.core}
+          <shaderMaterial
+            uniforms={coreUniforms}
+            vertexShader={CORE_VERTEX}
+            fragmentShader={CORE_FRAGMENT}
             transparent
-            opacity={0.3}
             depthWrite={false}
           />
         </mesh>
