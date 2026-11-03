@@ -1,23 +1,25 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { horizonAt, restPoint } from './black-hole.ts'
+import { horizonRadius, restPoint } from './black-hole.ts'
 import { createWander, holeBox } from './black-hole-path.ts'
 
 // why: the checklists' own numbers (cosmos C53–C57; black-hole-scale C5,
-// C19–C21), fixed here so a change to the module's constants cannot move
-// the bar the tests hold it to.
-const MIN_SPEED = 10
-const MAX_SPEED = 30
-const MIN_LEG_S = 4
-const MAX_LEG_S = 10
+// C19–C21) as later tasks moved them: 2.5 to 7.5 px/s (black-hole-wide, 8),
+// legs of 6 to 16 s (.checks/portfolio-lp-black-hole-wide.md) and a 2%
+// margin (black-hole-alive, 10); fixed here so a change to the module's
+// constants cannot move the bar the tests hold it to.
+const MIN_SPEED = 2.5
+const MAX_SPEED = 7.5
+const MIN_LEG_S = 6
+const MAX_LEG_S = 16
 const MAX_FRAME_PX = 4
 // why: a change of direction a viewer can see, about 3°.
 const MIN_TURN = 0.05
-const MARGIN = 0.1
-// why: the sphere and its arcs reach 1.65 horizon radii; fully risen, the
-// black hole looks 1.12 times its size.
-const ARCS = 1.65
-const HIGHEST = 1.12
+const MARGIN = 0.02
+// why: the sphere and the vertical disk's top band reach 1.8 horizon radii
+// (black-hole-wide, 4), and the black hole keeps one size wherever it goes
+// (black-hole-apple, 7).
+const REACH = 1.8
 const FRAME_S = 1 / 60
 const MINUTES = 10
 
@@ -48,7 +50,7 @@ const wanderFor = (seed: number, size: { width: number; height: number }) => {
 
 const cases = SIZES.flatMap(size => SEEDS.map(seed => ({ size, seed })))
 
-test('the speed stays within 10 to 30px/s and never stops', () => {
+test('the speed stays within 2.5 to 7.5px/s and never stops', () => {
   for (const { size, seed } of cases) {
     const wander = wanderFor(seed, size)
     let previous = wander.position
@@ -66,7 +68,7 @@ test('the speed stays within 10 to 30px/s and never stops', () => {
   }
 })
 
-test('the path turns every 4 to 10 s', () => {
+test('the path turns every 6 to 16 s', () => {
   for (const { size, seed } of cases) {
     const wander = wanderFor(seed, size)
     let leg = wander.leg
@@ -118,13 +120,12 @@ test('no frame moves it more than 4px', () => {
   }
 })
 
-test('the sphere and arcs stay 10% inside the hero at any lift', () => {
+test('the sphere and arcs stay 2% inside the hero at their fixed size', () => {
   for (const { size, seed } of cases) {
     const wander = wanderFor(seed, size)
     for (let frame = 0; frame < (MINUTES * 60) / FRAME_S; frame++) {
       const { x, y } = wander.step(FRAME_S)
-      // invariant: largest when fully risen, at the depth of this height.
-      const reach = ARCS * HIGHEST * horizonAt(size.width, size.height, y)
+      const reach = REACH * horizonRadius(size.width, size.height)
       const label = `${size.width}×${size.height} seed ${seed}: ${x}, ${y}`
       assert.ok(x - reach >= size.width * MARGIN - 1e-9, label)
       assert.ok(x + reach <= size.width * (1 - MARGIN) + 1e-9, label)

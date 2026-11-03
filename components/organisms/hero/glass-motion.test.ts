@@ -21,11 +21,16 @@ test('every layout anchor stays inside the view', () => {
   }
 })
 
-test('the hero shows the logo alone', () => {
-  assert.deepEqual(
-    GLASS_LAYOUT.map(({ name }) => name),
-    ['logo']
-  )
+// why: only the logo is in the hero (black-hole-alive, 11 and 13); the
+// four icons black-hole-behind put behind the black hole left the hero, but
+// their code stays in the project (black-hole-joined-disk, out of scope).
+test('the logo is the only icon in front; the other four stay behind', () => {
+  const names = (behind: boolean) =>
+    GLASS_LAYOUT.filter(layout => Boolean(layout.behind) === behind).map(
+      ({ name }) => name
+    )
+  assert.deepEqual(names(false), ['logo'])
+  assert.deepEqual(names(true), ['cursor', 'wave', 'atom', 'brick'])
 })
 
 // why: the task keeps the icons' motion as it was (T4); the literals are the

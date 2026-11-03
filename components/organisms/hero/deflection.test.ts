@@ -10,8 +10,8 @@ import {
 } from './deflection.ts'
 
 // why: the checklist's own numbers (black-hole-lensing C1–C3, C5, C7, C9,
-// C11), in radians and, on screen, at a 96 px horizon with the black hole
-// half risen, as under reduced motion.
+// C11), in radians and, on screen, with the black hole half risen, as under
+// reduced motion.
 const EXACT = [
   { impact: 1000, angle: 0.002 },
   { impact: 100, angle: 0.0203 },
@@ -23,33 +23,36 @@ const EXACT_SLACK = 0.01
 const LIMIT_SLACK = 0.005
 // why: Bozza (arXiv:gr-qc/0208075, eq. 50): b̄ = log[216(7 − 4√3)] − π.
 const STRONG_FIELD = Math.log(216 * (7 - 4 * Math.sqrt(3))) - Math.PI
-const HORIZON_PX = 96
+// why: lensing's thin lens (5) with its ring at 1.92 horizon radii half
+// risen (black-hole-wide, 10) and a 72 px horizon radius (black-hole-wide),
+// worked out with lensing's own quadrature, which gives back its 2.0 tables.
+const HORIZON_PX = 72
 const REST_LIFT = 0.5
 const OUTER = [
-  { distance: 96, image: 238 },
-  { distance: 192, image: 298 },
-  { distance: 476, image: 530 },
-  { distance: 700, image: 737 }
+  { distance: 96, image: 186 },
+  { distance: 192, image: 253 },
+  { distance: 476, image: 504 },
+  { distance: 700, image: 719 }
 ]
 const INNER = [
-  { distance: 96, image: 160 },
-  { distance: 192, image: 139 },
-  { distance: 476, image: 111 }
+  { distance: 96, image: 109 },
+  { distance: 192, image: 94 },
+  { distance: 476, image: 77 }
 ]
 const IMAGE_SLACK_PX = 4
 const RINGS = [
   { lift: 0, radius: 1 },
-  { lift: 0.25, radius: 1.61 },
-  { lift: 0.5, radius: 2 },
-  { lift: 0.75, radius: 2.25 },
-  { lift: 1, radius: 2.42 }
+  { lift: 0.25, radius: 1.55 },
+  { lift: 0.5, radius: 1.92 },
+  { lift: 0.75, radius: 2.16 },
+  { lift: 1, radius: 2.32 }
 ]
 const RING_SLACK = 0.03
 const SHIFTS = [
-  { distance: 96, shift: 142 },
-  { distance: 192, shift: 106 },
-  { distance: 476, shift: 54 },
-  { distance: 700, shift: 37 }
+  { distance: 96, shift: 90 },
+  { distance: 192, shift: 61 },
+  { distance: 476, shift: 28 },
+  { distance: 700, shift: 19 }
 ]
 const FARTHEST_PX = 900
 

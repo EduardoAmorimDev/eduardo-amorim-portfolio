@@ -12,15 +12,22 @@ import {
 } from './black-hole.ts'
 import { GRID, sheet } from './grid-motion.ts'
 
-// why: the checklists' own numbers (cosmos C52, C59; gravity C10, C11).
-const HORIZON_PX = 192
-const MAX_TURN_S = 20
+// why: the checklists' own numbers (cosmos C52, C59; gravity C10, C11) as
+// later tasks moved them: a 144 px horizon and turns of 73 to 145 s
+// (black-hole-disk-colors, R = 72 px and 4), a 7° tilt (black-hole-wide, 5)
+// and the slant swaying ±1.5° every 21 s (black-hole-alive, 2 and 10).
+const HORIZON_PX = 144
+const TURN_S = { inner: 73, outer: 145 }
+const TURN_SLACK = 0.5
 const REST_SHARE = 0.32
 const SIZE_SLACK = 0.1
-const TILT = { min: 12, max: 18, rest: 15 }
+// invariant: gravity 14's 12–18° band is its 15° rest ± 3°; the swing keeps
+// its 3° and its cycle round the 7° rest, though the hero holds the tilt.
+const TILT = { rest: 7, swing: 3 }
 const TILT_PERIOD = { min: 14, max: 20 }
-const ROCK = 3
-const ROCK_PERIOD = { min: 17, max: 25 }
+const ROCK = 1.5
+const ROCK_PERIOD = 21
+const PERIOD_SLACK = 0.05
 const ANGLE_SLACK = 0.1
 const degrees = (radians: number) => (radians * 180) / Math.PI
 
@@ -59,7 +66,7 @@ const iconFit = (width: number, height: number) => {
   return Math.min(1, viewWidth / 6)
 }
 
-test('the horizon is 192px at 1440x900 and shrinks with the icons', () => {
+test('the horizon is 144px at 1440x900 and shrinks with the icons', () => {
   assert.ok(Math.abs(2 * horizonRadius(1440, 900) - HORIZON_PX) < 1e-9)
   // invariant: an icon's size on screen is its world size times the fit,
   // and world units grow with the view's height in px.
@@ -78,11 +85,27 @@ test('the horizon is 192px at 1440x900 and shrinks with the icons', () => {
   assert.ok(2 * horizonRadius(375, 667) < HORIZON_PX / 2, 'a phone shrinks it')
 })
 
-test('the disk turns at least once every 20 s at every radius', () => {
-  for (let radius = DISK.inner; radius <= DISK.outer; radius += 0.05)
-    assert.ok(diskTurnSeconds(radius) <= MAX_TURN_S, `at ${radius}`)
-  for (const radius of [0, 1, 10])
-    assert.ok(diskTurnSeconds(radius) <= MAX_TURN_S, `at ${radius}`)
+// why: the disks are hidden (black-hole-bare, 1: SHOW_DISKS = false), but
+// their code stays in place, so switching the flag on brings back this turn.
+test('the disk turns once in 73 s at its inner edge to 145 s at its outer one', () => {
+  const near = (actual: number, expected: number) =>
+    Math.abs(actual - expected) <= TURN_SLACK
+  assert.ok(near(diskTurnSeconds(DISK.inner), TURN_S.inner), 'inner edge')
+  assert.ok(near(diskTurnSeconds(DISK.outer), TURN_S.outer), 'outer edge')
+  let previous = 0
+  for (let radius = DISK.inner; radius <= DISK.outer; radius += 0.05) {
+    const seconds = diskTurnSeconds(radius)
+    assert.ok(seconds >= previous, `faster near the horizon, at ${radius}`)
+    previous = seconds
+  }
+  for (const radius of [0, 1, 10]) {
+    const seconds = diskTurnSeconds(radius)
+    assert.ok(
+      seconds >= TURN_S.inner - TURN_SLACK &&
+        seconds <= TURN_S.outer + TURN_SLACK,
+      `at ${radius}`
+    )
+  }
 })
 
 test("the horizon follows the sheet's scale", () => {
@@ -115,29 +138,31 @@ test("the horizon follows the sheet's scale", () => {
   }
 })
 
-test("the disk's tilt swings between 12 and 18 degrees every 14 to 20 s", () => {
+test("the disk's tilt swings 3 degrees round its 7 degree rest every 14 to 20 s", () => {
   const { low, high, period } = swing(t => diskPose(t, false).tilt, 120)
-  assert.ok(Math.abs(low - TILT.min) <= ANGLE_SLACK, `lowest ${low}°`)
-  assert.ok(Math.abs(high - TILT.max) <= ANGLE_SLACK, `highest ${high}°`)
+  const lowest = TILT.rest - TILT.swing
+  const highest = TILT.rest + TILT.swing
+  assert.ok(Math.abs(low - lowest) <= ANGLE_SLACK, `lowest ${low}°`)
+  assert.ok(Math.abs(high - highest) <= ANGLE_SLACK, `highest ${high}°`)
   assert.ok(
     period >= TILT_PERIOD.min && period <= TILT_PERIOD.max,
     `period ${period} s`
   )
 })
 
-test("the disk's axis rocks 3 degrees on its own cycle", () => {
+test("the disk's slant sways 1.5 degrees every 21 s, on its own cycle", () => {
   const rock = swing(t => diskPose(t, false).roll, 120)
   const tilt = swing(t => diskPose(t, false).tilt, 120)
   assert.ok(Math.abs(rock.low + ROCK) <= ANGLE_SLACK, `lowest ${rock.low}°`)
   assert.ok(Math.abs(rock.high - ROCK) <= ANGLE_SLACK, `highest ${rock.high}°`)
   assert.ok(
-    rock.period >= ROCK_PERIOD.min && rock.period <= ROCK_PERIOD.max,
+    Math.abs(rock.period - ROCK_PERIOD) <= PERIOD_SLACK,
     `period ${rock.period} s`
   )
   assert.ok(Math.abs(rock.period - tilt.period) > 0.5, 'its own cycle')
 })
 
-test('a still disk rests at 15 degrees, square', () => {
+test('a still disk rests at 7 degrees, square', () => {
   for (let t = 0; t <= 60; t += 0.37) {
     const pose = diskPose(t, true)
     assert.ok(Math.abs(degrees(pose.tilt) - TILT.rest) < 1e-9, `tilt at ${t}`)
