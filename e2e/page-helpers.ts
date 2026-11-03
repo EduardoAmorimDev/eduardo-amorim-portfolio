@@ -282,6 +282,23 @@ export const notebookEnd = (page: Page) =>
     return top + scrollY + height - innerHeight
   })
 
+/** Scroll position at which the notebook's progress is `progress` (0..1). */
+export const notebookAt = (page: Page, progress: number) =>
+  page.locator('#notebook').evaluate((section, p) => {
+    const { top, height } = section.getBoundingClientRect()
+    return top + scrollY + p * (height - innerHeight)
+  }, progress)
+
+/** Hides the notebook's heading and chapters, leaving its 3D stage alone. */
+export const hideNotebookCopy = (page: Page) =>
+  page
+    .locator('[data-testid="notebook-copy"]')
+    .evaluate(node => ((node as HTMLElement).style.visibility = 'hidden'))
+
+/** The laptop's screen page; the phone's and the tablet's come first. */
+export const laptopScreen = (page: Page) =>
+  page.locator('#notebook iframe[title$="on a laptop"]')
+
 /**
  * Loads `/`, scrolls until the notebook's top meets the screen's top, where
  * its animation starts, and waits for the laptop (its screen page exists
@@ -291,7 +308,7 @@ export const gotoNotebook = async (page: Page) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
   await scrollWindowTo(page, await documentTop(page.locator('#notebook')))
-  await page.locator('#notebook iframe').waitFor({ state: 'attached' })
-  // why: a few frames for the laptop's damped pose to settle at the start.
+  await laptopScreen(page).waitFor({ state: 'attached' })
+  // why: a few frames for the devices' damped poses to settle at the start.
   await page.waitForTimeout(1500)
 }

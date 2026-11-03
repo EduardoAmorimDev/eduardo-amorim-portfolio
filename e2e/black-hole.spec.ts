@@ -12,6 +12,7 @@ import {
   channels,
   gotoHero,
   gotoNotebook,
+  hideNotebookCopy,
   gotoStopped,
   luminanceAt,
   pixelAt,
@@ -511,6 +512,8 @@ test('the black hole grows and shrinks as it rises', async ({ page }) => {
 
 test('the notebook shows no black hole', async ({ page }) => {
   await gotoNotebook(page)
+  // why: the section's heading sits in that top share; only the scene counts.
+  await hideNotebookCopy(page)
   const pixels = await firstScreen(page)
   let top = 0
   for (let y = 0; y < pixels.height * SKY_SHARE; y++)

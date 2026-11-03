@@ -1,38 +1,31 @@
 import type { Page } from '@playwright/test'
-import { findHorizon } from './black-hole-helpers'
 import { expect, test } from './fixtures'
-import { sheetScaleAt } from './grid-helpers'
 import {
-  channels,
   documentTop,
   gotoHero,
-  gotoStopped,
-  scrollWindowTo,
-  showSceneOnly,
-  tokenRgb
+  meanLuminance,
+  screenPixels,
+  scrollWindowTo
 } from './page-helpers'
 
-const SCREEN_HOST = 'kune-joaoeduardoajs-projects.vercel.app'
+// why: the projects section alone, shown on every device's screen.
+const SCREEN_PATH = '/embed/projetos'
+const DEVICES = 3
 const DRAWS = '__draws'
 const SAMPLE_MS = 1000
 // why: the observer reports and React re-renders a frame or two after the
 // scroll; this covers both with room to spare.
 const SETTLE_MS = 300
-// why: the clock is faked in that test, so the scene only animates when the
-// test advances it: 0.1 s of it after returning moves the black hole 6 px at
-// most (60 px/s), while 2 s away would move it 40 px or more (20 px/s).
-const RESUMED_PX = 12
-// why: 2 s away from 2 s in would take the black hole from a quarter to
-// three quarters of its rise, ~13% larger for its depth; resuming, it has
-// risen 0.1 s more, well under 3% (task black-hole-scale, criterion 13).
-const RESUMED_SIZE = 0.03
+// why: the hero's intro fades in from black over 2.4 s; resumed, the scene
+// is still lit 0.15 s after coming back, at least 80% as bright as before.
+const RESUMED_LIGHT = 0.8
+const INTRO_MS = 3000
+const RESUME_MS = 150
 const AWAY_MS = 2000
-const RESUME_MS = 100
 
 /**
  * Counts, from the first script on, every draw call by the canvas that made
- * it: WebGL draws, and the 2D strokes, fills and clears of the hero's grid
- * and lens, so a test can tell which layer drew and which sat idle.
+ * it, so a test can tell which scene drew and which sat idle.
  */
 const recordDraws = (page: Page) =>
   page.addInitScript(key => {
@@ -60,12 +53,6 @@ const recordDraws = (page: Page) =>
       'drawArraysInstanced',
       'drawElementsInstanced'
     ])
-    count(CanvasRenderingContext2D.prototype, [
-      'stroke',
-      'fill',
-      'fillRect',
-      'clearRect'
-    ])
   }, DRAWS)
 
 /** Draw calls each layer makes over `SAMPLE_MS` of real time. */
@@ -84,9 +71,8 @@ const drawsNow = async (page: Page) => {
         }
         return {
           hero: of('[data-testid="hero-scene"] canvas'),
-          grid: of('[data-testid="hero-grid"]'),
-          lens: of('[data-testid="hero-lens"]'),
-          notebook: of('[data-testid="notebook-scene"] canvas')
+          notebook: of('[data-testid="notebook-scene"] canvas'),
+          globe: of('[data-testid="globe-scene"] canvas')
         }
       }
       const before = read()
@@ -94,9 +80,8 @@ const drawsNow = async (page: Page) => {
       const after = read()
       return {
         hero: after.hero - before.hero,
-        grid: after.grid - before.grid,
-        lens: after.lens - before.lens,
-        notebook: after.notebook - before.notebook
+        notebook: after.notebook - before.notebook,
+        globe: after.globe - before.globe
       }
     },
     { key: DRAWS, ms: SAMPLE_MS }
@@ -110,7 +95,7 @@ const scrollToSection = async (page: Page, selector: string) =>
 const screenRequests = (page: Page) => {
   const urls: string[] = []
   page.on('request', request => {
-    if (new URL(request.url()).hostname === SCREEN_HOST)
+    if (new URL(request.url()).pathname === SCREEN_PATH)
       urls.push(request.url())
   })
   return urls
@@ -119,15 +104,9 @@ const screenRequests = (page: Page) => {
 test('only the hero draws at the top of the page', async ({ page }) => {
   await recordDraws(page)
   await gotoHero(page)
-  // why: the lens draws only with the mouse over the title, so the mouse is
-  // put there; the counts below then show each hero layer is counted while
-  // it draws.
-  await page.mouse.move(500, 380, { steps: 4 })
   const draws = await drawsNow(page)
   expect(draws.hero).toBeGreaterThan(0)
-  expect(draws.grid).toBeGreaterThan(0)
-  expect(draws.lens).toBeGreaterThan(0)
-  expect(draws.notebook).toBe(0)
+  expect(draws).toMatchObject({ notebook: 0, globe: 0 })
 })
 
 test('only the notebook draws while it is on screen', async ({ page }) => {
@@ -139,19 +118,27 @@ test('only the notebook draws while it is on screen', async ({ page }) => {
   await scrollWindowTo(page, top + viewport.height)
   const draws = await drawsNow(page)
   expect(draws.notebook).toBeGreaterThan(0)
-  expect(draws).toMatchObject({ hero: 0, grid: 0, lens: 0 })
+  expect(draws).toMatchObject({ hero: 0, globe: 0 })
 })
 
-test('no scene draws while both are off screen', async ({ page }) => {
+test('only the globe draws at the end of the page', async ({ page }) => {
   await recordDraws(page)
   await gotoHero(page)
-  for (const section of ['#sobre', '#faq']) {
+  await scrollToSection(page, '#contato')
+  const draws = await drawsNow(page)
+  expect(draws.globe).toBeGreaterThan(0)
+  expect(draws).toMatchObject({ hero: 0, notebook: 0 })
+})
+
+test('no scene draws while all are off screen', async ({ page }) => {
+  await recordDraws(page)
+  await gotoHero(page)
+  for (const section of ['#sobre', '#workflow']) {
     await scrollToSection(page, section)
     expect(await drawsNow(page), section).toEqual({
       hero: 0,
-      grid: 0,
-      lens: 0,
-      notebook: 0
+      notebook: 0,
+      globe: 0
     })
   }
 })
@@ -165,33 +152,29 @@ test('the hero draws again when scrolled back', async ({ page }) => {
   expect((await drawsNow(page)).hero).toBeGreaterThan(0)
 })
 
-test('the black hole resumes where it stopped', async ({ page }) => {
-  // why: a capture takes 0.3-0.6 s, long enough for the black hole to move
-  // under it; with time stopped, nothing moves while one is taken.
-  await gotoStopped(page, 2000)
-  await showSceneOnly(page, { stopped: true })
-  const ink = channels(await tokenRgb(page, 'ink'))
-  const before = await findHorizon(page, ink)
+test('the hero resumes where it stopped instead of replaying its intro', async ({
+  page
+}) => {
+  await gotoHero(page)
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error('no viewport')
+  // why: the black hole's half of the screen, clear of the copy.
+  const half = {
+    x0: viewport.width / 2,
+    x1: viewport.width,
+    y0: 0,
+    y1: viewport.height
+  }
+  const clip = { x: 0, y: 0, ...viewport }
+  await page.waitForTimeout(INTRO_MS)
+  const before = meanLuminance(await screenPixels(page, clip), half)
 
-  await page.evaluate(() =>
-    document.querySelector('#faq')?.scrollIntoView({ behavior: 'instant' })
-  )
-  await page.waitForTimeout(SETTLE_MS)
-  await page.clock.runFor(AWAY_MS)
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
-  await page.waitForTimeout(SETTLE_MS)
-  await page.clock.runFor(RESUME_MS)
-  const after = await findHorizon(page, ink)
-
-  expect(
-    Math.hypot(after.cx - before.cx, after.cy - before.cy)
-  ).toBeLessThanOrEqual(RESUMED_PX)
-  const size = ({ width, cy }: { width: number; cy: number }) =>
-    width / sheetScaleAt(cy, 900)
-  expect(
-    Math.abs(size(after) / size(before) - 1),
-    'risen as far as it was'
-  ).toBeLessThanOrEqual(RESUMED_SIZE)
+  await scrollToSection(page, '#faq')
+  await page.waitForTimeout(AWAY_MS)
+  await scrollWindowTo(page, 0)
+  await page.waitForTimeout(RESUME_MS)
+  const after = meanLuminance(await screenPixels(page, clip), half)
+  expect(after).toBeGreaterThanOrEqual(before * RESUMED_LIGHT)
 })
 
 test("the laptop's screen page is not loaded at the top", async ({ page }) => {
@@ -209,18 +192,16 @@ test('the screen page loads a screen before the notebook', async ({ page }) => {
   const top = await documentTop(page.locator('#notebook'))
   // why: the notebook's top half a screen below the window's bottom.
   await scrollWindowTo(page, top - viewport.height * 1.5)
-  await expect(page.locator('iframe')).toHaveCount(1)
-  await expect(page.locator('#notebook iframe')).toHaveAttribute(
-    'src',
-    new RegExp(`^https://${SCREEN_HOST.replaceAll('.', '\\.')}/`)
-  )
+  await expect(page.locator('#notebook iframe')).toHaveCount(DEVICES)
+  for (const frame of await page.locator('#notebook iframe').all())
+    await expect(frame).toHaveAttribute('src', SCREEN_PATH)
   await expect.poll(() => requests.length).toBeGreaterThan(0)
 })
 
 test('the screen page unloads far past the notebook', async ({ page }) => {
   await gotoHero(page)
   await scrollToSection(page, '#notebook')
-  await expect(page.locator('#notebook iframe')).toHaveCount(1)
+  await expect(page.locator('#notebook iframe')).toHaveCount(DEVICES)
   await scrollToSection(page, '#faq')
   await expect(page.locator('iframe')).toHaveCount(0)
 })

@@ -82,7 +82,10 @@ export const DeviceCopy = ({ id, progress, active }: DeviceCopyProps) => {
     visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 px-6 text-center select-text">
+    <div
+      data-testid="notebook-copy"
+      className="pointer-events-none absolute inset-0 z-10 px-6 text-center select-text"
+    >
       <div
         className={`pt-10 transition-[opacity,translate] duration-500 lg:pt-14 ${shown(step !== NO_STEP)}`}
       >

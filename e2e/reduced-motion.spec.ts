@@ -11,7 +11,8 @@ import {
   gotoNotebook,
   gotoStopped,
   nextFrames,
-  notebookEnd,
+  laptopScreen,
+  notebookAt,
   scrollWindowTo,
   showSceneOnly,
   tokenRgb
@@ -265,13 +266,14 @@ test('laptop still opens with the scroll under reduced motion', async ({
   page
 }) => {
   await gotoNotebook(page)
-  await scrollWindowTo(page, await notebookEnd(page))
+  // why: 0.75 of the section: the laptop is open and lit, before the dive.
+  await scrollWindowTo(page, await notebookAt(page, 0.75))
   await expect
     .poll(
       () =>
-        page
-          .locator('#notebook iframe')
-          .evaluate(frame => Number(getComputedStyle(frame).opacity)),
+        laptopScreen(page).evaluate(frame =>
+          Number(getComputedStyle(frame).opacity)
+        ),
       { timeout: 10_000 }
     )
     .toBeGreaterThanOrEqual(0.9)
