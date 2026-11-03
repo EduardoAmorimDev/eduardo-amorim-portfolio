@@ -3,6 +3,7 @@ import { PerformanceMonitor } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { useState, type ReactNode } from 'react'
 import { RenderGate } from '@/components/atoms/render-gate'
+import '@/lib/three-console'
 import { Gargantua } from './gargantua'
 
 // why: the image is soft light, so one shader pass per CSS px suffices, and
