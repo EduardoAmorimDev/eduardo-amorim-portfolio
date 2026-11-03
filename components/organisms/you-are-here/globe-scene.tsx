@@ -18,11 +18,12 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import type { VisitorPlace } from '@/lib/visitor-place'
+import { GlobeVapor } from './globe-vapor'
 import { landDots, loadLandMask, toSphere } from './land-dots'
 
 // why: enough lattice points that the continents read as dotted shapes at
 // ~700 px across; about a third of them fall on land.
-const LATTICE = 36000
+const LATTICE = 52000
 // why: the globe idles turning east until it knows where to go, then turns
 // to put the visitor's place just above its middle, facing the viewer.
 const IDLE_SPIN = 0.06
@@ -55,10 +56,11 @@ uniform vec3 uRim;
 varying float vFacing;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
-  float round = smoothstep(0.5, 0.32, length(c));
-  // why: the far side fades out and the limb takes the brand's violet.
-  float alpha = round * smoothstep(-0.05, 0.35, vFacing);
-  vec3 col = mix(uRim, uColor, smoothstep(0.1, 0.7, vFacing));
+  float round = smoothstep(0.5, 0.2, length(c));
+  // why: a translucent Earth: the far side's land shows through, faint and
+  // violet; the near side glows, brightest facing the viewer.
+  float alpha = round * mix(0.32, 0.95, smoothstep(-0.15, 0.45, vFacing));
+  vec3 col = mix(uRim, uColor, smoothstep(0.0, 0.7, vFacing));
   gl_FragColor = vec4(col, alpha);
 }
 `
@@ -111,7 +113,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
   const aim = useRef({ x: 0, y: 0 })
   const offset = useRef({ x: 0, y: 0 })
   const velocity = useRef({ x: 0, y: 0 })
-  const hover = useRef({ x: 0, y: 0, smoothX: 0, smoothY: 0 })
+  const hover = useRef({ x: 0, y: 0, inside: false, smoothX: 0, smoothY: 0 })
   const drag = useRef({ id: -1, x: 0, y: 0, at: 0, touchedAt: -Infinity })
 
   useEffect(() => {
@@ -132,6 +134,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
       const { left, top, width, height } = canvas.getBoundingClientRect()
       hover.current.x = ((event.clientX - left) / width) * 2 - 1
       hover.current.y = ((event.clientY - top) / height) * 2 - 1
+      hover.current.inside = true
       const current = drag.current
       if (event.pointerId !== current.id) return
       const now = performance.now()
@@ -156,6 +159,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
     const leave = () => {
       hover.current.x = 0
       hover.current.y = 0
+      hover.current.inside = false
     }
     canvas.addEventListener('pointerdown', down)
     canvas.addEventListener('pointermove', move)
@@ -199,7 +203,13 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
         new Color(readColorToken('mist')),
         0.25
       ),
-      pin: new Color(readColorToken('mist'))
+      pin: new Color(readColorToken('mist')),
+      // why: the vapour glows a pale violet, the brand's mist touched by its
+      // primary, bright enough to read as light on the dark.
+      vapor: new Color(readColorToken('mist')).lerp(
+        new Color(readColorToken('primary')),
+        0.3
+      )
     }),
     []
   )
@@ -331,10 +341,18 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
           blending={AdditiveBlending}
         />
       </mesh>
+      <GlobeVapor pointer={hover} still={still} color={colors.vapor} />
       <group ref={globe}>
-        <mesh>
-          <sphereGeometry args={[0.995, 64, 64]} />
-          <meshBasicMaterial color={colors.core} />
+        {/* why: a tinted, see-through body: it shades the globe without
+            hiding the far side's land. */}
+        <mesh renderOrder={-1}>
+          <sphereGeometry args={[0.99, 64, 64]} />
+          <meshBasicMaterial
+            color={colors.core}
+            transparent
+            opacity={0.3}
+            depthWrite={false}
+          />
         </mesh>
         {dots && (
           <points>
@@ -347,6 +365,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
               fragmentShader={DOT_FRAGMENT}
               transparent
               depthWrite={false}
+              blending={AdditiveBlending}
             />
           </points>
         )}

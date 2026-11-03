@@ -17,7 +17,7 @@ A página passa a ser uma viagem:
   você viu onde podemos chegar. No momento, você está aqui. A escolha é sua.", com o botão
   "Entrar em contato".
 
-8 critérios · 1 one-way door · 1 em aberto, que bloqueia o go-live.
+9 critérios · 1 one-way door · 1 em aberto, que bloqueia o go-live.
 
 ## Criteria
 
@@ -44,7 +44,13 @@ A página passa a ser uma viagem:
    inclina o globo até 0,18 rad na direção dele. No toque, só o gesto horizontal gira o globo
    (`touch-action: pan-y`), e o vertical continua rolando a página. Sob movimento reduzido, o
    arraste gira sem inércia e o cursor não inclina.
-8. O parallax entre as seções é um campo de estrelas: estrelas finas que cintilam no fundo,
+8. O globo é translúcido: o núcleo tem 30% de opacidade, e os pontos do lado de trás aparecem
+   com 32% do brilho. Em volta dele flutua um "vapor": 240 nós numa casca de 1,06 a 1,5 raio,
+   ligados por linhas quando estão a menos de 0,4 raio. Linhas e nós ficam mais fracos atrás do
+   globo. O cursor afasta os nós num raio de 0,42 e eles voltam com mola quando ele passa. Sob
+   movimento reduzido, o vapor fica parado. A referência de estilo foi uma imagem de banco
+   (Shutterstock) enviada pelo usuário; foi usado só o estilo, nada da imagem.
+9. O parallax entre as seções é um campo de estrelas: estrelas finas que cintilam no fundo,
    estrelas mais brilhantes com halo no meio e poeira desfocada na frente. As camadas e as
    velocidades continuam as mesmas.
 
