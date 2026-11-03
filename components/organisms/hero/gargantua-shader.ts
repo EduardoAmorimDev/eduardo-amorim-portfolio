@@ -84,7 +84,9 @@ vec3 starLayer(vec3 dir, float scale, float density, float size) {
   vec3 star = cell + 0.2 + 0.6 * hash33(cell + 7.7);
   float d = length(p - star);
   float glow = smoothstep(size, 0.0, d);
-  float bright = pow(h.y, 6.0) * 1.6 + 0.08;
+  // why: each star twinkles on its own period (2-6 s) and phase.
+  float twinkle = 0.7 + 0.3 * sin(uTime * (1.0 + 2.0 * h.z) + h.x * 40.0);
+  float bright = (pow(h.y, 6.0) * 1.6 + 0.08) * twinkle;
   vec3 tint = mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.9, 0.8), h.z);
   return tint * glow * glow * bright;
 }
@@ -140,7 +142,9 @@ void main() {
 
   // why: a camera just above the disk's plane, rolled, as in Interstellar.
   float dist = mix(26.0, 19.0, uPush) + (1.0 - uIntro) * 14.0;
-  float yaw = 0.6 + uLook.x * 0.05 + uTime * 0.004;
+  // why: a slow orbit (~15 px/s on the sky at 1440×900) makes the stars
+  // flow and bend around the lens; the disk, symmetric, looks the same.
+  float yaw = 0.6 + uLook.x * 0.05 + uTime * 0.01;
   float pitch = 0.085 + uLook.y * 0.03 + uPush * 0.03;
   vec3 cam = dist * vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
   vec3 forward = normalize(-cam);
