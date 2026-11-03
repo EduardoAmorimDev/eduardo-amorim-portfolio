@@ -12,8 +12,6 @@
   --color-mist: #f2f7ff;
   --color-smoke: #f0f0f0;
   --color-snow: #fbfbfb;
-  /* why: the light the Earth gives off at the end of the page. */
-  --color-sky: #7cc7ff;
 }
 
 @theme {

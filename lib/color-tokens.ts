@@ -8,8 +8,7 @@ export const COLOR_TOKENS = [
   'ash',
   'mist',
   'smoke',
-  'snow',
-  'sky'
+  'snow'
 ] as const
 
 export type ColorToken = (typeof COLOR_TOKENS)[number]

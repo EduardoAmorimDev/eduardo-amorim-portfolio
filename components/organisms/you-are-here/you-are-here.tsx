@@ -5,15 +5,11 @@ import { GlitchText } from '@/components/atoms/glitch-text'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
-import { GlobeScene, type GlobePointer } from './globe-scene'
-import { GlobeVapor } from './globe-vapor'
+import { GlobeScene } from './globe-scene'
 
 // why: the place is looked up as the section approaches, so a visitor who
 // never scrolls this far never sends the request.
 const LOOKUP_LEAD = '100% 0px'
-// why: the globe's camera, shared by its canvas and the vapour's, so the
-// two layers line up exactly.
-const CAMERA = { position: [0, 0, 3.4] as const, fov: 35 }
 
 type YouAreHereProps = { id: string }
 
@@ -27,13 +23,6 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
   const near = useNearViewport(section, LOOKUP_LEAD)
   // invariant: undefined until looked up, null when it cannot be found.
   const [place, setPlace] = useState<VisitorPlace | null | undefined>()
-  const pointer = useRef<GlobePointer>({
-    x: 0,
-    y: 0,
-    inside: false,
-    smoothX: 0,
-    smoothY: 0
-  })
 
   useEffect(() => {
     if (!near || place !== undefined) return
@@ -62,25 +51,10 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
         data-testid="globe-scene"
         dpr={[1.5, 2]}
         gl={{ alpha: true }}
-        camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
+        camera={{ position: [0, 0, 3.4], fov: 35 }}
       >
         <RenderGate />
-        <GlobeScene place={place ?? null} pointerRef={pointer} />
-      </Canvas>
-      {/* why: the vapour in its own layer, over the globe and blurred, so
-          its web reads as mist rather than wire; the pointer goes through
-          it to the globe's canvas, which tracks it for both. */}
-      <Canvas
-        aria-hidden="true"
-        className="pointer-events-none isolate blur-[2.5px] brightness-150"
-        style={{ position: 'absolute', inset: 0 }}
-        data-testid="vapor-scene"
-        dpr={1}
-        gl={{ alpha: true, antialias: false }}
-        camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
-      >
-        <RenderGate />
-        <GlobeVapor pointerRef={pointer} />
+        <GlobeScene place={place ?? null} />
       </Canvas>
       <div className="pointer-events-none relative z-10 flex min-h-svh flex-col justify-end px-6 pb-16 lg:px-16 landscape:justify-center landscape:pb-0">
         <div className="max-w-xl landscape:max-w-[46%]">

@@ -1,9 +1,6 @@
 'use client'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, type RefObject } from 'react'
-import { useReducedMotionRef } from '@/lib/use-reduced-motion-ref'
-import { readColorToken } from '@/lib/color-tokens'
-import { layoutFor } from './globe-scene'
 import {
   AdditiveBlending,
   BufferAttribute,
@@ -11,7 +8,7 @@ import {
   Raycaster,
   Vector2,
   Vector3,
-  Color,
+  type Color,
   type Group,
   type LineSegments,
   type Points
@@ -68,26 +65,13 @@ const createWeb = () => ({
 })
 
 type GlobeVaporProps = {
-  pointerRef: RefObject<PointerInCanvas>
+  pointer: RefObject<PointerInCanvas>
+  still: RefObject<boolean>
+  color: Color
 }
 
-/**
- * The vapour web around the globe, parted by the cursor. It draws in a
- * canvas of its own, laid over the globe's and blurred with CSS
- * (you-are-here.tsx), and sits where the globe does (`layoutFor`).
- */
-export const GlobeVapor = ({ pointerRef }: GlobeVaporProps) => {
-  const still = useReducedMotionRef()
-  // why: the vapour is the light blue the Earth gives off, paled with mist.
-  const color = useMemo(
-    () =>
-      new Color(readColorToken('sky')).lerp(
-        new Color(readColorToken('mist')),
-        0.35
-      ),
-    []
-  )
-  const layout = layoutFor(useThree(state => state.viewport))
+/** The vapour web around the globe, parted by the cursor. */
+export const GlobeVapor = ({ pointer, still, color }: GlobeVaporProps) => {
   const group = useRef<Group>(null)
   const dots = useRef<Points>(null)
   const lines = useRef<LineSegments>(null)
@@ -119,7 +103,7 @@ export const GlobeVapor = ({ pointerRef }: GlobeVaporProps) => {
 
     // why: the cursor, cast onto the globe's front plane, in the web's own
     // space, where the push is measured.
-    const there = pointerRef.current
+    const there = pointer.current
     let pushing = there.inside && !still.current
     if (pushing) {
       ndc.set(there.x, -there.y)
@@ -195,7 +179,7 @@ export const GlobeVapor = ({ pointerRef }: GlobeVaporProps) => {
   })
 
   return (
-    <group ref={group} position={[layout.x, layout.y, 0]} scale={layout.scale}>
+    <group ref={group}>
       <lineSegments ref={lines} frustumCulled={false}>
         <bufferGeometry />
         <lineBasicMaterial
