@@ -9,7 +9,7 @@ As telas dos aparelhos mostram um site de terceiro (Kune), não o trabalho deste
 de cada aparelho fica embaixo, longe dele. O carrossel termina num laptop aberto, e a página segue
 para a seção de projetos sem ligação com ele.
 
-7 critérios · 1 one-way door · 2 em aberto, nenhum bloqueia.
+7 critérios · 1 one-way door · 1 em aberto, nenhum bloqueia.
 
 ## Criteria
 
@@ -54,13 +54,13 @@ para a seção de projetos sem ligação com ele.
 
 ## Impact
 
-| Front       | What changes                                                                                          |
-| ----------- | ----------------------------------------------------------------------------------------------------- |
-| domain      | `/embed/projetos` (nova rota): só a seção de projetos, para as telas dos aparelhos                    |
-| domain      | `CAROUSEL_END`, `STAGES.zoom`, `CAMERA`, `CAMERA_REST`, `stageViewport`, `isSideLayout` (`stages.ts`) |
-| domain      | `useScrollProgress`: `holdAtEnd` vira `holdFrom` (segura um ponto, acima dele segue o scroll)         |
-| layout      | `#notebook` passa a `h-[700vh]`, `z-10`, palco opaco; o bloco seguinte ganha `-mt-[100svh]`           |
-| stored data | nothing to migrate                                                                                    |
+| Front       | What changes                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| domain      | `/embed/projetos` (nova rota): só a seção de projetos, para as telas dos aparelhos          |
+| domain      | `STAGES.zoom`, `CAMERA`, `CAMERA_REST`, `stageViewport`, `isSideLayout` (`stages.ts`)       |
+| domain      | `useScrollProgress` volta a só medir o scroll: a trava (`holdAtEnd`) saiu                   |
+| layout      | `#notebook` passa a `h-[700vh]`, `z-10`, palco opaco; o bloco seguinte ganha `-mt-[100svh]` |
+| stored data | nothing to migrate                                                                          |
 
 ## Decided
 
@@ -77,7 +77,6 @@ para a seção de projetos sem ligação com ele.
 
 ## Unresolved
 
-| #   | Kind | Question                                                                                                                                   | Until answered                  |
-| --- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| 1   | open | A trava segura o laptop aberto (antes do mergulho), e o mergulho é reversível. Era isso, ou a trava devia segurar o fim do mergulho?       | Escrito o primeiro (critério 5) |
-| 2   | open | No celular, o laptop mostra a página no layout de celular, com faixas pretas nas laterais, porque é ela que vira a página real. Aceitável? | Escrito assim (critério 1)      |
+| #   | Kind | Question                                                                                                                                   | Until answered             |
+| --- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| 1   | open | No celular, o laptop mostra a página no layout de celular, com faixas pretas nas laterais, porque é ela que vira a página real. Aceitável? | Escrito assim (critério 1) |
