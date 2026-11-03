@@ -19,7 +19,6 @@ import {
   isSideLayout,
   local,
   offstage,
-  restX,
   SMOOTHING,
   STAGES,
   stageLift,
@@ -42,9 +41,6 @@ const TABLET_LEAN = { x: 0.4, y: -0.6, z: -0.2 }
 // why: the open lid rises well above the laptop's pivot, so at full size
 // it would touch the heading; lowering it centres the open laptop instead.
 const LAPTOP_DROP = 0.45
-// why: which side each chapter's text takes when side by side; the devices
-// rest on the other side, alternating like a story told left and right.
-const TEXT_SIDE = { phone: 'left', tablet: 'right', laptop: 'left' } as const
 // hazard: runs before the laptop (-1) and every <Html> (0), so they all read
 // this frame's progress and poses instead of the previous frame's.
 const BEFORE_DEVICES = -2
@@ -100,13 +96,8 @@ export const DeviceCarousel = ({
 
     const phoneIn = ease(p, STAGES.phoneIn)
     const phoneOut = ease(p, STAGES.phoneOut)
-    const phoneRest = restX(viewport, side, TEXT_SIDE.phone)
     phone.current.position.set(
-      MathUtils.lerp(
-        phoneRest,
-        -offstage(viewport, PHONE_FRAME, side),
-        phoneOut
-      ),
+      -phoneOut * offstage(viewport, PHONE_FRAME, side),
       bob,
       MathUtils.lerp(PHONE_START.z, 0, phoneIn)
     )
@@ -122,13 +113,8 @@ export const DeviceCarousel = ({
     const tabletOut = ease(p, STAGES.tabletOut)
     const turn = ease(p, STAGES.tabletTurn)
     const tabletOff = offstage(viewport, TABLET_FRAME, side)
-    const tabletRest = restX(viewport, side, TEXT_SIDE.tablet)
     tablet.current.position.set(
-      MathUtils.lerp(
-        MathUtils.lerp(tabletOff, tabletRest, tabletIn),
-        -tabletOff,
-        tabletOut
-      ),
+      (1 - tabletIn) * tabletOff - tabletOut * tabletOff,
       bob,
       0
     )
@@ -145,11 +131,8 @@ export const DeviceCarousel = ({
     if (nextLandscape !== landscape) setLandscape(nextLandscape)
 
     const laptopIn = tabletOut
-    laptop.current.position.x = MathUtils.lerp(
-      offstage(viewport, LAPTOP_FRAME, side),
-      restX(viewport, side, TEXT_SIDE.laptop),
-      laptopIn
-    )
+    laptop.current.position.x =
+      (1 - laptopIn) * offstage(viewport, LAPTOP_FRAME, side)
     laptop.current.visible = laptopIn > 0
     laptopProgress.current = local(p, STAGES.laptop)
   }, BEFORE_DEVICES)

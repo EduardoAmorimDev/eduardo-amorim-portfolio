@@ -1,9 +1,16 @@
 'use client'
 import { Html, useGLTF } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef, type RefObject } from 'react'
+import { useMemo, useRef, useState, type RefObject } from 'react'
 import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
-import { fitIn, floatAt, stageViewport, type Frame } from './stages'
+import {
+  fitIn,
+  floatAt,
+  isShown,
+  renderScale,
+  stageViewport,
+  type Frame
+} from './stages'
 
 // why: the model comes from canvas-lab (assets/laptop.glb) and is built in
 // metres; these names are its contract with the animation below.
@@ -122,12 +129,15 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
   // where the shapes differ), it fills the window exactly once the camera
   // has dived in, and the real page can take over unnoticed.
   const pageScale = Math.min(PAGE_WIDTH / size.width, PAGE_HEIGHT / size.height)
+  // why: the page is drawn at about its size on screen (renderScale), which
+  // reaches 1 as the camera ends its dive, for the hand-off to the page.
+  const [zoom, setZoom] = useState(1)
   const pagePosition = useMemo(() => {
     const { x, y, z } = anchor.screen.position
     return new Vector3(x, y - SCREEN_GAP, z - PAGE_DROP)
   }, [anchor])
 
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
     if (!body.current) return
     // why: looked up once, on the first frame, and kept in a ref: refs are
     // React's place for mutable values, so animating the model through them
@@ -172,6 +182,14 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
       up,
       pageHeight: size.height * pageScale * UNITS_PER_PX * lidScale
     }
+    if (isShown(body.current)) {
+      const next = renderScale(
+        UNITS_PER_PX * lidScale,
+        camera.position.distanceTo(centre),
+        size.height
+      )
+      if (next !== zoom) setZoom(next)
+    }
   }, BEFORE_HTML)
 
   return (
@@ -195,7 +213,14 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
           transform
           wrapperClass="will-change-transform"
           occlude="blending"
-          distanceFactor={DISTANCE_FACTOR}
+          // invariant: dividing by the zoom keeps the zoomed page as wide as
+          // the glass; the hole is sized from the page, not measured.
+          distanceFactor={DISTANCE_FACTOR / zoom}
+          geometry={
+            <planeGeometry
+              args={[PAGE_WIDTH * UNITS_PER_PX, PAGE_HEIGHT * UNITS_PER_PX]}
+            />
+          }
           position={pagePosition}
           rotation-x={Math.PI / 2}
           pointerEvents="none"
@@ -207,7 +232,8 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
             style={{
               width: PAGE_WIDTH,
               height: PAGE_HEIGHT,
-              borderRadius: PAGE_RADIUS
+              borderRadius: PAGE_RADIUS,
+              zoom
             }}
           >
             {/* why: pointer-events none and tabIndex -1 keep the page a

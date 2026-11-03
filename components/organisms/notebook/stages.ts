@@ -1,4 +1,4 @@
-import { MathUtils, Matrix4, Quaternion, Vector3 } from 'three'
+import { MathUtils, Matrix4, Quaternion, Vector3, type Object3D } from 'three'
 
 type Window = readonly [start: number, end: number]
 
@@ -69,26 +69,17 @@ export const isSideLayout = (size: Size) =>
   size.width >= SIDE_MIN_WIDTH && size.width > size.height
 
 // why: shares of the screen kept clear for the copy (device-copy.tsx): the
-// heading above, and the chapter text below or, side by side, half the width.
+// heading above, and the chapter text below or, side by side, a column on
+// each side of the centred device (the middle 40% is the device's).
 const COPY_ROOM = {
   stacked: { top: 0.12, bottom: 0.26, width: 1 },
-  side: { top: 0.14, bottom: 0.04, width: 0.5 }
+  side: { top: 0.14, bottom: 0.04, width: 0.4 }
 }
 const room = (side: boolean) => (side ? COPY_ROOM.side : COPY_ROOM.stacked)
 
 /** How far to raise the stage so it centres between the copy bands. */
 export const stageLift = (viewport: Viewport, side: boolean) =>
   ((room(side).bottom - room(side).top) / 2) * viewport.height
-
-/**
- * Where a device rests, in scene units from the centre: beside its chapter
- * when side by side (`textSide` is where the text goes), centred otherwise.
- */
-export const restX = (
-  viewport: Viewport,
-  side: boolean,
-  textSide: 'left' | 'right'
-) => (side ? (textSide === 'left' ? 1 : -1) * viewport.width * 0.22 : 0)
 
 // invariant: never above 1, so large screens keep the designed size; the
 // smaller ratio wins, covering portrait phones and short landscape screens.
@@ -104,6 +95,35 @@ export const fitIn = (viewport: Viewport, frame: Frame, side: boolean) => {
 /** Distance from the centre at which a device is wholly off screen. */
 export const offstage = (viewport: Viewport, frame: Frame, side: boolean) =>
   (viewport.width + frame.width * fitIn(viewport, frame, side)) / 2
+
+// why: the scales a device's page is drawn at (CSS `zoom`); steps, so it is
+// only redrawn when its size on screen changes enough to matter.
+const RENDER_STEPS = [0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]
+
+/**
+ * The CSS `zoom` to draw a device's page at so it is rasterised at about the
+ * size it shows on screen: drawn full size and shrunk on the GPU, small text
+ * came out jagged and blurry. `unitsPerPx` is world units per page CSS px,
+ * `distance` from the camera to the page, `screenHeight` in CSS px.
+ */
+export const renderScale = (
+  unitsPerPx: number,
+  distance: number,
+  screenHeight: number
+) => {
+  const visibleHeight =
+    2 * distance * Math.tan(MathUtils.degToRad(CAMERA.fov) / 2)
+  const shown = (unitsPerPx / visibleHeight) * screenHeight
+  return RENDER_STEPS.find(step => step >= shown) ?? 1
+}
+
+/** Whether an object and every one of its ancestors are visible. */
+export const isShown = (object: Object3D) => {
+  for (let node: Object3D | null = object; node; node = node.parent) {
+    if (!node.visible) return false
+  }
+  return true
+}
 
 // why: higher values follow the scroll more tightly; lower values glide,
 // which hides the discrete steps of a mouse wheel.

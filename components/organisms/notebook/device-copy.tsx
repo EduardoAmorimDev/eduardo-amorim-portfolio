@@ -6,8 +6,8 @@ import { STAGES } from './stages'
 const midpoint = ([start, end]: readonly [number, number]) => (start + end) / 2
 
 // why: each device's text takes over halfway through the swap that brings
-// that device in, while both devices share the stage. `side` must match
-// TEXT_SIDE in device-carousel.tsx: the device rests on the other side.
+// that device in, while both devices share the stage; side by side, the
+// chapters alternate around the centred device like a story told in turns.
 const STEPS = [
   {
     from: 0,
@@ -42,9 +42,11 @@ const stepAt = (p: number) =>
         0
       )
 
+// invariant: each column stays inside the 30% of the width the stage leaves
+// on its side of the centred device (COPY_ROOM in stages.ts).
 const SIDE_CLASS = {
-  left: 'lg:landscape:left-[6%] lg:landscape:text-left',
-  right: 'lg:landscape:right-[6%] lg:landscape:text-left'
+  left: 'lg:landscape:left-[4%] lg:landscape:text-left',
+  right: 'lg:landscape:right-[4%] lg:landscape:text-left'
 }
 
 type DeviceCopyProps = {
@@ -101,7 +103,7 @@ export const DeviceCopy = ({ id, progress, active }: DeviceCopyProps) => {
         <div
           key={chapter.label}
           aria-current={index === step ? 'step' : undefined}
-          className={`absolute inset-x-6 bottom-10 mx-auto max-w-xl lg:landscape:inset-x-auto lg:landscape:top-1/2 lg:landscape:bottom-auto lg:landscape:w-[36%] lg:landscape:max-w-md lg:landscape:-translate-y-1/2 ${SIDE_CLASS[chapter.side]}`}
+          className={`absolute inset-x-6 bottom-10 mx-auto max-w-xl lg:landscape:inset-x-auto lg:landscape:top-1/2 lg:landscape:bottom-auto lg:landscape:w-[24%] lg:landscape:max-w-sm lg:landscape:-translate-y-1/2 ${SIDE_CLASS[chapter.side]}`}
         >
           <div
             className={`transition-[opacity,translate] duration-500 ${shown(index === step)}`}

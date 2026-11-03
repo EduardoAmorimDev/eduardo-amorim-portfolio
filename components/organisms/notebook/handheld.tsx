@@ -1,8 +1,16 @@
 'use client'
 import { Html } from '@react-three/drei'
-import { useEffect, useMemo, useState } from 'react'
-import { ExtrudeGeometry, MeshStandardMaterial, Shape } from 'three'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ExtrudeGeometry,
+  MeshStandardMaterial,
+  Shape,
+  Vector3,
+  type Group
+} from 'three'
 import { readColorToken } from '@/lib/color-tokens'
+import { isShown, renderScale } from './stages'
 
 /** A phone or tablet: a rounded slab with a live page on its front glass. */
 export type HandheldSpec = {
@@ -136,15 +144,33 @@ export const Handheld = ({
   const page = landscape
     ? { width: spec.page.height, height: spec.page.width }
     : spec.page
-  // invariant: with `transform`, drei maps 1 CSS px to distanceFactor / 400
-  // units, so the page is exactly as wide as the display.
   const unitsPerPx = spec.screenWidth / spec.page.width
-  const distanceFactor = unitsPerPx * 400
+  const screen = useRef<Group>(null)
+  const screenHeight = useThree(state => state.size.height)
+  // why: the page is drawn at about its size on screen (renderScale); the
+  // zoom keeps its layout width, so the site still lays out for the device.
+  const [zoom, setZoom] = useState(1)
+  useFrame(({ camera }) => {
+    const group = screen.current
+    if (!group || !isShown(group)) return
+    const position = group.getWorldPosition(new Vector3())
+    const scale = group.getWorldScale(new Vector3()).x
+    const next = renderScale(
+      unitsPerPx * scale,
+      camera.position.distanceTo(position),
+      screenHeight
+    )
+    if (next !== zoom) setZoom(next)
+  })
+  // invariant: with `transform`, drei maps 1 CSS px to distanceFactor / 400
+  // units; dividing by the zoom keeps the zoomed page as wide as the display.
+  const distanceFactor = (unitsPerPx * 400) / zoom
 
   return (
     <group>
       <mesh geometry={geometry} material={materials} />
       <group
+        ref={screen}
         position={[0, 0, spec.depth / 2 + SCREEN_GAP]}
         rotation-z={landscape ? -Math.PI / 2 : 0}
       >
@@ -170,7 +196,7 @@ export const Handheld = ({
           >
             <div
               className="bg-ink"
-              style={{ width: page.width, height: page.height }}
+              style={{ width: page.width, height: page.height, zoom }}
             >
               {/* why: same as the laptop's page: a picture, not a site to
                 use, so the wheel keeps driving the portfolio. */}
