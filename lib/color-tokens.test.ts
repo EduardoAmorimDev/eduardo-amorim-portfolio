@@ -52,7 +52,7 @@ test('every theme colour points at a brand colour token', async () => {
   const css = await globalsCss()
   const tokens: readonly string[] = COLOR_TOKENS
   for (const [, name, token] of css.matchAll(
-    /--(background|foreground|glitch-a|glitch-b|grid-line):\s*var\(--color-([a-z]+)\);/g
+    /--(background|foreground|glitch-a|glitch-b):\s*var\(--color-([a-z]+)\);/g
   ))
     assert.ok(tokens.includes(token), `${name}: ${token}`)
 })
@@ -60,9 +60,9 @@ test('every theme colour points at a brand colour token', async () => {
 test('readThemeColor returns the trimmed value of the theme variable', () => {
   const styles = {
     getPropertyValue: (name: string) =>
-      name === '--grid-line' ? ' #4a5477' : ''
+      name === '--glitch-a' ? ' #4a5477' : ''
   }
-  assert.equal(readThemeColor('grid-line', styles), '#4a5477')
+  assert.equal(readThemeColor('glitch-a', styles), '#4a5477')
   assert.throws(
     () => readThemeColor('background', styles),
     /--background is not defined/
