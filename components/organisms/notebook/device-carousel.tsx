@@ -12,6 +12,7 @@ import {
   offstage,
   SMOOTHING,
   STAGES,
+  stageLift,
   type Frame
 } from './stages'
 
@@ -22,6 +23,14 @@ const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
 // why: the phone starts this far behind the stage, a turn and a bit away
 // from facing the viewer, and spins towards the camera as it comes.
 const PHONE_START = { z: -5, spin: -(Math.PI * 2 + Math.PI / 6) }
+// why: like the laptop's crooked start, each handheld arrives leaning
+// (radians, on top of the camera tilt and the phone's spin) and straightens
+// as it reaches the centre.
+const PHONE_LEAN = { x: 0.45, z: 0.3 }
+const TABLET_LEAN = { x: 0.4, y: -0.6, z: -0.2 }
+// why: the open lid rises well above the laptop's pivot, so at full size
+// it would touch the heading; lowering it centres the open laptop instead.
+const LAPTOP_DROP = 0.45
 // hazard: runs before the laptop (-1) and every <Html> (0), so they all read
 // this frame's progress and poses instead of the previous frame's.
 const BEFORE_DEVICES = -2
@@ -47,6 +56,7 @@ export const DeviceCarousel = ({
   const viewport = useThree(state => state.viewport)
   const phoneFit = fitIn(viewport, PHONE_FRAME)
   const tabletFit = fitIn(viewport, TABLET_FRAME)
+  const laptopDrop = -LAPTOP_DROP * fitIn(viewport, LAPTOP_FRAME)
 
   useFrame(({ camera, clock }, delta) => {
     if (!phone.current || !tablet.current || !laptop.current) return
@@ -69,10 +79,11 @@ export const DeviceCarousel = ({
       bob,
       MathUtils.lerp(PHONE_START.z, 0, phoneIn)
     )
+    const phoneLean = 1 - phoneIn
     phone.current.rotation.set(
-      tilt,
+      tilt + PHONE_LEAN.x * phoneLean,
       MathUtils.lerp(PHONE_START.spin, 0, phoneIn),
-      0
+      PHONE_LEAN.z * phoneLean
     )
     phone.current.visible = phoneOut < 1
 
@@ -85,7 +96,12 @@ export const DeviceCarousel = ({
       bob,
       0
     )
-    tablet.current.rotation.set(tilt, 0, (turn * Math.PI) / 2)
+    const tabletLean = 1 - tabletIn
+    tablet.current.rotation.set(
+      tilt + TABLET_LEAN.x * tabletLean,
+      TABLET_LEAN.y * tabletLean,
+      TABLET_LEAN.z * tabletLean + (turn * Math.PI) / 2
+    )
     tablet.current.visible = tabletIn > 0 && tabletOut < 1
     // why: the page swaps orientation halfway through the turn, when it is
     // equally crooked either way; setState only fires on the crossing.
@@ -100,7 +116,7 @@ export const DeviceCarousel = ({
   }, BEFORE_DEVICES)
 
   return (
-    <>
+    <group position-y={stageLift(viewport)}>
       <group ref={phone}>
         <group scale={phoneFit}>
           <Handheld spec={PHONE} screenUrl={screenUrl} />
@@ -111,11 +127,11 @@ export const DeviceCarousel = ({
           <Handheld spec={TABLET} screenUrl={screenUrl} landscape={landscape} />
         </group>
       </group>
-      <group ref={laptop}>
+      <group ref={laptop} position-y={laptopDrop}>
         <Suspense fallback={null}>
           <Laptop progress={laptopProgress} screenUrl={screenUrl} />
         </Suspense>
       </group>
-    </>
+    </group>
   )
 }

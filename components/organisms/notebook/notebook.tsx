@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { useRef } from 'react'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { useNearViewport } from '@/lib/use-near-viewport'
+import { DeviceCopy } from './device-copy'
 import { NotebookScene } from './notebook-scene'
 import { useScrollProgress } from './use-scroll-progress'
 
@@ -11,7 +12,7 @@ import { useScrollProgress } from './use-scroll-progress'
 // costs nothing anywhere else on the page.
 const SCREEN_LEAD = '100% 0px'
 
-type NotebookProps = { id?: string }
+type NotebookProps = { id: string }
 
 /**
  * Phone, tablet, then a laptop that opens and turns on, carried across the
@@ -30,7 +31,7 @@ export const Notebook = ({ id }: NotebookProps) => {
     <section
       id={id}
       ref={section}
-      aria-label="Notebook"
+      aria-labelledby={`${id}-title`}
       className="relative h-[600vh]"
     >
       <div className="sticky top-0 h-svh select-none">
@@ -48,6 +49,7 @@ export const Notebook = ({ id }: NotebookProps) => {
           <RenderGate />
           <NotebookScene progress={progress} screenLive={screenLive} />
         </Canvas>
+        <DeviceCopy id={id} progress={progress} active={screenLive} />
       </div>
     </section>
   )

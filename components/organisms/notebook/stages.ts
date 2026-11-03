@@ -30,10 +30,23 @@ export const local = (p: number, [start, end]: Window) =>
 export type Frame = { width: number; height: number }
 type Viewport = { width: number; height: number }
 
+// why: shares of the screen's height kept clear for the copy over the
+// stage (device-copy.tsx): the heading above, the chapter text below.
+export const COPY_ROOM = { top: 0.12, bottom: 0.26 }
+const STAGE_SHARE = 1 - COPY_ROOM.top - COPY_ROOM.bottom
+
+/** How far to raise the stage so it centres between the two copy bands. */
+export const stageLift = (viewport: Viewport) =>
+  ((COPY_ROOM.bottom - COPY_ROOM.top) / 2) * viewport.height
+
 // invariant: never above 1, so large screens keep the designed size; the
 // smaller ratio wins, covering portrait phones and short landscape screens.
 export const fitIn = (viewport: Viewport, frame: Frame) =>
-  Math.min(1, viewport.width / frame.width, viewport.height / frame.height)
+  Math.min(
+    1,
+    viewport.width / frame.width,
+    (viewport.height * STAGE_SHARE) / frame.height
+  )
 
 /** Distance from the centre at which a device is wholly off screen. */
 export const offstage = (viewport: Viewport, frame: Frame) =>
