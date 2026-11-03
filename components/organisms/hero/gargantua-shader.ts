@@ -34,7 +34,7 @@ uniform vec3 uSky;
 varying vec2 vUv;
 
 const float DISK_IN = 3.0;
-const float DISK_OUT = 14.0;
+const float DISK_OUT = 22.0;
 const float ESCAPE = 48.0;
 const int STEPS = 170;
 const float FOCAL = 1.7;
@@ -112,8 +112,9 @@ vec4 disk(vec3 hit, vec3 rayDir) {
   float gas = fbm(q * vec3(1.0, 1.0, 2.2) + vec3(0.0, 0.0, uTime * 0.02));
   float streaks = 0.55 + 0.45 * sin(r * 9.0 + gas * 6.0);
   float edgeIn = smoothstep(DISK_IN, DISK_IN + 0.5, r);
-  float edgeOut = smoothstep(DISK_OUT, DISK_OUT * 0.55, r);
-  float heat = pow(DISK_IN / r, 2.3);
+  float edgeOut = smoothstep(DISK_OUT, DISK_OUT * 0.4, r);
+  // why: a gentler fall-off than r^-3 keeps the wide outer disk visible.
+  float heat = pow(DISK_IN / r, 1.7);
 
   // why: the gas orbits at v ≈ sqrt(1 / (2 (r - 1))); the side moving
   // towards the camera is beamed brighter and bluer (Doppler, ∝ D³).

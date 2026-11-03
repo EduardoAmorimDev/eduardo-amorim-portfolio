@@ -28,7 +28,7 @@ O texto fica à esquerda, em tipografia editorial.
 
 1. Sempre, a cena é um único shader de tela cheia que traça cada raio de luz na métrica de
    Schwarzschild (r_s = 1). Raios que caem em r < 1 são a sombra preta. Raios que cruzam o plano
-   do disco entre r = 3 (ISCO) e r = 14 somam a luz do disco. Os demais mostram o céu na direção
+   do disco entre r = 3 (ISCO) e r = 22 somam a luz do disco. Os demais mostram o céu na direção
    em que escaparam, então a lente sobre as estrelas e o anel de fótons saem da própria física.
 2. Sempre, o disco é mais quente perto do centro: o brilho cai com o raio. O lado que se aproxima
    da câmera é mais claro e mais azul (Doppler: brilho ∝ D³). O disco gira no ritmo de Kepler,
