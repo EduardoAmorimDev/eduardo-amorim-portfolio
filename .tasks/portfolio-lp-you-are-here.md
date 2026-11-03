@@ -17,7 +17,7 @@ A página passa a ser uma viagem:
   você viu onde podemos chegar. No momento, você está aqui. A escolha é sua.", com o botão
   "Entrar em contato".
 
-7 critérios · 1 one-way door · 1 em aberto, que bloqueia o go-live.
+8 critérios · 1 one-way door · 1 em aberto, que bloqueia o go-live.
 
 ## Criteria
 
@@ -25,8 +25,10 @@ A página passa a ser uma viagem:
    então responde 200 com `{ latitude, longitude, city?, country? }`. Sem eles, ou com valores
    fora de ±90 / ±180, responde 204. Sempre com `Cache-Control: private, no-store`.
 2. Quando a rota não dá um lugar (fora da Vercel, localhost, falha de rede), o lugar vem do fuso
-   do navegador por uma tabela de 52 fusos comuns. Sem fuso conhecido, não há pin e o texto diz
-   "No momento, você está em algum lugar deste planeta.".
+   do navegador por uma tabela de 52 fusos comuns. Esse lugar é aproximado: o pin vai para a
+   cidade que dá nome ao fuso, mas o texto não cita cidade ("No momento, você está por aqui."),
+   porque um fuso cobre muitas (`America/Sao_Paulo` cobre o RS). Sem fuso conhecido, não há pin
+   e o texto diz "No momento, você está em algum lugar deste planeta.".
 3. A busca do lugar só acontece quando a seção chega a uma tela de distância, uma vez por visita.
    Nada é guardado.
 4. A seção `#contato` mostra um globo de pontos nos continentes, a partir da máscara
@@ -37,7 +39,12 @@ A página passa a ser uma viagem:
 5. O texto da seção é: `Contato` / "Até aqui, você viu onde podemos chegar." / "No momento, você
    está aqui, em {cidade}." / "A escolha é sua." / botão "Entrar em contato".
 6. Em telas largas o globo fica à direita do texto; em telas em pé, acima dele.
-7. O parallax entre as seções é um campo de estrelas: estrelas finas que cintilam no fundo,
+7. Quando o visitante arrasta sobre a seção, o globo gira 0,006 rad por px e continua girando
+   por inércia depois de solto. Três segundos depois do último toque, volta para o pin. O cursor
+   inclina o globo até 0,18 rad na direção dele. No toque, só o gesto horizontal gira o globo
+   (`touch-action: pan-y`), e o vertical continua rolando a página. Sob movimento reduzido, o
+   arraste gira sem inércia e o cursor não inclina.
+8. O parallax entre as seções é um campo de estrelas: estrelas finas que cintilam no fundo,
    estrelas mais brilhantes com halo no meio e poeira desfocada na frente. As camadas e as
    velocidades continuam as mesmas.
 

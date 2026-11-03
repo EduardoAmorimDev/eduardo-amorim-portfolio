@@ -3,6 +3,8 @@ export type VisitorPlace = {
   latitude: number
   longitude: number
   city?: string
+  /** Guessed from the time zone: a region, never a city to name. */
+  approximate?: boolean
 }
 
 const PLACE_ROUTE = '/api/onde-estou'
@@ -130,9 +132,14 @@ const asPlace = (data: unknown): VisitorPlace | null => {
   }
 }
 
+// why: one zone spans many cities (America/Sao_Paulo covers most of
+// Brazil, Rio Grande do Sul included), so its city is only where the pin
+// goes, never a place to tell the visitor they are in.
 const fromTimeZone = (): VisitorPlace | null => {
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  return ZONES[zone] ?? null
+  const zone = ZONES[Intl.DateTimeFormat().resolvedOptions().timeZone]
+  return zone
+    ? { latitude: zone.latitude, longitude: zone.longitude, approximate: true }
+    : null
 }
 
 /**

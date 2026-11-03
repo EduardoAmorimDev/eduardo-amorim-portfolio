@@ -33,7 +33,7 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
     return () => controller.abort()
   }, [near, place])
 
-  const city = place?.city
+  const city = place?.approximate ? undefined : place?.city
 
   return (
     <section
@@ -42,9 +42,11 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
       aria-labelledby={`${id}-title`}
       className="relative min-h-svh overflow-clip"
     >
+      {/* why: dragging turns the globe (globe-scene.tsx); on touch, vertical
+          swipes still scroll the page, so only horizontal ones turn it. */}
       <Canvas
         aria-hidden="true"
-        className="isolate"
+        className="isolate cursor-grab touch-pan-y active:cursor-grabbing"
         style={{ position: 'absolute', inset: 0 }}
         data-testid="globe-scene"
         dpr={[1.5, 2]}
@@ -68,7 +70,9 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           <p className="text-subtitle text-foreground/80 pointer-events-auto mt-6">
             {place === null
               ? 'No momento, você está em algum lugar deste planeta.'
-              : `No momento, você está aqui${city ? `, em ${city}` : ''}.`}
+              : city
+                ? `No momento, você está aqui, em ${city}.`
+                : 'No momento, você está por aqui.'}
             <br />A escolha é sua.
           </p>
           {/* hazard: the button has no destination yet; WhatsApp, e-mail, a
