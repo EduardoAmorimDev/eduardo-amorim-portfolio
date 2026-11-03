@@ -3,6 +3,7 @@ import { Html, useGLTF } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, type RefObject } from 'react'
 import { MathUtils, Mesh, type Group, type Object3D } from 'three'
+import { fitIn, floatAt, type Frame } from './stages'
 
 // why: the model comes from canvas-lab (assets/laptop.glb) and is built in
 // metres; these names are its contract with the animation below.
@@ -12,8 +13,8 @@ const NODES = { base: 'Base', lidPivot: 'LidPivot', screen: 'Screen' }
 // camera and floor in friendly numbers.
 const MODEL_SCALE = 10
 // why: the room the laptop needs in its widest pose (crooked and half open,
-// plus the Float bobbing), with a margin; it shrinks when the view is smaller.
-const FRAME = { width: 4.2, height: 3.4 }
+// plus the bobbing), with a margin; it shrinks when the view is smaller.
+export const LAPTOP_FRAME: Frame = { width: 4.2, height: 3.4 }
 
 // why: the visible display of the model, in metres; same values as
 // SCREEN_SIZE in canvas-lab/src/models/laptop-nodes.js.
@@ -62,12 +63,6 @@ const STRAIGHTEN = [0, 0.75] as const
 const OPEN = [0.1, 0.85] as const
 const POWER_ON = [0.6, 0.95] as const
 
-// why: higher values follow the scroll more tightly; lower values glide,
-// which hides the discrete steps of a mouse wheel.
-const SMOOTHING = 4
-// why: replaces drei's <Float> (same motion: ±0.06 units, ~12.6 s per cycle)
-// so the bobbing runs in this frame callback, before <Html> reads it.
-const FLOAT = { height: 0.06, speed: 0.5 }
 // hazard: <Html> places the page in its own useFrame (priority 0), reading
 // the lid's transform at that moment. Running first (-1) gives it this
 // frame's pose; otherwise the page trails the lid by a frame while moving.
@@ -86,6 +81,7 @@ const findParts = (root: Object3D) => {
 }
 
 type LaptopProps = {
+  /** The laptop's own progress (0..1), already damped by the carousel. */
   progress: RefObject<number>
   /** Page shown live on the laptop's screen; without one it stays black. */
   screenUrl?: string
@@ -95,7 +91,6 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
   const { scene } = useGLTF(MODEL_URL, false)
   const body = useRef<Group>(null)
   const page = useRef<HTMLIFrameElement>(null)
-  const smoothed = useRef(0)
 
   // why: read-only here (portal target and screen position); the lid is
   // animated through `parts` below, because a hook's value cannot be mutated.
@@ -104,15 +99,9 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
   // why: viewport is how many scene units fit on screen at the camera's
   // target; the selector re-renders only on resize, never per frame.
   const viewport = useThree(state => state.viewport)
-  // invariant: never above 1, so large screens keep the original size; the
-  // smaller ratio wins, covering portrait phones and short landscape screens.
-  const fit = Math.min(
-    1,
-    viewport.width / FRAME.width,
-    viewport.height / FRAME.height
-  )
+  const fit = fitIn(viewport, LAPTOP_FRAME)
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }) => {
     if (!body.current) return
     // why: looked up once, on the first frame, and kept in a ref: refs are
     // React's place for mutable values, so animating the model through them
@@ -122,15 +111,7 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
     // remount, the cached model) never thins the base twice.
     parts.current.base.scale.y = BASE.thinning
     parts.current.lid.position.y = BASE.height * BASE.thinning + BASE.hingeGap
-    // why: damping the progress once, and deriving every motion from it, keeps
-    // all the moving parts in step with each other.
-    smoothed.current = MathUtils.damp(
-      smoothed.current,
-      progress.current,
-      SMOOTHING,
-      delta
-    )
-    const p = smoothed.current
+    const p = progress.current
 
     // why: smoothstep maps p inside the window to 0..1 with an ease-in-out
     // curve, and clamps outside it, so each motion starts and stops softly.
@@ -143,8 +124,9 @@ export const Laptop = ({ progress, screenUrl }: LaptopProps) => {
       MathUtils.lerp(START_POSE.y, 0, straighten),
       MathUtils.lerp(START_POSE.z, 0, straighten)
     )
-    body.current.position.y =
-      Math.sin(clock.elapsedTime * FLOAT.speed) * FLOAT.height
+    // why: bobbing here, not with drei's <Float>, so it runs before <Html>
+    // reads the lid's pose this frame.
+    body.current.position.y = floatAt(clock.elapsedTime)
     parts.current.lid.rotation.x = LID_OPEN * open
     // why: fading the page in over the black backing reads as the screen
     // turning on.

@@ -13,22 +13,25 @@ const SCREEN_LEAD = '100% 0px'
 
 type NotebookProps = { id?: string }
 
-/** The laptop that straightens, opens and turns on as the page scrolls. */
+/**
+ * Phone, tablet, then a laptop that opens and turns on, carried across the
+ * stage by the scroll; once it ends, the laptop stays open for the visit.
+ */
 export const Notebook = ({ id }: NotebookProps) => {
   const section = useRef<HTMLElement>(null)
-  const progress = useScrollProgress(section)
+  const progress = useScrollProgress(section, { holdAtEnd: true })
   const screenLive = useNearViewport(section, SCREEN_LEAD)
 
   return (
-    // why: the section is 3 screens tall to give the scroll room to drive the
-    // animation; the sticky child keeps the canvas pinned while it does.
+    // why: the section is 6 screens tall to give the scroll room for the
+    // phone → tablet → laptop carousel; the sticky child pins the canvas.
     // select-none: <Html> puts real DOM behind a click-through canvas, so a
     // double click would select it and paint the screen in selection blue.
     <section
       id={id}
       ref={section}
       aria-label="Notebook"
-      className="relative h-[300vh]"
+      className="relative h-[600vh]"
     >
       <div className="sticky top-0 h-svh select-none">
         {/* why: no OrbitControls, so only the scroll moves the laptop.

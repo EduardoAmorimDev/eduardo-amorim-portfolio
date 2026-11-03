@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, type RefObject } from 'react'
 import { CanvasTexture } from 'three'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
-import { Laptop } from './laptop'
+import { DeviceCarousel } from './device-carousel'
 
 // why: the latest landing page, shown live on the laptop's screen.
 const SCREEN_URL = 'https://kune-joaoeduardoajs-projects.vercel.app/en'
@@ -51,11 +51,11 @@ const createFloorMask = () => {
 
 type NotebookSceneProps = {
   progress: RefObject<number>
-  /** Whether the laptop's screen shows the live site; black otherwise. */
+  /** Whether the devices' screens show the live site; black otherwise. */
   screenLive: boolean
 }
 
-/** The laptop on its floor, under two spotlights, opened by the scroll. */
+/** Phone, tablet and laptop on a floor, under two spotlights, driven by the scroll. */
 export const NotebookScene = ({ progress, screenLive }: NotebookSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
@@ -92,7 +92,7 @@ export const NotebookScene = ({ progress, screenLive }: NotebookSceneProps) => {
 
       {/* why: Suspense renders nothing until the model has loaded. */}
       <Suspense fallback={null}>
-        <Laptop
+        <DeviceCarousel
           progress={progress}
           screenUrl={screenLive ? SCREEN_URL : undefined}
         />
