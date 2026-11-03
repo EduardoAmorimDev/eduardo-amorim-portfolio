@@ -1,6 +1,6 @@
 'use client'
 import { Canvas } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MathUtils } from 'three'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { useNearViewport } from '@/lib/use-near-viewport'
@@ -31,6 +31,8 @@ export const Notebook = ({ id }: NotebookProps) => {
   const stage = useRef<HTMLDivElement>(null)
   const progress = useScrollProgress(section)
   const screenLive = useNearViewport(section, SCREEN_LEAD)
+  // why: once the real page has taken over, the hidden stage stops drawing.
+  const [handedOff, setHandedOff] = useState(false)
 
   useEffect(() => {
     const update = () => {
@@ -43,6 +45,7 @@ export const Notebook = ({ id }: NotebookProps) => {
       // why: once gone, the stage must not catch the clicks meant for the
       // real section now in its place.
       view.style.visibility = fade >= 1 ? 'hidden' : 'visible'
+      setHandedOff(fade >= 1)
     }
     update()
     window.addEventListener('scroll', update, { passive: true })
@@ -56,19 +59,22 @@ export const Notebook = ({ id }: NotebookProps) => {
   return (
     // why: 7 screens tall to give the scroll room for the carousel and the
     // dive; the sticky child pins the stage. z-10: the next block is pulled
-    // up under the last screen (page.tsx), and the stage covers it until the
-    // hand-off.
-    // select-none: <Html> puts real DOM behind a click-through canvas, so a
-    // double click would select it and paint the screen in selection blue.
+    // up under the last screen (page.tsx) and the stage covers it until the
+    // hand-off; the section lets the pointer through to it after that.
     <section
       id={id}
       ref={section}
       aria-labelledby={`${id}-title`}
-      className="relative z-10 h-[700vh]"
+      className="pointer-events-none relative z-10 h-[700vh]"
     >
       {/* why: opaque, in the page's own colour, so the section pulled up
           beneath never shows through the transparent canvas. */}
-      <div ref={stage} className="bg-background sticky top-0 h-svh select-none">
+      {/* why: select-none: <Html> puts real DOM behind a click-through
+          canvas, so a double click would paint the screen selection blue. */}
+      <div
+        ref={stage}
+        className="bg-background pointer-events-auto sticky top-0 h-svh select-none"
+      >
         {/* why: no OrbitControls, so only the scroll moves the devices.
             dpr ≥ 1.5: MSAA alone left the thin edges stair-stepped. alpha:
             the sky is the page background. isolate: keeps drei <Html>'s
@@ -80,7 +86,7 @@ export const Notebook = ({ id }: NotebookProps) => {
           gl={{ alpha: true }}
           camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
         >
-          <RenderGate />
+          <RenderGate active={!handedOff} />
           <NotebookScene progress={progress} screenLive={screenLive} />
         </Canvas>
         <DeviceCopy id={id} progress={progress} active={screenLive} />

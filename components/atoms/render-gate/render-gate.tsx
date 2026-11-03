@@ -7,11 +7,16 @@ import { useNearViewport } from '@/lib/use-near-viewport'
 // scrolls into view and its last paused frame is never seen.
 export const RENDER_LEAD = '25% 0px'
 
+type RenderGateProps = {
+  /** False stops the loop even on screen, e.g. while the scene is hidden. */
+  active?: boolean
+}
+
 /**
  * Stops its `<Canvas>`'s render loop while the canvas is off screen, so a
  * scene nobody sees costs no GPU time. Place it inside the `<Canvas>`.
  */
-export const RenderGate = () => {
+export const RenderGate = ({ active = true }: RenderGateProps) => {
   const canvas = useRef(useThree(state => state.gl.domElement))
   const get = useThree(state => state.get)
   const near = useNearViewport(canvas, RENDER_LEAD)
@@ -22,9 +27,9 @@ export const RenderGate = () => {
     // animation driven by elapsedTime back to its first pose; carrying the
     // time over resumes them where they stopped.
     const elapsed = clock.elapsedTime
-    setFrameloop(near ? 'always' : 'never')
+    setFrameloop(near && active ? 'always' : 'never')
     clock.elapsedTime = elapsed
-  }, [get, near])
+  }, [get, near, active])
 
   return null
 }
