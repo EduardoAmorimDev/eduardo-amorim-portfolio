@@ -59,7 +59,7 @@ void main() {
   float round = smoothstep(0.5, 0.2, length(c));
   // why: a translucent Earth: the far side's land shows through, faint and
   // violet; the near side glows, brightest facing the viewer.
-  float alpha = round * mix(0.32, 0.95, smoothstep(-0.15, 0.45, vFacing));
+  float alpha = round * mix(0.18, 0.7, smoothstep(-0.15, 0.45, vFacing));
   vec3 col = mix(uRim, uColor, smoothstep(0.0, 0.7, vFacing));
   gl_FragColor = vec4(col, alpha);
 }
@@ -78,9 +78,10 @@ const HALO_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
 varying float vRim;
 void main() {
-  // why: a thin, soft atmosphere hugging the limb, not a neon ring.
-  float rim = smoothstep(0.55, 1.0, vRim);
-  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.92, 1.0, vRim)) * 0.55);
+  // why: a thin atmosphere hugging the limb; the bloom turns its light
+  // into the glow around the Earth.
+  float rim = smoothstep(0.6, 1.0, vRim);
+  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.94, 1.0, vRim)) * 0.8);
 }
 `
 
@@ -198,17 +199,19 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
         new Color(readColorToken('steel')),
         0.12
       ),
-      dot: new Color(readColorToken('mist')),
-      rim: new Color(readColorToken('primary')).lerp(
-        new Color(readColorToken('mist')),
-        0.25
+      // why: the Earth glows light blue: its land a blue-white, its limb
+      // and far side the sky colour, which the bloom spreads as light.
+      dot: new Color(readColorToken('mist')).lerp(
+        new Color(readColorToken('sky')),
+        0.55
       ),
+      rim: new Color(readColorToken('sky')),
       pin: new Color(readColorToken('mist')),
       // why: the vapour glows a pale violet, the brand's mist touched by its
       // primary, bright enough to read as light on the dark.
-      vapor: new Color(readColorToken('mist')).lerp(
-        new Color(readColorToken('primary')),
-        0.3
+      vapor: new Color(readColorToken('sky')).lerp(
+        new Color(readColorToken('mist')),
+        0.4
       )
     }),
     []
@@ -329,7 +332,7 @@ export const GlobeScene = ({ place }: GlobeSceneProps) => {
 
   return (
     <group position={[layout.x, layout.y, 0]} scale={layout.scale}>
-      <mesh scale={1.08}>
+      <mesh scale={1.04}>
         <sphereGeometry args={[1, 64, 64]} />
         <shaderMaterial
           uniforms={haloUniforms}

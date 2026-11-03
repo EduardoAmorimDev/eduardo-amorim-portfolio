@@ -187,7 +187,7 @@ export const GlobeVapor = ({ pointer, still, color }: GlobeVaporProps) => {
           transparent
           depthWrite={false}
           blending={AdditiveBlending}
-          opacity={0.9}
+          opacity={0.35}
         />
       </lineSegments>
       <points ref={dots} frustumCulled={false}>
@@ -226,6 +226,6 @@ void main() {
   float glow = smoothstep(0.5, 0.0, d);
   // why: nodes behind the globe glow fainter, giving the shell depth.
   float back = 0.35 + 0.65 * smoothstep(-1.2, 0.8, vDepth);
-  gl_FragColor = vec4(uColor * glow * glow * 2.2 * back, 1.0);
+  gl_FragColor = vec4(uColor * glow * glow * 1.6 * back, 1.0);
 }
 `

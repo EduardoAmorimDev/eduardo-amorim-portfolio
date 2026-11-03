@@ -5,6 +5,7 @@ import { GlitchText } from '@/components/atoms/glitch-text'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
+import { Bloom } from './bloom'
 import { GlobeScene } from './globe-scene'
 
 // why: the place is looked up as the section approaches, so a visitor who
@@ -55,6 +56,9 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
       >
         <RenderGate />
         <GlobeScene place={place ?? null} />
+        {/* why: the Earth's light, spilled by its bright land, limb and
+            vapour, rather than painted around it. */}
+        <Bloom strength={0.75} radius={0.45} threshold={0.45} />
       </Canvas>
       <div className="pointer-events-none relative z-10 flex min-h-svh flex-col justify-end px-6 pb-16 lg:px-16 landscape:justify-center landscape:pb-0">
         <div className="max-w-xl landscape:max-w-[46%]">
