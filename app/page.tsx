@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { HeroCopy } from '@/components/molecules/hero-copy'
 import { About } from '@/components/organisms/about'
 import { Cases } from '@/components/organisms/cases'
-import { Contact } from '@/components/organisms/contact'
 import { Faq } from '@/components/organisms/faq'
 import { Hero } from '@/components/organisms/hero'
 import { Notebook } from '@/components/organisms/notebook'
@@ -12,6 +11,7 @@ import { SocialProof } from '@/components/organisms/social-proof'
 import { Solutions } from '@/components/organisms/solutions'
 import { Testimonials } from '@/components/organisms/testimonials'
 import { Workflow } from '@/components/organisms/workflow'
+import { YouAreHere } from '@/components/organisms/you-are-here'
 
 // why: isolate keeps the backdrop and parallax layers' z-index inside each
 // block, behind and over its sections but never the hero or the notebook.
@@ -51,7 +51,7 @@ export default function Home() {
           <Workflow />
           <Testimonials />
           <Faq />
-          <Contact />
+          <YouAreHere id="contato" />
         </Decorated>
       </main>
       <footer></footer>
