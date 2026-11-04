@@ -7,14 +7,10 @@ import {
   tokenRgb
 } from './page-helpers'
 
-const CARDS = [
-  '#solucoes li',
-  '#cases article',
-  '#depoimentos figure',
-  '#workflow ol > li'
-]
-// why: the checklist's own numbers (C69, C70).
-const COUNT = 18
+const CARDS = ['#solucoes li', '#cases article', '#depoimentos figure']
+// why: the checklist's own numbers (C69, C70), less the six workflow steps,
+// now nodes on a timeline (task reach-and-seams, 18).
+const COUNT = 12
 const GLASS = { fill: 0.05, edge: 0.1, highlight: 0.2, blur: 'blur(16px)' }
 const LIFT = 0.01
 const CHANNEL_SLACK = 1
