@@ -23,6 +23,10 @@ const SCREEN_LEAD = '100% 0px'
 // fades out; by then it has let go and moves with the real section, so the
 // fade only swaps the picture of the page for the page itself.
 const HANDOFF = 0.25
+// why: share of a screen, either side of the stage's top reaching the
+// window's top, over which its own ground and sky fade in over the block
+// above's sky, whose glows sit where the stage's do once it is pinned.
+const GROUND_FADE = 0.1
 // why: crisp edges by default; a GPU that drops frames on the carousel
 // draws fewer pixels, down to 0.75 per CSS px, which keeps the motion smooth.
 const DPR = { full: [1.5, 2] as [number, number], reduced: 0.75 }
@@ -52,10 +56,15 @@ export const Notebook = ({ id }: NotebookProps) => {
       const box = element.getBoundingClientRect()
       const past = window.innerHeight - box.bottom
       const fade = MathUtils.clamp(past / (window.innerHeight * HANDOFF), 0, 1)
-      // why: the stage's sky rises as it enters, so its top edge meets the
-      // block above, whose sky fades out there, without a line.
-      const entry = MathUtils.clamp(1 - box.top / window.innerHeight, 0, 1)
-      view.style.setProperty('--sky-entry', String(entry * entry))
+      // why: the stage is clear while it enters, showing the block above's
+      // sky (page.tsx, `under`), so no edge crosses the window; once pinned
+      // it turns opaque, hiding the section pulled up beneath it.
+      const ground = MathUtils.clamp(
+        (GROUND_FADE - box.top / window.innerHeight) / (2 * GROUND_FADE),
+        0,
+        1
+      )
+      view.style.setProperty('--stage-ground', String(ground))
       view.style.opacity = String(1 - fade)
       // why: once gone, the stage must not catch the clicks meant for the
       // real section now in its place.
@@ -82,19 +91,23 @@ export const Notebook = ({ id }: NotebookProps) => {
       aria-labelledby={`${id}-title`}
       className="pointer-events-none relative z-10 h-[700vh]"
     >
-      {/* why: opaque, in the page's own colour, so the section pulled up
-          beneath never shows through the transparent canvas. */}
       {/* why: select-none: <Html> puts real DOM behind a click-through
           canvas, so a double click would paint the screen selection blue. */}
       {/* why: isolate, so the sky's negative layers stay inside the stage,
           over its opaque ground and under the canvas. */}
       <div
         ref={stage}
-        className="bg-background pointer-events-auto sticky top-0 isolate h-svh select-none"
+        className="pointer-events-auto sticky top-0 isolate h-svh select-none"
       >
+        {/* why: opaque once pinned, in the page's own colour, so the section
+            pulled up beneath never shows through the transparent canvas. */}
+        <div
+          data-testid="notebook-ground"
+          className="bg-background absolute inset-0 -z-30 opacity-(--stage-ground)"
+        />
         <div
           data-testid="notebook-sky"
-          className="absolute inset-0 -z-20 opacity-(--sky-entry)"
+          className="absolute inset-0 -z-20 opacity-(--stage-ground)"
         >
           <SectionsBackdrop />
           <ParallaxField />

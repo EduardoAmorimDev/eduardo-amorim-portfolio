@@ -17,18 +17,26 @@ import type { SkyFade } from '@/lib/sky-fade'
 
 // why: isolate keeps the backdrop and parallax layers' z-index inside each
 // block, behind and over its sections but never the hero or the notebook.
+// `under` runs the sky a screen past the block, beneath the notebook's stage,
+// which stays clear while it enters, so both read as one sky.
 const Decorated = ({
   children,
   className = '',
-  fade
+  fade,
+  under = false
 }: {
   children: ReactNode
   className?: string
   fade?: SkyFade
+  under?: boolean
 }) => (
   <div className={`relative isolate ${className}`}>
-    <SectionsBackdrop fade={fade} />
-    <ParallaxField fade={fade} />
+    <div
+      className={`pointer-events-none absolute inset-x-0 top-0 ${under ? '-bottom-[100svh]' : 'bottom-0'}`}
+    >
+      <SectionsBackdrop fade={fade} />
+      <ParallaxField fade={fade} />
+    </div>
     {children}
   </div>
 )
@@ -41,7 +49,7 @@ export default function Home() {
         <Hero id="hero">
           <HeroCopy />
         </Hero>
-        <Decorated fade="both">
+        <Decorated fade="both" under>
           <SocialProof />
           <About />
           <Solutions />
