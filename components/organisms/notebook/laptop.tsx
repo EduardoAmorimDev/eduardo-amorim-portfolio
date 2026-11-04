@@ -93,8 +93,9 @@ const findParts = (root: Object3D) => {
 
 /**
  * Where the page on the laptop's glass sits in the world, for a camera to
- * dive into it: its centre, the way it faces, its up, and the height of the
- * viewport-sized page on it.
+ * dive into it: the centre of the viewport-sized part of the page (its top,
+ * where the page is taller than the window), the way it faces, its up, and
+ * that part's height.
  */
 export type ScreenView = {
   centre: Vector3
@@ -134,11 +135,17 @@ export const Laptop = ({
   // why: the selector re-renders only on resize, never per frame.
   const size = useThree(state => state.size)
   const fit = fitIn(stageViewport(size), LAPTOP_FRAME, side)
-  // why: the page is laid out at the window's own size, so it is the very
-  // layout of the real section below; scaled to fit the glass (letterboxed
-  // where the shapes differ), it fills the window exactly once the camera
-  // has dived in, and the real page can take over unnoticed.
-  const pageScale = Math.min(PAGE_WIDTH / size.width, PAGE_HEIGHT / size.height)
+  // why: the page is laid out at the window's width, so it is the very
+  // layout of the real section below. A window wider than the glass gets a
+  // taller page that covers it, top-aligned, with no black bands (task
+  // swallow-and-copy, 11); a narrower one keeps the whole window-sized page
+  // in view, pillarboxed, as the dive must end on exactly that page.
+  const covers = size.width / size.height >= PAGE_WIDTH / PAGE_HEIGHT
+  const pageScale = covers ? PAGE_WIDTH / size.width : PAGE_HEIGHT / size.height
+  const frameHeight = covers ? PAGE_HEIGHT / pageScale : size.height
+  // why: how far the window-sized top of the page sits above the glass's
+  // centre, in the page's px, for the dive to end on it.
+  const windowLift = covers ? (PAGE_HEIGHT - size.height * pageScale) / 2 : 0
   // why: the page is drawn at about its size on screen (renderScale), which
   // reaches 1 as the camera ends its dive, for the hand-off to the page.
   const [zoom, setZoom] = useState(1)
@@ -190,6 +197,7 @@ export const Laptop = ({
     const normal = new Vector3(0, -1, 0).transformDirection(lid.matrixWorld)
     const up = new Vector3(0, 0, 1).transformDirection(lid.matrixWorld)
     const lidScale = lid.getWorldScale(new Vector3()).x
+    centre.addScaledVector(up, windowLift * UNITS_PER_PX * lidScale)
     viewRef.current = {
       centre,
       normal,
@@ -275,7 +283,7 @@ export const Laptop = ({
                 src={screenUrl}
                 title="Preview of the projects section on a laptop"
                 width={size.width}
-                height={size.height}
+                height={frameHeight}
                 tabIndex={-1}
                 aria-hidden
                 // why: a picture of the section, never a page that runs.
@@ -284,7 +292,7 @@ export const Laptop = ({
                 className="pointer-events-none absolute border-0 opacity-0"
                 style={{
                   left: (PAGE_WIDTH - size.width) / 2,
-                  top: (PAGE_HEIGHT - size.height) / 2,
+                  top: (PAGE_HEIGHT - frameHeight) / 2,
                   transform: `scale(${pageScale})`
                 }}
               />
