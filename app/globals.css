@@ -75,6 +75,22 @@
   --animate-rise: rise 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--rise-delay, 0s)
     both;
 
+  /* why: the contact call sends out a ring that grows to 125% of the button
+     and fades, every 2 s (task reach-and-seams, 21); the button keeps its
+     own size. */
+  --animate-call-pulse: call-pulse 2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+
+  @keyframes call-pulse {
+    from {
+      opacity: 0.8;
+      scale: 1;
+    }
+    to {
+      opacity: 0;
+      scale: 1.25;
+    }
+  }
+
   @keyframes rise {
     from {
       opacity: 0;

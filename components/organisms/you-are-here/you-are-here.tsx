@@ -15,16 +15,6 @@ const LOOKUP_LEAD = '100% 0px'
 
 type YouAreHereProps = { id: string }
 
-// why: the line points at the place as well as it is known: the city from
-// the request, only "near you" from a time zone, which spans many cities,
-// and the Earth itself while the lookup is pending or found nothing.
-const mapLine = (place: VisitorPlace | null | undefined) => {
-  if (!place)
-    return 'Agora a viagem volta para a Terra, onde seu projeto começa.'
-  const where = place.approximate || !place.city ? 'perto de você' : place.city
-  return `Agora o mapa aponta para ${where}, de onde seu projeto parte.`
-}
-
 /**
  * The page's ending: after the black hole of the hero ("where we can go"),
  * the Earth, with a pin on the visitor's place ("where you are"), and the
@@ -100,21 +90,29 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           <GlitchText
             as="h2"
             id={`${id}-title`}
-            text="Do horizonte de eventos até você."
+            text="Trago o horizonte de possibilidades, até você"
             className="font-display text-title-md lg:text-title-lg pointer-events-auto mt-4"
           />
+          {/* why: the text is the same wherever the visitor is; the place
+              only moves the pin on the globe (task reach-and-seams, 20). */}
           <p className="text-subtitle text-foreground/80 pointer-events-auto mt-6">
-            Começamos no limite do que dá para construir. {mapLine(place)}
-            <br />
-            Para onde ele vai, você decide.
+            Você viu onde podemos chegar. O mapa aponta nosso ponto de partida.
+          </p>
+          <p className="text-body text-foreground/60 pointer-events-auto mt-8">
+            A escolha é sua...
           </p>
           {/* hazard: the button has no destination yet; WhatsApp, e-mail, a
               calendar or a form is still open (task earth-and-sky,
               Unresolved 1) and blocks the go-live. */}
           <button
             type="button"
-            className="bg-primary text-body text-mist hover:bg-steel pointer-events-auto mt-8 inline-flex h-14 items-center rounded-full px-8 font-semibold transition-colors"
+            className="bg-primary text-body text-mist hover:bg-steel pointer-events-auto relative mt-4 inline-flex h-14 items-center rounded-full px-8 font-semibold transition-colors"
           >
+            <span
+              aria-hidden="true"
+              data-call-pulse
+              className="border-primary motion-safe:animate-call-pulse pointer-events-none absolute inset-0 rounded-full border-2 opacity-0"
+            />
             Vamos conversar
           </button>
         </div>

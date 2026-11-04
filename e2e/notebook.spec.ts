@@ -17,11 +17,23 @@ const SCREENS_TALL = 7
 const EMBED_PATH = '/embed/projetos'
 const PHONE_WIDTH = 390
 const TABLET = { portrait: [820, 1180], landscape: [1180, 820] } as const
-const HEADING = 'Um projeto, todas as telas'
+// why: the copy of task reach-and-seams, 10–11.
+const LABEL = 'Alcance'
+const HEADING = 'Vá onde o concorrente não foi'
 const CHAPTERS = [
-  'Começa na palma da mão',
-  'Ganha espaço sem perder o ritmo',
-  'E se abre por inteiro'
+  'No bolso do seu cliente',
+  'A vitrine que nunca fecha',
+  'E a operação inteira, por dentro'
+]
+const CHAPTER_LABELS = [
+  '01 · Apps',
+  '02 · Sites e landing pages',
+  '03 · Sistemas'
+]
+const CHAPTER_BODIES = [
+  'Aplicativos e PWAs que vivem na tela inicial, avisam na hora certa e abrem até com sinal fraco. Seu cliente chega até você com um toque.',
+  'Sites e landing pages rápidos, fáceis de achar no Google e feitos para converter, em qualquer tela que o cliente tiver na mão.',
+  'ERPs, CRMs, painéis e web apps sob medida: o que sua equipe usa todo dia, do estoque ao atendimento, no navegador de qualquer máquina.'
 ]
 // why: a point of the section's progress where each chapter is on stage;
 // 0.85 is inside the dive, where the copy steps aside.
@@ -96,6 +108,11 @@ test('the notebook is labelled by its heading and tells a chapter per device', a
     page.getByRole('heading', { level: 2, name: HEADING })
   ).toHaveAttribute('id', labelledBy ?? '')
   await expect(notebook.locator('h3')).toHaveText(CHAPTERS)
+  const copy = notebook.getByTestId('notebook-copy')
+  await expect(copy.locator('span').first()).toHaveText(LABEL)
+  const chapters = copy.locator('h3').locator('..')
+  await expect(chapters.locator('span')).toHaveText(CHAPTER_LABELS)
+  await expect(chapters.locator('p')).toHaveText(CHAPTER_BODIES)
 })
 
 test('the notebook is seven screens tall and holds its stage', async ({
@@ -154,6 +171,9 @@ test('every device shows the projects section at its own width', async ({
 })
 
 test('the chapter follows the device on stage, both ways', async ({ page }) => {
+  // why: eight settled scrolls take 20 s, and reaching the notebook now
+  // also loads the glass icons just above it (task reach-and-seams, 13).
+  test.setTimeout(45_000)
   await gotoNotebook(page)
   for (const { progress, chapter } of ON_STAGE) {
     await scrollToProgress(page, progress)
@@ -254,15 +274,17 @@ test('nothing floats over the notebook', async ({ page }) => {
   )
   await expect(page.locator('[data-testid="sections-grid"]')).toHaveCount(0)
   // invariant: every parallax layer and glow is clipped to its own block of
-  // sections, so a block off screen leaves nothing of them on screen.
+  // sections, so a block off screen leaves nothing of them on screen; the
+  // stage's own sky (task reach-and-seams, 8) is the notebook's, not a float.
   const reaching = await page.evaluate(() => {
+    const outside = (node: Element) => !node.closest('#notebook')
     const boxes = [
-      ...[...document.querySelectorAll('[data-parallax-layer]')].map(
-        layer => layer.parentElement
-      ),
-      ...[...document.querySelectorAll('[data-testid="sections-glow"]')].map(
-        glow => glow.closest('[aria-hidden="true"]')
-      ),
+      ...[...document.querySelectorAll('[data-parallax-layer]')]
+        .filter(outside)
+        .map(layer => layer.parentElement),
+      ...[...document.querySelectorAll('[data-testid="sections-glow"]')]
+        .filter(outside)
+        .map(glow => glow.closest('[aria-hidden="true"]')),
       document.querySelector('#hero')
     ]
     return boxes.flatMap(node => {

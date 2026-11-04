@@ -12,23 +12,23 @@ const STEPS = [
   {
     from: 0,
     side: 'left',
-    label: '01 · No celular',
-    title: 'Começa na palma da mão',
-    body: 'O primeiro contato quase sempre acontece aqui, entre uma tarefa e outra. Por isso o layout nasce no celular: uma coluna, botões no alcance do polegar e nada que obrigue a dar zoom.'
+    label: '01 · Apps',
+    title: 'No bolso do seu cliente',
+    body: 'Aplicativos e PWAs que vivem na tela inicial, avisam na hora certa e abrem até com sinal fraco. Seu cliente chega até você com um toque.'
   },
   {
     from: midpoint(STAGES.phoneOut),
     side: 'right',
-    label: '02 · No tablet',
-    title: 'Ganha espaço sem perder o ritmo',
-    body: 'Em pé ou deitado, o mesmo site se reorganiza: as colunas se abrem, as imagens crescem e a leitura segue fluida, sem cortes nem rolagem para o lado.'
+    label: '02 · Sites e landing pages',
+    title: 'A vitrine que nunca fecha',
+    body: 'Sites e landing pages rápidos, fáceis de achar no Google e feitos para converter, em qualquer tela que o cliente tiver na mão.'
   },
   {
     from: midpoint(STAGES.tabletOut),
     side: 'left',
-    label: '03 · No notebook',
-    title: 'E se abre por inteiro',
-    body: 'Na tela grande, a experiência completa: mais respiro, mais detalhe e cada seção no seu lugar. O mesmo código, do primeiro toque ao último clique.'
+    label: '03 · Sistemas',
+    title: 'E a operação inteira, por dentro',
+    body: 'ERPs, CRMs, painéis e web apps sob medida: o que sua equipe usa todo dia, do estoque ao atendimento, no navegador de qualquer máquina.'
   }
 ] as const
 
@@ -57,7 +57,8 @@ type DeviceCopyProps = {
 }
 
 /**
- * The section's story: a heading, and one short chapter per device, beside
+ * The section's story, reach: a heading, and one short chapter per device
+ * (apps, sites and landing pages, systems), beside
  * it on wide landscape screens and under it otherwise, cross-fading as the
  * carousel swaps devices.
  */
@@ -90,12 +91,12 @@ export const DeviceCopy = ({ id, progress, active }: DeviceCopyProps) => {
         className={`pt-10 transition-[opacity,translate] duration-500 lg:pt-14 ${shown(step !== NO_STEP)}`}
       >
         <span className="text-caption text-foreground/60 font-semibold tracking-[0.2em] uppercase">
-          Responsividade
+          Alcance
         </span>
         <GlitchText
           as="h2"
           id={`${id}-title`}
-          text="Um projeto, todas as telas"
+          text="Vá onde o concorrente não foi"
           className="font-display text-title-sm lg:text-title-md mx-auto mt-2 max-w-3xl"
         />
       </div>
