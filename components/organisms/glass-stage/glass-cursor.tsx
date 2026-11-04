@@ -107,8 +107,8 @@ const CursorScene = ({ pointerRef, kickRef, onReady }: CursorSceneProps) => {
 /**
  * The visitor's pointer, in glass: cursor.glb drawn by the GlassStage at the
  * pointer, leaning with its motion and growing over controls; the native
- * pointer is hidden only once the glass is drawn, and comes back over the
- * device screens, whose pages have their own (task reach-and-seams, 22–28).
+ * pointer is hidden only once the glass is drawn, and the glass steps aside
+ * over any frame that takes the pointer (task reach-and-seams, 22–28).
  */
 export const GlassCursor = () => {
   const box = useRef<HTMLDivElement>(null)
@@ -149,8 +149,9 @@ export const GlassCursor = () => {
       setShown(!(target instanceof HTMLIFrameElement))
       kick.current()
     }
-    // why: over a device screen the pointer is in another document, which
-    // sends this one no more moves; the glass steps aside until it is back.
+    // why: over a frame that takes the pointer it is in another document,
+    // which sends this one no more moves; the glass steps aside until it is
+    // back (the device screens take none, task reach-and-seams, 26).
     const over = (event: PointerEvent) => {
       if (event.target instanceof HTMLIFrameElement) setShown(false)
     }

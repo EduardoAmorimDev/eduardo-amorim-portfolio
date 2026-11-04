@@ -673,6 +673,27 @@ test.describe('the glass cursor', () => {
     expect(await cursorBox(page), 'the cursor ignores focus').toEqual(before)
   })
 
+  test('the glass cursor lets clicks through', async ({ page }) => {
+    await page.goto('/')
+    const button = page.locator('#contato').getByRole('button')
+    await scrollWindowTo(page, await documentTop(page.locator('#contato')))
+    await page.waitForTimeout(LOAD_MS)
+    await button.evaluate(element =>
+      element.addEventListener('click', () =>
+        element.setAttribute('data-clicked', '')
+      )
+    )
+    await button.click()
+    await expect(button).toHaveAttribute('data-clicked', '')
+    const box = await button.boundingBox()
+    if (!box) throw new Error('no button box')
+    const top = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest('button') !== null,
+      { x: box.x + 20, y: box.y + 20 }
+    )
+    expect(top).toBe(true)
+  })
+
   test('a model that fails keeps the native cursor', async ({ page }) => {
     await page.route('**/models/glass/cursor.glb', route =>
       route.fulfill({ status: 404 })

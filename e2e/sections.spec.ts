@@ -130,7 +130,6 @@ test('hero CTA scrolls to contato', async ({ page }) => {
     .toBe(true)
 })
 
-// why: task earth-and-sky, 6-8, word for word.
 // why: the copy is fixed, whatever the place (task reach-and-seams, 20).
 const CONTATO = {
   title: 'Trago o horizonte de possibilidades, até você',
