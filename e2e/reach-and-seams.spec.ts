@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Page, Route } from '@playwright/test'
 import { expect, test } from './fixtures'
 import {
   channels,
@@ -16,7 +16,15 @@ const VIEW = { width: 1440, height: 900 }
 const SEAM = { band: 8, maxGap: 3 }
 const SPILL = { visible: 0.25, gone: 0.5 }
 const ICON_PX = 64
-const CURSOR = { tip: 2, grow: 1.2, growSlack: 0.08 }
+// why: heightSlack: the glass's faint rim at the arrow's foot may fall
+// under the paint threshold, by a few px.
+const CURSOR = {
+  tip: 2,
+  height: 32,
+  heightSlack: 4,
+  grow: 1.2,
+  growSlack: 0.08
+}
 const PULSE = { seconds: 2, scale: 1.25 }
 const TIMELINE_BREAKPOINT = 1024
 // why: damped poses, the sky's fade and the glass need a moment to settle.
@@ -157,7 +165,7 @@ test.describe('the hero dissolves into the sky', () => {
         const found = document.elementFromPoint(x, y)
         return {
           inHero: !!found?.closest('#hero'),
-          inBlock: !!found?.closest('main > div')
+          inBlock: !!found?.closest('#prova-social')
         }
       },
       { x: VIEW.width / 2, y: VIEW.height / 2 + 100 }
@@ -192,6 +200,32 @@ test.describe('the notebook stage carries the sky', () => {
     )
     expect(opacity).toBeGreaterThan(0.99)
   })
+})
+
+test('the stage hides the cases until the hand-off', async ({ page }) => {
+  await page.goto('/')
+  const section = page.locator('#notebook')
+  for (const progress of [0.5, 0.95]) {
+    await scrollWindowTo(
+      page,
+      await section.evaluate((element, p) => {
+        const { top, height } = element.getBoundingClientRect()
+        return top + scrollY + p * (height - innerHeight)
+      }, progress)
+    )
+    const stage = section.locator('> div')
+    await expect(stage).toHaveCSS('visibility', 'visible')
+    await expect(stage).toHaveCSS('opacity', '1')
+    await expect(stage).toHaveCSS(
+      'background-color',
+      await tokenRgb(page, 'ink')
+    )
+    const hit = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest('section')?.id,
+      { x: VIEW.width / 2, y: VIEW.height / 2 }
+    )
+    expect(hit, `at ${progress}`).toBe('notebook')
+  }
 })
 
 test.describe('glass icons on the solution cards', () => {
@@ -485,6 +519,9 @@ test.describe('the glass cursor', () => {
     // invariant: the tip is the topmost, leftmost pixel of the arrow.
     expect(Math.abs(glass.top)).toBeLessThanOrEqual(CURSOR.tip)
     expect(Math.abs(glass.left)).toBeLessThanOrEqual(CURSOR.tip)
+    expect(Math.abs(glass.height - CURSOR.height)).toBeLessThanOrEqual(
+      CURSOR.heightSlack
+    )
   })
 
   test('the glass cursor grows over controls', async ({ page }) => {
@@ -517,7 +554,29 @@ test.describe('the glass cursor', () => {
     )
   })
 
-  test('the glass cursor hides over the device screens and off the window', async ({
+  test('the glass cursor counts buttons and links as controls', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await page.waitForTimeout(LOAD_MS)
+    const cursor = page.locator('[data-testid="glass-cursor"]')
+    const link = await page.locator('#hero a[href="#contato"]').boundingBox()
+    if (!link) throw new Error('no hero link')
+    await showAt(page, link.x + 12, link.y + 8)
+    await expect(cursor).toHaveAttribute('data-control', '')
+    await showAt(page, 700, 300)
+    await expect(cursor).not.toHaveAttribute('data-control', '')
+    await scrollWindowTo(page, await documentTop(page.locator('#contato')))
+    const button = await page
+      .locator('#contato')
+      .getByRole('button')
+      .boundingBox()
+    if (!button) throw new Error('no contato button')
+    await showAt(page, button.x + 20, button.y + 20)
+    await expect(cursor).toHaveAttribute('data-control', '')
+  })
+
+  test('the glass cursor hides over a frame that takes the pointer and off the window', async ({
     page
   }) => {
     await page.goto('/')
@@ -544,27 +603,74 @@ test.describe('the glass cursor', () => {
       )
     )
     await expect(cursor).not.toHaveAttribute('data-shown', '')
+    await showAt(page, 640, 320)
+    await expect(cursor).toHaveAttribute('data-shown', '')
   })
 
-  test('the glass cursor lets clicks through', async ({ page }) => {
+  test('pointer moves still reach the window under the glass', async ({
+    page
+  }) => {
     await page.goto('/')
-    const button = page.locator('#contato').getByRole('button')
     await scrollWindowTo(page, await documentTop(page.locator('#contato')))
     await page.waitForTimeout(LOAD_MS)
-    await button.evaluate(element =>
-      element.addEventListener('click', () =>
-        element.setAttribute('data-clicked', '')
-      )
+    // why: the globe's vapour reads the pointer from the window
+    // (globe-vapor.tsx); the glass must neither take nor stop those moves.
+    await page.evaluate(() => {
+      const scope = window as unknown as { moves: number }
+      scope.moves = 0
+      window.addEventListener('pointermove', () => scope.moves++)
+    })
+    const centre = { x: VIEW.width * 0.72, y: VIEW.height / 2 }
+    await showAt(page, centre.x, centre.y)
+    await expect(page.locator('[data-testid="glass-cursor"]')).toHaveAttribute(
+      'data-shown',
+      ''
     )
-    await button.click()
-    await expect(button).toHaveAttribute('data-clicked', '')
-    const box = await button.boundingBox()
-    if (!box) throw new Error('no button box')
-    const top = await page.evaluate(
-      ({ x, y }) => document.elementFromPoint(x, y)?.closest('button') !== null,
-      { x: box.x + 20, y: box.y + 20 }
+    expect(
+      await page.evaluate(() => (window as unknown as { moves: number }).moves)
+    ).toBeGreaterThan(0)
+    const under = await page.evaluate(
+      ({ x, y }) =>
+        !!document
+          .elementFromPoint(x, y)
+          ?.closest(
+            '[data-testid="glass-stage"], [data-testid="glass-cursor"]'
+          ),
+      centre
     )
-    expect(top).toBe(true)
+    expect(under).toBe(false)
+  })
+
+  test('keyboard focus is the same with the glass cursor', async ({ page }) => {
+    const tour = async () => {
+      await page.evaluate(() => (document.activeElement as HTMLElement)?.blur())
+      const stops: string[] = []
+      for (let step = 0; step < 6; step++) {
+        await page.keyboard.press('Tab')
+        stops.push(
+          await page.evaluate(() => {
+            const active = document.activeElement
+            if (!active) return 'none'
+            const { outlineStyle, outlineWidth } = getComputedStyle(active)
+            return `${active.tagName} ${active.textContent?.trim().slice(0, 24)} ${outlineStyle} ${outlineWidth}`
+          })
+        )
+      }
+      return stops
+    }
+    const noGlass = (route: Route) => route.fulfill({ status: 404 })
+    await page.route('**/models/glass/cursor.glb', noGlass)
+    await page.goto('/')
+    await page.waitForTimeout(LOAD_MS)
+    const plain = await tour()
+    await page.unroute('**/models/glass/cursor.glb', noGlass)
+    await page.goto('/')
+    await page.waitForTimeout(LOAD_MS)
+    await showAt(page, 700, 300)
+    await expect(page.locator('html')).toHaveClass(/glass-cursor/)
+    const before = await cursorBox(page)
+    expect(await tour()).toEqual(plain)
+    expect(await cursorBox(page), 'the cursor ignores focus').toEqual(before)
   })
 
   test('a model that fails keeps the native cursor', async ({ page }) => {

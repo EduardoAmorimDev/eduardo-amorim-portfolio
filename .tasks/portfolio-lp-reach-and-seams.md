@@ -125,8 +125,10 @@ abaixo da borda indicada é ≤ 3.
 25. Se o dispositivo não casa `(hover: hover) and (pointer: fine)`, ou enquanto `cursor.glb` não
     carregou, ou se ele falhar ao carregar, o cursor nativo permanece e nenhum cursor 3D é
     desenhado.
-26. Quando o ponteiro sai da janela ou entra numa tela de aparelho do notebook (`<iframe>`), o
-    cursor 3D some e volta ao ponteiro quando ele reentra na página.
+26. Quando o ponteiro sai da janela ou entra num `<iframe>` que recebe o ponteiro, o cursor 3D
+    some e volta ao ponteiro quando ele reentra na página. (Emenda no build: as telas dos
+    aparelhos do notebook são `pointer-events: none` em `handheld.tsx` e `laptop.tsx`, então o
+    ponteiro nunca entra nelas e o cursor de vidro continua visível sobre elas.)
 27. Sempre, o cursor 3D fica acima de todo o conteúdo e não intercepta eventos: um clique com ele
     sobre `Vamos conversar` aciona o botão, e o vapor do globo (`globe-vapor.tsx`) continua
     seguindo o ponteiro.
@@ -176,7 +178,7 @@ abaixo da borda indicada é ≤ 3.
 ## Swept
 
 - validation: n/a - nenhuma entrada do usuário nesta tarefa.
-- failure modes: 16 e 25 (modelo não carrega); WebGL indisponível: existing - `RenderGate`/fallbacks dos canvases atuais.
+- failure modes: 16 e 25 (modelo não carrega); WebGL indisponível: n/a - nenhum canvas da página tem fallback para isso hoje, e o `GlassStage` segue o mesmo padrão (fora do escopo).
 - idempotency and retry: n/a - sem escrita nem requisição nova.
 - authorization: n/a - página pública.
 - concurrency and ordering: n/a - sem estado compartilhado nem requisições concorrentes; a ordem visual dos passos está em 18.
@@ -193,7 +195,8 @@ abaixo da borda indicada é ≤ 3.
 | domain | termo existente: o parágrafo de `#contato` mudava com o local do visitante (`mapLine`); passa a ser fixo. A busca do local continua, só para o pin do globo |
 | stored data | nada a migrar |
 | assets | +7 arquivos `.glb` (~530 KB) em `public/models/glass/`, baixados só quando `#solucoes` se aproxima |
-| testes | `e2e/notebook.spec.ts` (`HEADING`), `e2e/sections.spec.ts` (título e linhas do contato, 146–205), `e2e/cards.spec.ts` (`'#workflow ol > li'` deixa de ser card de vidro; `'#solucoes li'` continua), `e2e/offscreen.spec.ts` (canvas novo), `e2e/hero.spec.ts` (fim de `bg-black` e da faixa `h-1/4`), `e2e/reduced-motion.spec.ts` (giro e pulso) |
+| testes | `e2e/notebook.spec.ts` (copy; o céu do palco é do notebook; timeout de 45 s pelo carregamento dos ícones logo acima), `e2e/sections.spec.ts` (copy fixo do contato nos três casos de local e com a busca pendente), `e2e/cards.spec.ts` (`'#workflow ol > li'` deixa de ser card de vidro), `e2e/offscreen.spec.ts` (a hero desenha enquanto a sangria está a menos de 25% de tela; a sonda de `#sobre` desce 300 px), `e2e/hero.spec.ts` (modelos `glass/*` permitidos), `e2e/theme.spec.ts` (hero em ink; céu do palco escondido ao medir a cena), `e2e/backdrop.spec.ts` e `e2e/glitch.spec.ts` (6 brilhos), `e2e/reduced-motion.spec.ts` e `e2e/a11y.spec.ts` (cursor de vidro), `e2e/interaction.spec.ts` (regras do cursor nativo lidas sem o vidro) |
+| custo de render | a hero traça 50% mais pixels (a sangria) e continua desenhando enquanto a sangria está perto da tela; o notebook ganha ~500 nós de estrela e dois brilhos (medido: 60 fps com e sem eles em 1440×900) |
 | hero | `overflow-clip` da seção e o gradiente `h-1/4` de saída são substituídos pela faixa de dissolução; o shader não pode re-enquadrar o buraco negro por o canvas ficar mais alto (6) |
 | ponteiro | as regras `cursor: default`/`cursor: pointer` de `app/globals.css` (task cosmos, 1–2) passam a valer só sem o cursor 3D; com ele, a affordance de controle é 24. Testes que movem o mouse (`e2e/page-helpers.ts`, `globe-vapor`) seguem valendo porque o canvas não captura eventos |
 | componentes | `StudioEnvironment` (já usado por `notebook-scene.tsx`) passa a servir também os ícones |

@@ -66,7 +66,7 @@ Proof: `RS "no seam over the notebook"`
 Proof: `RS "the notebook stage has the sky"`
 
 **C9** - `#cases` não aparece pelo palco antes do hand-off
-Proof: `npx playwright test e2e/notebook.spec.ts`
+Proof: `RS "the stage hides the cases until the hand-off"`
 
 ### S3 - O notebook fala de alcance · 2 files · 15 KB · ~4k
 
@@ -107,33 +107,33 @@ Proof: `RS "timeline alternates on wide screens"`
 ### S6 - O convite final · 3 files · 20 KB · ~5k
 
 **C20** - `h2`, parágrafo fixo (cidade, aproximado, nulo), `A escolha é sua...` e o botão
-Proof: `npx playwright test e2e/sections.spec.ts -g "contato"`
+Proof: `npx playwright test e2e/sections.spec.ts -g "contato"` (inclui a busca pendente)
 
 **C21** - Anel em `--color-primary` de 100% a 125% em 2 s, botão sem mudar de tamanho; sem anel sob movimento reduzido
-Proof: `RS "the call pulses"`
+Proof: `RS "the call pulses"`, `RS "no pulse under reduced motion"`
 
 ### S7 - O cursor de vidro · 4 files · 25 KB · ~7k
 
-**C22** - Mouse fino: `cursor: none` e ponta a ≤ 2 px do ponteiro parado
+**C22** - Mouse fino: `cursor: none`, ponta a ≤ 2 px do ponteiro parado, 32 px (±4) de altura
 Proof: `RS "the glass cursor follows the pointer"`
 
 **C23** - Inclinação ≤ 15° com movimento, 0° parado e sob movimento reduzido
 Proof: `npm test -- --test-name-pattern "tilt"`
 
 **C24** - 1,2× sobre `button`, `a[href]`, `summary`; 1× fora
-Proof: `RS "the glass cursor grows over controls"`
+Proof: `RS "the glass cursor grows over controls"`, `RS "the glass cursor counts buttons and links as controls"`
 
 **C25** - Sem `(hover: hover) and (pointer: fine)` ou sem modelo, cursor nativo e nada desenhado
 Proof: `RS "touch keeps the native cursor"`
 
-**C26** - Some fora da janela e sobre `<iframe>`, volta ao reentrar
-Proof: `RS "the glass cursor hides over the device screens"`
+**C26** - Some fora da janela e sobre um `<iframe>` que recebe o ponteiro, volta ao reentrar (as telas dos aparelhos não recebem o ponteiro - emenda na task)
+Proof: `RS "the glass cursor hides over a frame that takes the pointer and off the window"`
 
 **C27** - Não intercepta cliques; o vapor do globo segue o ponteiro
-Proof: `RS "the glass cursor lets clicks through"`, `npx playwright test e2e/you-are-here.spec.ts`
+Proof: `RS "the glass cursor lets clicks through"`, `RS "pointer moves still reach the window under the glass"`
 
 **C28** - Foco e ordem de tabulação inalterados
-Proof: `npx playwright test e2e/a11y.spec.ts`
+Proof: `RS "keyboard focus is the same with the glass cursor"`
 
 ## Swept
 

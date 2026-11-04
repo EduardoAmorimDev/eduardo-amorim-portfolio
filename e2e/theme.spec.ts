@@ -18,8 +18,6 @@ const MIST = 'rgb(242, 247, 255)'
 const WHITE = 'rgb(255, 255, 255)'
 // invariant: the page has one theme; the system's scheme never changes it.
 const THEME = { background: INK, text: MIST, other: WHITE } as const
-// why: the hero is deep space behind its shader, black where no WebGL draws
-// (task hero-gargantua, failure modes: "fundo preto da seção").
 // why: the hero's ground is the page's ink (task reach-and-seams, 3).
 const HERO_BACKGROUND = 'rgb(16, 17, 19)'
 const SCHEMES = ['dark', 'light'] as const

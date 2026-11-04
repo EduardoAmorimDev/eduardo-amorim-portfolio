@@ -5,6 +5,16 @@ const CONTROLS = 'button, a[href], summary'
 // why: long enough for the controls' colour transitions to finish.
 const HOVER_MS = 400
 
+// why: these are the native pointer's rules; with the glass cursor drawn the
+// page hides the native pointer on purpose (task reach-and-seams, 22), so
+// the glass model is withheld and the rules are read as a visitor whose
+// glass fails to load sees them.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/models/glass/cursor.glb', route =>
+    route.fulfill({ status: 404 })
+  )
+})
+
 test('text takes the default cursor and no selection', async ({ page }) => {
   await page.goto('/')
   const wrong = await page.evaluate(

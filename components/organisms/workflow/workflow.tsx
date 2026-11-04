@@ -35,7 +35,7 @@ export const Workflow = () => (
       <div
         aria-hidden="true"
         data-timeline-line
-        className="from-primary via-steel absolute top-5 bottom-5 left-5 w-px -translate-x-1/2 bg-linear-to-b to-transparent lg:left-1/2"
+        className="from-primary to-steel absolute top-5 bottom-5 left-5 w-px -translate-x-1/2 bg-linear-to-b lg:left-1/2"
       />
       <ol className="relative">
         {STEPS.map((title, index) => {

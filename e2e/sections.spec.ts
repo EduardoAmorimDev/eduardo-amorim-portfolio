@@ -179,6 +179,31 @@ test.describe('no place at all', () => {
   })
 })
 
+test('contato: the same invitation while the place is on its way', async ({
+  page
+}) => {
+  let answer = () => {}
+  const held = new Promise<void>(resolve => {
+    answer = resolve
+  })
+  await page.route('**/api/onde-estou', async route => {
+    await held
+    await route.fulfill({ status: 204 })
+  })
+  await page.goto('/')
+  const contato = page.locator('#contato')
+  const asked = page.waitForRequest('**/api/onde-estou')
+  await scrollWindowTo(
+    page,
+    await contato.evaluate(
+      section => section.getBoundingClientRect().top + scrollY
+    )
+  )
+  await asked
+  await expectContatoCopy(contato)
+  answer()
+})
+
 test('social proof shows six placeholder logos', async ({ page }) => {
   await page.goto('/')
   const logos = page.locator('#prova-social').getByRole('img')
