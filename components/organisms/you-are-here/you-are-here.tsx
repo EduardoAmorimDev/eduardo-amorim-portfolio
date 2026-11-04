@@ -99,13 +99,13 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           <GlitchText
             as="h2"
             id={`${id}-title`}
-            text="Trago o horizonte de possibilidades, até você"
+            text="Posso trazer um horizonte de possibilidades até você"
             className="font-display text-title-md lg:text-title-lg pointer-events-auto mt-4"
           />
           {/* why: the text is the same wherever the visitor is; the place
               only moves the pin on the globe (task reach-and-seams, 20). */}
           <p className="text-subtitle text-foreground/80 pointer-events-auto mt-6">
-            Você viu onde podemos chegar. O mapa aponta nosso ponto de partida.
+            Você viu onde podemos chegar. Já sabemos nosso ponto de partida.
           </p>
           <p className="text-body text-foreground/60 pointer-events-auto mt-8">
             A escolha é sua...
