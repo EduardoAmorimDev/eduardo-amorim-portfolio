@@ -35,10 +35,10 @@ export const BLEED = 1
 const SPILL = 0.5
 // why: share of a screen scrolled by which the camera has dived all the way,
 // eased in and out so the approach is slow (task swallow-and-copy, 1–2).
-const DIVE_SCREENS = 0.8
-// why: the closest the camera gets; at 10 the shadow is ~55% of a 16:10
+const DIVE_SCREENS = 1
+// why: the closest the camera gets; at 12 the shadow is ~46% of a 16:10
 // window's width, coming at the visitor without filling the screen.
-const NEAR = 10
+const NEAR = 12
 // invariant: the shadow's width in screen heights is about SHADOW_SPAN / the
 // camera's distance (photon capture radius × focal × 2); this keeps it
 // under SWALLOW_MAX of the window's width on any shape of window.
