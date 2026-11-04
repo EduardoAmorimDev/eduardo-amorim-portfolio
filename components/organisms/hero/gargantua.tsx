@@ -33,12 +33,12 @@ export const BLEED = 1
 // why: the spill the page shows at rest, in screens below the hero; the dive
 // uncovers the rest of the canvas as it goes.
 const SPILL = 0.5
-// why: share of a screen scrolled by which the camera has dived all the way
-// (task swallow-and-copy, 1–2).
-const DIVE_SCREENS = 0.4
-// why: the closest the camera gets; at 7 the shadow is ~78% of a 16:10
-// window's width, almost swallowing it (task swallow-and-copy, 2–3).
-const NEAR = 7
+// why: share of a screen scrolled by which the camera has dived all the way,
+// eased in and out so the approach is slow (task swallow-and-copy, 1–2).
+const DIVE_SCREENS = 0.8
+// why: the closest the camera gets; at 10 the shadow is ~55% of a 16:10
+// window's width, coming at the visitor without filling the screen.
+const NEAR = 10
 // invariant: the shadow's width in screen heights is about SHADOW_SPAN / the
 // camera's distance (photon capture radius × focal × 2); this keeps it
 // under SWALLOW_MAX of the window's width on any shape of window.
@@ -162,7 +162,7 @@ export const Gargantua = () => {
     // why: screens scrolled past the hero's top: 0 at rest, 1 once it has gone.
     const { top } = gl.domElement.getBoundingClientRect()
     const scrolled = Math.max(-top / Math.max(screenHeight, 1), 0)
-    const dive = 1 - (1 - Math.min(scrolled / DIVE_SCREENS, 1)) ** 2
+    const dive = MathUtils.smoothstep(scrolled, 0, DIVE_SCREENS)
     u.uPush.value = dive
     // why: the black hole drifts to the window's middle column and rides up
     // with the hero, leaving through the top of the window as it swells.
