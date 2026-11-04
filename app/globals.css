@@ -160,4 +160,12 @@ body {
   :where(button, a[href], summary) * {
     cursor: pointer;
   }
+
+  /* why: once the glass cursor is drawn it is the pointer, on text and
+     controls alike (task reach-and-seams, 22); it grows over controls in
+     place of the hand. */
+  .glass-cursor,
+  .glass-cursor * {
+    cursor: none;
+  }
 }

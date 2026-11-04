@@ -38,7 +38,9 @@ test('hero has no laptop', async ({ page }) => {
   await expect(page.locator('iframe')).toHaveCount(0)
 })
 
-test("the only 3D model is the notebook's laptop", async ({ page }) => {
+test("the only 3D models are the notebook's laptop and the glass", async ({
+  page
+}) => {
   const models = new Set<string>()
   page.on('request', request => {
     const match = /\/models\/(.+)\.glb$/.exec(new URL(request.url()).pathname)
@@ -52,9 +54,13 @@ test("the only 3D model is the notebook's laptop", async ({ page }) => {
     await page.evaluate(() => document.documentElement.scrollHeight)
   )
   await page.waitForLoadState('networkidle')
-  // invariant: the black hole is one shader (task hero-gargantua, 1) and
-  // the glass models left with the old hero; laptop.tsx preloads its own.
-  expect([...models]).toEqual(['laptop'])
+  // invariant: the black hole is one shader (task hero-gargantua, 1);
+  // laptop.tsx preloads its own model, and the glass came back as the
+  // cursor and the solution icons (task reach-and-seams, 12–13, 22).
+  expect([...models].filter(name => !name.startsWith('glass/'))).toEqual([
+    'laptop'
+  ])
+  expect(models).toContain('glass/cursor')
 })
 
 test('the hero has no glass logo, icons, grid, lens or outline title', async ({

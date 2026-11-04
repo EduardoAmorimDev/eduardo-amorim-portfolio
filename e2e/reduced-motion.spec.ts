@@ -73,6 +73,11 @@ test('no glitch under reduced motion', async ({ page }) => {
 test('the black hole holds still under reduced motion', async ({ page }) => {
   await gotoHero(page)
   await hideHeroCopy(page)
+  // why: the glass cursor follows the mouse moves below by design (task
+  // reach-and-seams, 22); this checks the black hole behind it.
+  await page.addStyleTag({
+    content: '[data-testid="glass-stage"] { visibility: hidden !important }'
+  })
   await nextFrames(page)
   const frame = () => page.locator('#hero').screenshot()
   const first = await frame()

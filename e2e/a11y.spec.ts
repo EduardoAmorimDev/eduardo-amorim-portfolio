@@ -4,6 +4,8 @@ import { gotoHero } from './page-helpers'
 const DECORATIONS = [
   '[data-testid="hero-scene"]',
   '[data-testid="globe-scene"]',
+  '[data-testid="glass-stage"]',
+  '[data-testid="glass-cursor"]',
   '[data-glitch-copy]'
 ]
 

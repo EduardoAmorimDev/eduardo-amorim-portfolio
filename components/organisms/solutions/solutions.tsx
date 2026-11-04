@@ -1,6 +1,8 @@
 import { Section } from '@/components/molecules/section'
+import { GlassIcon, SOLUTION_MODELS } from '@/components/organisms/glass-stage'
 
-// why: example icons only; each card gets a distinct geometric glyph.
+// why: each card's glyph stands in for its glass icon until the model has
+// loaded, and for good where it cannot (task reach-and-seams, 16).
 const ICONS = [
   <circle key="circle" cx="12" cy="12" r="7" />,
   <rect key="square" x="5" y="5" width="14" height="14" rx="3" />,
@@ -12,6 +14,7 @@ const ICONS = [
 
 const SOLUTIONS = ICONS.map((icon, index) => ({
   icon,
+  model: SOLUTION_MODELS[index % SOLUTION_MODELS.length],
   title: `Lorem ipsum ${index + 1}`,
   text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.'
 }))
@@ -24,15 +27,17 @@ export const Solutions = () => (
     intro="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla quis sem at nibh elementum imperdiet."
   >
     <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {SOLUTIONS.map(({ icon, title, text }) => (
+      {SOLUTIONS.map(({ icon, model, title, text }) => (
         <li key={title} className="glass-card rounded-3xl p-6">
-          <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            className="bg-primary/15 stroke-primary size-10 rounded-xl fill-none stroke-2 p-2"
-          >
-            {icon}
-          </svg>
+          <GlassIcon model={model}>
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="bg-primary/15 stroke-primary size-16 rounded-2xl fill-none stroke-2 p-4"
+            >
+              {icon}
+            </svg>
+          </GlassIcon>
           <h3 className="text-title-sm mt-5 font-semibold">{title}</h3>
           <p className="text-body-sm text-foreground/70 mt-2">{text}</p>
         </li>

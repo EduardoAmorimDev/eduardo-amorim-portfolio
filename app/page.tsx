@@ -3,6 +3,7 @@ import { HeroCopy } from '@/components/molecules/hero-copy'
 import { About } from '@/components/organisms/about'
 import { Cases } from '@/components/organisms/cases'
 import { Faq } from '@/components/organisms/faq'
+import { GlassCursor, GlassStage } from '@/components/organisms/glass-stage'
 import { Hero } from '@/components/organisms/hero'
 import { Notebook } from '@/components/organisms/notebook'
 import { ParallaxField } from '@/components/organisms/parallax-field'
@@ -58,6 +59,8 @@ export default function Home() {
         </Decorated>
       </main>
       <footer></footer>
+      <GlassStage />
+      <GlassCursor />
     </>
   )
 }
