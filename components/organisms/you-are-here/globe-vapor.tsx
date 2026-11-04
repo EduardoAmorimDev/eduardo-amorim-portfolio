@@ -16,10 +16,11 @@ import {
 
 // why: a shell of drifting nodes around the globe, linked when close, like
 // vapour or a network around the Earth; enough nodes for a web, few enough
-// that linking every pair each frame (~29k checks) stays well under 1 ms.
+// that linking every pair each frame (~29k checks) stays around 1 ms.
 const NODES = 240
 const SHELL = { inner: 1.06, outer: 1.5 }
 const LINK = 0.4
+const LINK_SQUARED = LINK * LINK
 const MAX_LINKS = 1400
 // why: the cursor pushes the vapour aside like air (radius and push in globe
 // radii); nodes spring back to their drift once it has passed.
@@ -119,16 +120,18 @@ export const GlobeVapor = ({ still, color }: GlobeVaporProps) => {
     // why: the cursor, cast onto the globe's front plane, in the web's own
     // space, where the push is measured; read each frame, as scrolling
     // moves the canvas under a still cursor.
-    const there = cursorAt.current
-    const box = gl.domElement.getBoundingClientRect()
+    // hazard: the box is read only with a cursor to place, as reading it
+    // forces the page's layout inside the frame.
+    const there = still.current ? null : cursorAt.current
+    const box = there ? gl.domElement.getBoundingClientRect() : null
     let pushing =
       there !== null &&
-      !still.current &&
+      box !== null &&
       there.x >= box.left &&
       there.x <= box.right &&
       there.y >= box.top &&
       there.y <= box.bottom
-    if (pushing && there) {
+    if (pushing && there && box) {
       ndc.set(
         ((there.x - box.left) / box.width) * 2 - 1,
         -(((there.y - box.top) / box.height) * 2 - 1)
@@ -169,33 +172,40 @@ export const GlobeVapor = ({ still, color }: GlobeVaporProps) => {
     const linePositions = web.current.linePositions.array
     const lineColors = web.current.lineColors.array
     let count = 0
+    // why: squared gaps and indexed writes, as this pairs every node each
+    // frame (~29k checks): Math.hypot and a fresh array per link cost ~5 ms.
     for (let a = 0; a < NODES && count < MAX_LINKS; a++) {
       const ax = positions[a * 3] ?? 0
       const ay = positions[a * 3 + 1] ?? 0
       const az = positions[a * 3 + 2] ?? 0
       for (let b = a + 1; b < NODES && count < MAX_LINKS; b++) {
-        const bx = positions[b * 3] ?? 0
-        const by = positions[b * 3 + 1] ?? 0
-        const bz = positions[b * 3 + 2] ?? 0
-        const gap = Math.hypot(bx - ax, by - ay, bz - az)
-        if (gap > LINK) continue
+        const dx = (positions[b * 3] ?? 0) - ax
+        const dy = (positions[b * 3 + 1] ?? 0) - ay
+        const dz = (positions[b * 3 + 2] ?? 0) - az
+        const squared = dx * dx + dy * dy + dz * dz
+        if (squared > LINK_SQUARED) continue
+        const bz = az + dz
         // why: additive light, so a dimmer colour is a fainter line: links
         // fade with length and towards the back of the shell.
         const fade =
-          (1 - gap / LINK) ** 2 * (0.35 + 0.65 * ((az + bz) / 3 + 0.5))
+          (1 - Math.sqrt(squared) / LINK) ** 2 *
+          (0.35 + 0.65 * ((az + bz) / 3 + 0.5))
         const at = count * 6
-        linePositions.set([ax, ay, az, bx, by, bz], at)
-        lineColors.set(
-          [
-            color.r * fade,
-            color.g * fade,
-            color.b * fade,
-            color.r * fade,
-            color.g * fade,
-            color.b * fade
-          ],
-          at
-        )
+        linePositions[at] = ax
+        linePositions[at + 1] = ay
+        linePositions[at + 2] = az
+        linePositions[at + 3] = ax + dx
+        linePositions[at + 4] = ay + dy
+        linePositions[at + 5] = bz
+        const r = color.r * fade
+        const g = color.g * fade
+        const blue = color.b * fade
+        lineColors[at] = r
+        lineColors[at + 1] = g
+        lineColors[at + 2] = blue
+        lineColors[at + 3] = r
+        lineColors[at + 4] = g
+        lineColors[at + 5] = blue
         count++
       }
     }
