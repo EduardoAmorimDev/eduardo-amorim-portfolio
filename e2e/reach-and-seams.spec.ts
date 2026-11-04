@@ -183,14 +183,19 @@ test.describe('the notebook stage carries the sky', () => {
 
   test('the notebook stage has the sky', async ({ page }) => {
     await page.goto('/')
-    await scrollWindowTo(page, await documentTop(page.locator('#notebook')))
+    // why: the stage turns opaque, with its own sky, a tenth of a screen
+    // after it pins (task swallow-and-copy, 8–9).
+    await scrollWindowTo(
+      page,
+      (await documentTop(page.locator('#notebook'))) + VIEW.height * 0.2
+    )
     const sky = page.locator('#notebook [data-testid="notebook-sky"]')
     await expect(sky.locator('[data-testid="sections-glow"]')).toHaveCount(2)
     await expect(sky.locator('[data-glow="primary"]')).toHaveCount(1)
     await expect(sky.locator('[data-glow="steel"]')).toHaveCount(1)
     expect(await sky.locator('[data-star]').count()).toBeGreaterThan(0)
-    // why: pinned, the stage has fully entered, so its sky shows at full
-    // (a sub-pixel scroll offset leaves it a hair under 1).
+    // why: past the fade its sky shows at full (a sub-pixel scroll offset
+    // leaves it a hair under 1).
     const opacity = Number(
       await sky.evaluate(element => getComputedStyle(element).opacity)
     )
@@ -212,7 +217,10 @@ test('the stage hides the cases until the hand-off', async ({ page }) => {
     const stage = section.locator('> div')
     await expect(stage).toHaveCSS('visibility', 'visible')
     await expect(stage).toHaveCSS('opacity', '1')
-    await expect(stage).toHaveCSS(
+    // why: the stage's ground, opaque once pinned (task swallow-and-copy, 10).
+    const ground = stage.locator('[data-testid="notebook-ground"]')
+    await expect(ground).toHaveCSS('opacity', '1')
+    await expect(ground).toHaveCSS(
       'background-color',
       await tokenRgb(page, 'ink')
     )

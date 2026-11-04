@@ -188,11 +188,12 @@ for (const scheme of SCHEMES) {
       page
     }) => {
       await gotoNotebook(page)
-      // why: the stage's stars and glows (task reach-and-seams, 8) lie over
-      // the ink on purpose; this checks the scene itself paints only ink.
+      // why: the stage's stars and glows (task reach-and-seams, 8), and the
+      // block above's that show through it as it pins (task swallow-and-copy,
+      // 8), lie over the ink on purpose; the scene itself paints only ink.
       await page.addStyleTag({
         content:
-          '[data-testid="notebook-sky"] { visibility: hidden !important }'
+          '[data-testid="notebook-sky"], main > div:first-of-type [data-parallax-layer], main > div:first-of-type [data-testid="sections-glow"] { visibility: hidden !important }'
       })
       await page.waitForTimeout(100)
       const screen = await firstScreen(page)

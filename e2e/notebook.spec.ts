@@ -226,25 +226,35 @@ test('the real projects section sits behind the stage as the section ends', asyn
   expect(Math.abs(top)).toBeLessThanOrEqual(1)
 })
 
-test('the stage hands over to the real page with no visible change', async ({
-  page
-}) => {
-  await gotoNotebook(page)
-  const viewport = viewportOf(page)
-  const end = await notebookEnd(page)
-  await scrollWindowTo(page, await notebookAt(page, 0.9))
-  await page.waitForTimeout(SETTLE_MS)
-  await scrollWindowTo(page, end)
-  await page.waitForTimeout(SETTLE_MS)
-  const clip = { x: 0, y: 0, ...viewport }
-  const staged = await screenPixels(page, clip)
-  await stage(page).evaluate(node => {
-    ;(node as HTMLElement).style.visibility = 'hidden'
+// why: the page covers the glass on these shapes of window (task
+// swallow-and-copy, 11–12), so the dive must still end on the real page.
+const HANDOFF_VIEWS = [
+  [1440, 900],
+  [1920, 1080],
+  [1280, 720]
+] as const
+
+for (const [width, height] of HANDOFF_VIEWS)
+  test(`the stage hands over to the real page with no visible change at ${width}x${height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height })
+    await gotoNotebook(page)
+    const viewport = viewportOf(page)
+    const end = await notebookEnd(page)
+    await scrollWindowTo(page, await notebookAt(page, 0.9))
+    await page.waitForTimeout(SETTLE_MS)
+    await scrollWindowTo(page, end)
+    await page.waitForTimeout(SETTLE_MS)
+    const clip = { x: 0, y: 0, ...viewport }
+    const staged = await screenPixels(page, clip)
+    await stage(page).evaluate(node => {
+      ;(node as HTMLElement).style.visibility = 'hidden'
+    })
+    await page.waitForTimeout(300)
+    const real = await screenPixels(page, clip)
+    expect(differingShare(staged, real)).toBeLessThanOrEqual(HANDOFF_MAX_SHARE)
   })
-  await page.waitForTimeout(300)
-  const real = await screenPixels(page, clip)
-  expect(differingShare(staged, real)).toBeLessThanOrEqual(HANDOFF_MAX_SHARE)
-})
 
 test('past the end the stage is gone and the real page takes the pointer', async ({
   page
@@ -274,8 +284,8 @@ test('nothing floats over the notebook', async ({ page }) => {
   )
   await expect(page.locator('[data-testid="sections-grid"]')).toHaveCount(0)
   // invariant: every parallax layer and glow is clipped to its own block of
-  // sections, so a block off screen leaves nothing of them on screen; the
-  // stage's own sky (task reach-and-seams, 8) is the notebook's, not a float.
+  // sections (the first runs a screen under the stage, task swallow-and-copy,
+  // 8), so a block off screen leaves nothing of them on screen.
   const reaching = await page.evaluate(() => {
     const outside = (node: Element) => !node.closest('#notebook')
     const boxes = [
@@ -290,7 +300,8 @@ test('nothing floats over the notebook', async ({ page }) => {
     return boxes.flatMap(node => {
       if (!node) return ['a layer without a clipping box']
       const { top, bottom } = node.getBoundingClientRect()
-      return bottom > 0 && top < innerHeight
+      // why: 1 px of slack: svh and innerHeight round apart by a fraction.
+      return bottom > 1 && top < innerHeight
         ? [`${node.tagName} ${top}–${bottom}`]
         : []
     })

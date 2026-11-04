@@ -77,13 +77,14 @@ test('main has the ten sections in order', async ({ page }) => {
   expect(ids).toEqual(SECTION_IDS)
 })
 
-// why: contato's copy is final (task you-are-here, 5), the rest still lorem.
-test('every section but hero, notebook and contato has an h2 and lorem text', async ({
+// why: contato's and sobre's copy is final (tasks you-are-here, 5, and
+// swallow-and-copy, 15–16), the rest still lorem.
+test('every section but hero, notebook, sobre and contato has an h2 and lorem text', async ({
   page
 }) => {
   await page.goto('/')
   for (const id of SECTION_IDS.filter(
-    id => !['hero', 'notebook', 'contato'].includes(id)
+    id => !['hero', 'notebook', 'sobre', 'contato'].includes(id)
   )) {
     const section = page.locator(`#${id}`)
     await expect(section.locator('h2'), id).toHaveCount(1)
@@ -132,8 +133,8 @@ test('hero CTA scrolls to contato', async ({ page }) => {
 
 // why: the copy is fixed, whatever the place (task reach-and-seams, 20).
 const CONTATO = {
-  title: 'Trago o horizonte de possibilidades, até você',
-  lead: 'Você viu onde podemos chegar. O mapa aponta nosso ponto de partida.',
+  title: 'Posso trazer um horizonte de possibilidades até você',
+  lead: 'Você viu onde podemos chegar. Já sabemos nosso ponto de partida.',
   choice: 'A escolha é sua...',
   call: 'Vamos conversar'
 }
@@ -214,12 +215,26 @@ test('social proof shows six placeholder logos', async ({ page }) => {
   }
 })
 
-test('about shows a photo placeholder and two paragraphs', async ({ page }) => {
+// why: the copy is the author's, word for word (task swallow-and-copy, 15–17).
+const ABOUT = {
+  title: 'A cara por trás do resultado',
+  first: /^Meu nome é Eduardo Amorim\. Sou desenvolvedor front-end/,
+  last: /vôlei, musculação e xadrez\.$/
+}
+
+test('about introduces Eduardo beside the photo placeholder', async ({
+  page
+}) => {
   await page.goto('/')
   const about = page.locator('#sobre')
+  await expect(about.locator('span').first()).toHaveText('Sobre')
+  await expect(about.locator('h2')).toHaveAccessibleName(ABOUT.title)
   await expect(about.getByRole('img', { name: /foto/i })).toBeVisible()
-  await expect(about.locator('p')).toHaveCount(2)
-  await expect(about.locator('p').filter({ hasText: LOREM })).toHaveCount(2)
+  await expect(about.locator('p')).toHaveCount(4)
+  await expect(about.locator('p').first()).toHaveText(ABOUT.first)
+  await expect(about.locator('p').nth(1)).toContainText('AngularJS')
+  await expect(about.locator('p').last()).toHaveText(ABOUT.last)
+  await expect(about.locator('p').filter({ hasText: LOREM })).toHaveCount(0)
 })
 
 test('solutions shows six cards with icon, title and text', async ({
