@@ -66,7 +66,9 @@ test('each glow drifts on a closed path of at most 8vmax', async ({ page }) => {
     () => Math.max(innerWidth, innerHeight) / 100
   )
   const glows = page.locator('[data-testid="sections-glow"]')
-  expect(await glows.count()).toBe(4)
+  // invariant: a pair per block of sections and a pair on the notebook's
+  // stage (task reach-and-seams, 8), all drifting alike.
+  expect(await glows.count()).toBe(6)
   for (const glow of await glows.all()) {
     const { duration, iterations, values } = await sweep(
       glow,

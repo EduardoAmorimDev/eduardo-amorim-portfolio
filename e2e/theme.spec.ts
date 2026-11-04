@@ -20,7 +20,8 @@ const WHITE = 'rgb(255, 255, 255)'
 const THEME = { background: INK, text: MIST, other: WHITE } as const
 // why: the hero is deep space behind its shader, black where no WebGL draws
 // (task hero-gargantua, failure modes: "fundo preto da seção").
-const HERO_BACKGROUND = 'rgb(0, 0, 0)'
+// why: the hero's ground is the page's ink (task reach-and-seams, 3).
+const HERO_BACKGROUND = 'rgb(16, 17, 19)'
 const SCHEMES = ['dark', 'light'] as const
 // why: the checklist's tolerance for the sky's colour, per channel.
 const SKY_SLACK = 3
@@ -189,6 +190,13 @@ for (const scheme of SCHEMES) {
       page
     }) => {
       await gotoNotebook(page)
+      // why: the stage's stars and glows (task reach-and-seams, 8) lie over
+      // the ink on purpose; this checks the scene itself paints only ink.
+      await page.addStyleTag({
+        content:
+          '[data-testid="notebook-sky"] { visibility: hidden !important }'
+      })
+      await page.waitForTimeout(100)
       const screen = await firstScreen(page)
       expectInkSky(screen)
       expectInkFloor(screen)

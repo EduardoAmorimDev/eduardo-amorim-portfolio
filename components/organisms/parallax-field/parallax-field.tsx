@@ -17,6 +17,7 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
+import { SKY_FADE, type SkyFade } from '@/lib/sky-fade'
 
 import {
   MILKY_WAY,
@@ -211,12 +212,17 @@ const DEPTH: Record<ParallaxLayer, string> = {
   front: 'z-10'
 }
 
+type ParallaxFieldProps = {
+  /** Fades every layer at the container's edges (lib/sky-fade.ts). */
+  fade?: SkyFade
+}
+
 /**
  * Decorative layers that drift at their own speed as the page scrolls
  * (lib/parallax.ts) and hold still under reduced motion. Must sit inside a
  * container that creates a stacking context (`relative isolate`).
  */
-export const ParallaxField = () => {
+export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
   const field = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -258,16 +264,31 @@ export const ParallaxField = () => {
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-clip"
     >
-      {PARALLAX_LAYERS.map(name => (
-        <div
-          key={name}
-          data-parallax-layer={name}
-          className={`absolute inset-x-0 top-0 will-change-transform ${DEPTH[name]}`}
-          style={{ height: layerHeight(PARALLAX_SPEED[name]) }}
-        >
-          {CONTENT[name]}
-        </div>
-      ))}
+      {PARALLAX_LAYERS.map(name => {
+        const layer = (
+          <div
+            key={name}
+            data-parallax-layer={name}
+            className={`absolute inset-x-0 top-0 will-change-transform ${DEPTH[name]}`}
+            style={{ height: layerHeight(PARALLAX_SPEED[name]) }}
+          >
+            {CONTENT[name]}
+          </div>
+        )
+        // why: the mask is drawn in the block's own box, not the drifting
+        // layer's; its box takes the layer's depth, as a mask makes it a
+        // stacking context of its own.
+        return fade ? (
+          <div
+            key={name}
+            className={`absolute inset-0 overflow-clip ${DEPTH[name]} ${SKY_FADE[fade]}`}
+          >
+            {layer}
+          </div>
+        ) : (
+          layer
+        )
+      })}
     </div>
   )
 }

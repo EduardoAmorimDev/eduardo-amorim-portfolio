@@ -133,8 +133,16 @@ test('only the globe draws at the end of the page', async ({ page }) => {
 test('no scene draws while all are off screen', async ({ page }) => {
   await recordDraws(page)
   await gotoHero(page)
-  for (const section of ['#sobre', '#workflow']) {
-    await scrollToSection(page, section)
+  // why: a third of a screen into #sobre: at its top the hero's spill
+  // (task reach-and-seams, 2) is still within RenderGate's lead.
+  for (const { section, into } of [
+    { section: '#sobre', into: 300 },
+    { section: '#workflow', into: 0 }
+  ]) {
+    await scrollWindowTo(
+      page,
+      (await documentTop(page.locator(section))) + into
+    )
     expect(await drawsNow(page), section).toEqual({
       hero: 0,
       notebook: 0,

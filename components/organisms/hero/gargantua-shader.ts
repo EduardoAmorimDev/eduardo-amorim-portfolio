@@ -8,9 +8,7 @@
  */
 
 export const GARGANTUA_VERTEX = /* glsl */ `
-varying vec2 vUv;
 void main() {
-  vUv = uv;
   // invariant: a quad already in clip space; the scene's camera is unused.
   gl_Position = vec4(position.xy, 0.0, 1.0);
 }
@@ -20,6 +18,8 @@ export const GARGANTUA_FRAGMENT = /* glsl */ `
 precision highp float;
 
 uniform vec2 uResolution;
+// why: buffer px of canvas below the screen, where the image spills on.
+uniform float uBleed;
 uniform float uTime;
 uniform vec2 uLook;
 uniform float uPush;
@@ -30,8 +30,6 @@ uniform vec3 uHot;
 uniform vec3 uWarm;
 uniform vec3 uCool;
 uniform vec3 uSky;
-
-varying vec2 vUv;
 
 const float DISK_IN = 3.0;
 const float DISK_OUT = 22.0;
@@ -139,7 +137,8 @@ vec3 aces(vec3 x) {
 }
 
 void main() {
-  vec2 p = ((gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y - uCentre) * uWiden;
+  vec2 frag = gl_FragCoord.xy - vec2(0.0, uBleed);
+  vec2 p = ((frag - 0.5 * uResolution) / uResolution.y - uCentre) * uWiden;
 
   // why: a camera just above the disk's plane, rolled, as in Interstellar.
   float dist = mix(26.0, 19.0, uPush) + (1.0 - uIntro) * 14.0;
@@ -206,7 +205,7 @@ void main() {
 
   col = aces(col * 1.1 * uIntro);
   // why: vignette and film grain give the frame its cinematic finish.
-  vec2 q = vUv - 0.5;
+  vec2 q = frag / uResolution - 0.5;
   col *= 1.0 - dot(q, q) * 0.9;
   vec3 graded = pow(max(col, 0.0), vec3(1.0 / 2.2));
   // why: grain lives in the light, as on film; pure black stays black.

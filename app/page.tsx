@@ -12,19 +12,22 @@ import { Solutions } from '@/components/organisms/solutions'
 import { Testimonials } from '@/components/organisms/testimonials'
 import { Workflow } from '@/components/organisms/workflow'
 import { YouAreHere } from '@/components/organisms/you-are-here'
+import type { SkyFade } from '@/lib/sky-fade'
 
 // why: isolate keeps the backdrop and parallax layers' z-index inside each
 // block, behind and over its sections but never the hero or the notebook.
 const Decorated = ({
   children,
-  className = ''
+  className = '',
+  fade
 }: {
   children: ReactNode
   className?: string
+  fade?: SkyFade
 }) => (
   <div className={`relative isolate ${className}`}>
-    <SectionsBackdrop />
-    <ParallaxField />
+    <SectionsBackdrop fade={fade} />
+    <ParallaxField fade={fade} />
     {children}
   </div>
 )
@@ -37,7 +40,7 @@ export default function Home() {
         <Hero id="hero">
           <HeroCopy />
         </Hero>
-        <Decorated>
+        <Decorated fade="both">
           <SocialProof />
           <About />
           <Solutions />

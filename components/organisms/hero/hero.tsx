@@ -4,7 +4,7 @@ import { Canvas } from '@react-three/fiber'
 import { useState, type ReactNode } from 'react'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
-import { Gargantua } from './gargantua'
+import { BLEED, Gargantua } from './gargantua'
 
 // why: the image is soft light, so one shader pass per CSS px suffices, and
 // each pass traces a ray, the scene's whole cost; a GPU that cannot keep up
@@ -25,17 +25,27 @@ export const Hero = ({ id, children }: HeroProps) => {
   const [dpr, setDpr] = useState(DPR.full)
 
   return (
+    // why: overflow-x only, so the canvas spills below the section; the next
+    // block paints over the spill (later in the DOM), its sky and text on top.
     <section
       id={id}
-      className="relative h-svh overflow-clip bg-black select-none"
+      className="bg-background relative h-svh overflow-x-clip select-none"
     >
-      {/* why: decoration (criterion 42): the hero's meaning is its copy. */}
+      {/* why: decoration (criterion 42): the hero's meaning is its copy. The
+          canvas runs BLEED screens past the section and fades out there, so
+          the lens dissolves into the page's sky instead of ending on a line. */}
       <Canvas
         aria-hidden="true"
-        className="isolate"
+        className="isolate [mask-image:linear-gradient(to_bottom,black_calc(100%-75svh),transparent)]"
         data-testid="hero-scene"
         dpr={dpr}
         gl={{ antialias: false }}
+        style={{
+          position: 'absolute',
+          inset: '0 0 auto 0',
+          height: `calc(100% + ${BLEED * 100}svh)`,
+          pointerEvents: 'none'
+        }}
       >
         <PerformanceMonitor
           onDecline={() => setDpr(DPR.reduced)}
@@ -46,12 +56,6 @@ export const Hero = ({ id, children }: HeroProps) => {
         <RenderGate />
         <Gargantua />
       </Canvas>
-      {/* why: the frame melts into the page's ink at its foot, where the
-          next section begins. */}
-      <div
-        aria-hidden="true"
-        className="to-background pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-linear-to-b from-transparent"
-      />
       {children}
     </section>
   )

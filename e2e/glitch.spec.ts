@@ -309,7 +309,9 @@ test('no section has a grid', async ({ page }) => {
 
 test('sections background has a primary and a steel glow', async ({ page }) => {
   await page.goto('/')
-  const glows = page.locator('[data-testid="sections-glow"]')
+  // why: the notebook's stage carries its own pair (task reach-and-seams,
+  // 8), checked in reach-and-seams.spec.ts; these are the blocks' own.
+  const glows = page.locator('main > div [data-testid="sections-glow"]')
   // invariant: one primary and one steel glow per block of sections, the
   // block before the notebook and the one after it.
   await expect(glows).toHaveCount(4)

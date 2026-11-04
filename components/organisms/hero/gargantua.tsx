@@ -24,6 +24,11 @@ const STILL_TIME = 40
 // before the copy rises (hero-copy.tsx, from 0.9 s).
 const INTRO_SECONDS = 2.4
 const easeOut = (t: number) => 1 - (1 - t) ** 3
+/**
+ * Share of the screen the canvas runs on below the hero, where the image
+ * dissolves into the page's sky (task reach-and-seams, 1–2).
+ */
+export const BLEED = 0.5
 
 /**
  * The hero's black hole: one full-screen shader that ray traces the light
@@ -42,6 +47,7 @@ export const Gargantua = () => {
     const mist = new Color(readColorToken('mist'))
     return {
       uResolution: { value: new Vector2() },
+      uBleed: { value: 0 },
       uTime: { value: 0 },
       uLook: { value: new Vector2() },
       uPush: { value: 0 },
@@ -87,9 +93,15 @@ export const Gargantua = () => {
     const shader = material.current
     if (!shader) return
     const u = shader.uniforms
-    gl.getDrawingBufferSize(u.uResolution.value)
-    u.uCentre.value.copy(size.width > size.height ? CENTRE.wide : CENTRE.tall)
-    u.uWiden.value = widen(size.width / size.height)
+    // invariant: the shader frames the screen alone, so the black hole sits
+    // where it did before the canvas grew to spill below it.
+    const buffer = gl.getDrawingBufferSize(u.uResolution.value)
+    const screen = buffer.y / (1 + BLEED)
+    u.uBleed.value = buffer.y - screen
+    buffer.y = screen
+    const screenHeight = size.height / (1 + BLEED)
+    u.uCentre.value.copy(size.width > screenHeight ? CENTRE.wide : CENTRE.tall)
+    u.uWiden.value = widen(size.width / screenHeight)
     if (still.current) {
       u.uTime.value = STILL_TIME
       u.uIntro.value = 1
@@ -112,8 +124,8 @@ export const Gargantua = () => {
       delta
     )
     // why: 0 with the hero's top at the window's top, 1 once it has gone.
-    const { top, height } = gl.domElement.getBoundingClientRect()
-    u.uPush.value = MathUtils.clamp(-top / Math.max(height, 1), 0, 1)
+    const { top } = gl.domElement.getBoundingClientRect()
+    u.uPush.value = MathUtils.clamp(-top / Math.max(screenHeight, 1), 0, 1)
   })
 
   return (

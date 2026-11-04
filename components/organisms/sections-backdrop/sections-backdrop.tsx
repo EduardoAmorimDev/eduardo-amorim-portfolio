@@ -1,3 +1,10 @@
+import { SKY_FADE, type SkyFade } from '@/lib/sky-fade'
+
+type SectionsBackdropProps = {
+  /** Fades the glows at the container's edges (lib/sky-fade.ts). */
+  fade?: SkyFade
+}
+
 /**
  * The background behind the sections after the hero: two blurred radial
  * glows that stay on screen while the sections scroll, drifting slowly and
@@ -5,10 +12,10 @@
  * belongs to the hero alone. Must be placed inside a container that creates
  * a stacking context.
  */
-export const SectionsBackdrop = () => (
+export const SectionsBackdrop = ({ fade }: SectionsBackdropProps) => (
   <div
     aria-hidden="true"
-    className="pointer-events-none absolute inset-0 -z-20 overflow-clip"
+    className={`pointer-events-none absolute inset-0 -z-20 overflow-clip ${fade ? SKY_FADE[fade] : ''}`}
   >
     <div className="sticky top-0 h-svh">
       <div

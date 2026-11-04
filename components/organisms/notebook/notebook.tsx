@@ -6,6 +6,8 @@ import { MathUtils } from 'three'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
 import { useNearViewport } from '@/lib/use-near-viewport'
+import { ParallaxField } from '@/components/organisms/parallax-field'
+import { SectionsBackdrop } from '@/components/organisms/sections-backdrop'
 import { DeviceCopy } from './device-copy'
 import { NotebookScene } from './notebook-scene'
 import { CAMERA } from './stages'
@@ -45,8 +47,13 @@ export const Notebook = ({ id }: NotebookProps) => {
       const element = section.current
       const view = stage.current
       if (!element || !view) return
-      const past = window.innerHeight - element.getBoundingClientRect().bottom
+      const box = element.getBoundingClientRect()
+      const past = window.innerHeight - box.bottom
       const fade = MathUtils.clamp(past / (window.innerHeight * HANDOFF), 0, 1)
+      // why: the stage's sky rises as it enters, so its top edge meets the
+      // block above, whose sky fades out there, without a line.
+      const entry = MathUtils.clamp(1 - box.top / window.innerHeight, 0, 1)
+      view.style.setProperty('--sky-entry', String(entry * entry))
       view.style.opacity = String(1 - fade)
       // why: once gone, the stage must not catch the clicks meant for the
       // real section now in its place.
@@ -77,10 +84,19 @@ export const Notebook = ({ id }: NotebookProps) => {
           beneath never shows through the transparent canvas. */}
       {/* why: select-none: <Html> puts real DOM behind a click-through
           canvas, so a double click would paint the screen selection blue. */}
+      {/* why: isolate, so the sky's negative layers stay inside the stage,
+          over its opaque ground and under the canvas. */}
       <div
         ref={stage}
-        className="bg-background pointer-events-auto sticky top-0 h-svh select-none"
+        className="bg-background pointer-events-auto sticky top-0 isolate h-svh select-none"
       >
+        <div
+          data-testid="notebook-sky"
+          className="absolute inset-0 -z-20 opacity-(--sky-entry)"
+        >
+          <SectionsBackdrop />
+          <ParallaxField />
+        </div>
         {/* why: no OrbitControls, so only the scroll moves the devices.
             dpr ≥ 1.5: MSAA alone left the thin edges stair-stepped. alpha:
             the sky is the page background. isolate: keeps drei <Html>'s
