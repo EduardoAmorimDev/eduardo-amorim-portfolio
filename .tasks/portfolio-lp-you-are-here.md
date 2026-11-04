@@ -2,6 +2,9 @@
 
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
+>
+> **Substituída em parte** por `.tasks/portfolio-lp-earth-and-sky.md` (2026-11-04): os critérios
+> 4 (rótulo), 5 (copy), 7 (arraste e inclinação) e 9 (campo de estrelas) valem como lá.
 
 ## Intent
 
