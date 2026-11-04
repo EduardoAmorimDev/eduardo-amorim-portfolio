@@ -1,6 +1,12 @@
 @import 'tailwindcss';
 @import 'lenis/dist/lenis.css';
 
+/* hazard: the planning docs quote class names as examples (a placeholder
+   like `<tom>` breaks the CSS parser); they are not source, so Tailwind
+   must not scan them for classes. */
+@source not '../.checks';
+@source not '../.tasks';
+
 /* why: static emits every colour even when no class uses it, so the 3D scene
    can read them at runtime (lib/color-tokens.ts). */
 @theme static {
