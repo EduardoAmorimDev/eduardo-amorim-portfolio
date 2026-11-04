@@ -6,7 +6,7 @@ import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
 import { useStaticPage } from '@/lib/use-static-page'
 import {
   fitIn,
-  floatAt,
+  laptopFloatAt,
   isShown,
   renderScale,
   ZOOM_SETTLE,
@@ -112,9 +112,17 @@ type LaptopProps = {
   side: boolean
   /** Filled every frame with where the page sits, once the model has loaded. */
   viewRef: RefObject<ScreenView | null>
+  /** How far the camera has dived into the screen (0..1). */
+  dive: RefObject<number>
 }
 
-export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
+export const Laptop = ({
+  progress,
+  screenUrl,
+  side,
+  viewRef,
+  dive
+}: LaptopProps) => {
   const { scene } = useGLTF(MODEL_URL, false)
   const body = useRef<Group>(null)
   const page = useRef<HTMLIFrameElement>(null)
@@ -168,7 +176,7 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
     )
     // why: bobbing here, not with drei's <Float>, so it runs before <Html>
     // reads the lid's pose this frame.
-    body.current.position.y = floatAt(clock.elapsedTime)
+    body.current.position.y = laptopFloatAt(clock.elapsedTime, dive.current)
     parts.current.lid.rotation.x = LID_OPEN * open
     // why: fading the page in over the black backing reads as the screen
     // turning on.

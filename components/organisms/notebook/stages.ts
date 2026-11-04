@@ -131,3 +131,11 @@ export const SMOOTHING = 4
 export const FLOAT = { height: 0.06, speed: 0.5 }
 export const floatAt = (elapsed: number) =>
   Math.sin(elapsed * FLOAT.speed) * FLOAT.height
+
+/**
+ * The laptop's bob, settling as the camera dives (`dive` 0..1): the camera
+ * follows the screen, so a bob left running at the end of the dive moved
+ * the camera, the 3D page and the canvas every frame for a still picture.
+ */
+export const laptopFloatAt = (elapsed: number, dive: number) =>
+  floatAt(elapsed) * (1 - Math.min(Math.max(dive, 0), 1))

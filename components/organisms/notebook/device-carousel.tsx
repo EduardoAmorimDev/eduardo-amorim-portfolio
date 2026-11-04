@@ -89,6 +89,7 @@ export const DeviceCarousel = ({
   // while two of them cross the stage together.
   const smoothed = useRef(0)
   const laptopProgress = useRef(0)
+  const dive = useRef(0)
   const screenView = useRef<ScreenView | null>(null)
   const [landscape, setLandscape] = useState(false)
   const size = useThree(state => state.size)
@@ -153,15 +154,16 @@ export const DeviceCarousel = ({
       (1 - laptopIn) * offstage(viewport, LAPTOP_FRAME, side)
     laptop.current.visible = laptopIn > 0
     laptopProgress.current = local(p, STAGES.laptop)
+    dive.current = ease(p, STAGES.zoom)
   }, BEFORE_DEVICES)
 
   useFrame(({ camera }) => {
     const view = screenView.current
     if (!view) return
-    const dive = ease(smoothed.current, STAGES.zoom)
+    const depth = dive.current
     // invariant: the camera only ever leaves its resting pose for the dive,
     // so at dive 0 it is exactly where the scene was laid out from.
-    if (dive === 0) {
+    if (depth === 0) {
       camera.position.copy(CAMERA_REST.position)
       camera.quaternion.copy(CAMERA_REST.quaternion)
       return
@@ -174,8 +176,8 @@ export const DeviceCarousel = ({
     const facing = new Quaternion().setFromRotationMatrix(
       lookAtMatrix.lookAt(eye, view.centre, view.up)
     )
-    camera.position.lerpVectors(CAMERA_REST.position, eye, dive)
-    camera.quaternion.slerpQuaternions(CAMERA_REST.quaternion, facing, dive)
+    camera.position.lerpVectors(CAMERA_REST.position, eye, depth)
+    camera.quaternion.slerpQuaternions(CAMERA_REST.quaternion, facing, depth)
     camera.updateMatrixWorld()
   }, AFTER_LAPTOP)
 
@@ -195,6 +197,7 @@ export const DeviceCarousel = ({
         <Suspense fallback={null}>
           <Laptop
             progress={laptopProgress}
+            dive={dive}
             screenUrl={screenUrl}
             side={side}
             viewRef={screenView}
