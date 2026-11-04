@@ -34,13 +34,15 @@ export const Hero = ({ id, children }: HeroProps) => {
     >
       {/* why: decoration (criterion 42): the hero's meaning is its copy. The
           canvas runs BLEED screens past the section and fades out there, so
-          the lens dissolves into the page's sky instead of ending on a line. */}
+          the lens dissolves into the page's sky instead of ending on a line;
+          the shader fades it (gargantua-shader.ts), as a CSS mask over a
+          canvas that changes every frame cost the compositor a pass. */}
       <Canvas
         aria-hidden="true"
-        className="isolate [mask-image:linear-gradient(to_bottom,black_calc(100%-75svh),transparent)]"
+        className="isolate"
         data-testid="hero-scene"
         dpr={dpr}
-        gl={{ antialias: false }}
+        gl={{ antialias: false, alpha: true }}
         style={{
           position: 'absolute',
           inset: '0 0 auto 0',

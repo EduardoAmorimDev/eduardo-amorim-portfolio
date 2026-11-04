@@ -129,10 +129,6 @@ test.describe('the hero dissolves into the sky', () => {
       ),
       'gone by 50svh below'
     ).toBeLessThanOrEqual(2)
-    const mask = await page
-      .locator('[data-testid="hero-scene"]')
-      .evaluate(element => getComputedStyle(element).maskImage)
-    expect(mask).toContain('linear-gradient')
   })
 
   test('the hero ground is ink', async ({ page }) => {

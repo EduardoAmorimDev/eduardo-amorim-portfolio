@@ -31,6 +31,9 @@ uniform vec3 uWarm;
 uniform vec3 uCool;
 uniform vec3 uSky;
 
+// why: the canvas fades to clear over its last 75svh, ending where it
+// does, as the hero's CSS mask did, so the lens dissolves into the sky.
+const float FADE_SCREENS = 0.75;
 const float DISK_IN = 3.0;
 const float DISK_OUT = 22.0;
 const float ESCAPE = 48.0;
@@ -212,6 +215,9 @@ void main() {
   float grain = hash13(vec3(gl_FragCoord.xy, floor(uTime * 24.0))) - 0.5;
   float light = dot(graded, vec3(0.299, 0.587, 0.114));
   graded += grain * (0.012 + 0.06 * smoothstep(0.02, 0.4, light));
-  gl_FragColor = vec4(graded, 1.0);
+  // invariant: rows count up from the canvas's bottom edge; the canvas's
+  // alpha is premultiplied, so the colour fades with it.
+  float fade = clamp(gl_FragCoord.y / (FADE_SCREENS * uResolution.y), 0.0, 1.0);
+  gl_FragColor = vec4(clamp(graded, 0.0, 1.0) * fade, fade);
 }
 `
