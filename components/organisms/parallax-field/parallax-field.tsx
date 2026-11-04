@@ -1,5 +1,11 @@
 'use client'
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type ReactNode
+} from 'react'
 import {
   PARALLAX_LAYERS,
   PARALLAX_SPEED,
@@ -12,66 +18,169 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 
-// why: fractions of the layer's height; enough items to keep each layer
-// populated over all eight sections at its own speed.
-const spread = (count: number) =>
-  Array.from({ length: count }, (_, index) => (index + 0.5) / count)
+import {
+  MILKY_WAY,
+  dustMotes,
+  farStars,
+  nearStars,
+  type StarTint
+} from './night-sky'
 
-// why: a fixed low-discrepancy draw per index, so every star gets its own
-// place, size, twinkle period and phase, the same on the server and client.
-const draw = (index: number, step: number) => (index * step) % 1
+// invariant: a far star's own brightness is its colour's alpha
+// (--star-peak), so the twinkle's opacity can stay a compositor animation.
+const TINT: Record<StarTint, string> = {
+  mist: 'bg-[rgb(from_var(--color-mist)_r_g_b/var(--star-peak))]',
+  snow: 'bg-[rgb(from_var(--color-snow)_r_g_b/var(--star-peak))]',
+  dawn: 'bg-[rgb(from_var(--color-dawn)_r_g_b/var(--star-peak))]',
+  sky: 'bg-[rgb(from_var(--color-sky)_r_g_b/var(--star-peak))]'
+}
 
-// why: the page between the black hole and the Earth is a trip through
-// space (task hero-gargantua): fine stars far back, brighter ones nearer,
-// and blurred dust rushing past the edges in front.
-const BACK = spread(90).map((top, index) => {
-  const period = 3 + 5 * draw(index, 0.618034)
-  return {
-    top,
-    left: 100 * draw(index, 0.7548777),
-    size: 1 + Math.round(draw(index, 0.5698403)),
-    opacity: 0.25 + 0.5 * draw(index, 0.3247179),
-    period,
-    phase: period * draw(index, 0.414214)
+// why: the page between the black hole and the Earth is a night sky (task
+// earth-and-sky): stars scattered as by chance, mostly faint, a few bright,
+// in their own tints, crowding along a faint Milky Way; brighter stars
+// nearer, and blurred dust rushing past the edges in front.
+const FAR = farStars()
+const NEAR = nearStars()
+const DUST = dustMotes()
+
+// invariant: the band's glow is drawn in the layer's own percent space
+// (the SVG stretches to it), so it lies over the stars that crowd into it.
+const run = MILKY_WAY.end - MILKY_WAY.start
+const across = Math.hypot(100, run)
+// why: the glow fades out over 3.5 band halves either side, so the band
+// reads as a broad haze rather than a beam.
+const reach = (3.5 * MILKY_WAY.half * 100) / across
+const centre = { x: 50, y: (MILKY_WAY.start + MILKY_WAY.end) / 2 }
+const normal = { x: -run / across, y: 100 / across }
+const bandEnds = {
+  x1: centre.x - normal.x * reach,
+  y1: centre.y - normal.y * reach,
+  x2: centre.x + normal.x * reach,
+  y2: centre.y + normal.y * reach
+}
+
+type FarStar = ReturnType<typeof farStars>[number]
+
+// why: --star-peak is the star's own brightness, the alpha of its colour;
+// the twinkle dims it to a quarter and back (app/globals.css).
+const starStyle = ({
+  top,
+  left,
+  size,
+  peak,
+  period,
+  phase
+}: Omit<FarStar, 'tint'>) => {
+  const style: CSSProperties & { '--star-peak': number } = {
+    top: `${top}%`,
+    left: `${left}%`,
+    width: size,
+    height: size,
+    '--star-peak': peak,
+    animationDuration: `${period}s`,
+    animationDelay: `-${phase}s`
   }
-})
+  return style
+}
 
-const MID = spread(18).map((top, index) => ({
-  top,
-  left: 100 * draw(index, 0.4142135),
-  size: 2 + Math.round(draw(index, 0.2360679))
-}))
-
-const FRONT = spread(10).map((top, index) => ({
-  top,
-  left:
-    index % 2 === 0 ? 2 + 6 * draw(index, 0.618) : 88 + 8 * draw(index, 0.31),
-  size: 6 + Math.round(10 * draw(index, 0.7071067))
-}))
+// why: a broad glow along the band, broken into clouds by fractal noise,
+// as the Milky Way looks by eye; ids are per instance, as each decorated
+// block draws its own.
+const MilkyWay = () => {
+  const id = useId()
+  const glow = `${id}-glow`
+  const clouds = `${id}-clouds`
+  const mottle = `${id}-mottle`
+  return (
+    <svg
+      data-milky-way
+      data-band-start={MILKY_WAY.start}
+      data-band-end={MILKY_WAY.end}
+      data-band-half={MILKY_WAY.half}
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      className="absolute inset-0 size-full opacity-[0.12]"
+    >
+      <defs>
+        <linearGradient id={glow} gradientUnits="userSpaceOnUse" {...bandEnds}>
+          <stop
+            offset="0"
+            style={{ stopColor: 'var(--color-sky)', stopOpacity: 0 }}
+          />
+          <stop
+            offset="0.25"
+            style={{ stopColor: 'var(--color-sky)', stopOpacity: 0.2 }}
+          />
+          <stop
+            offset="0.42"
+            style={{ stopColor: 'var(--color-mist)', stopOpacity: 0.7 }}
+          />
+          <stop
+            offset="0.5"
+            style={{ stopColor: 'var(--color-mist)', stopOpacity: 1 }}
+          />
+          <stop
+            offset="0.58"
+            style={{ stopColor: 'var(--color-mist)', stopOpacity: 0.7 }}
+          />
+          <stop
+            offset="0.75"
+            style={{ stopColor: 'var(--color-sky)', stopOpacity: 0.2 }}
+          />
+          <stop
+            offset="1"
+            style={{ stopColor: 'var(--color-sky)', stopOpacity: 0 }}
+          />
+        </linearGradient>
+        <filter id={clouds} x="0" y="0" width="100%" height="100%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.09 0.06"
+            numOctaves="4"
+            seed="11"
+          />
+          <feColorMatrix
+            type="matrix"
+            values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1.8 0 0 0 -0.35"
+          />
+        </filter>
+        <mask id={mottle}>
+          <rect width="100" height="100" filter={`url(#${clouds})`} />
+        </mask>
+      </defs>
+      <rect
+        width="100"
+        height="100"
+        fill={`url(#${glow})`}
+        mask={`url(#${mottle})`}
+      />
+    </svg>
+  )
+}
 
 const CONTENT: Record<ParallaxLayer, ReactNode> = {
-  back: BACK.map(({ top, left, size, opacity, period, phase }) => (
+  back: (
+    <>
+      <MilkyWay />
+      {FAR.map(({ top, left, size, peak, tint, period, phase }, index) => (
+        <span
+          key={index}
+          data-star="far"
+          // why: only the brighter stars visibly twinkle, as in a real sky;
+          // every twinkle is a layer of its own, so the faint ones hold still.
+          data-twinkle={size > 1 ? '' : undefined}
+          style={starStyle({ top, left, size, peak, period, phase })}
+          className={`${TINT[tint]} ${size > 1 ? 'motion-safe:animate-twinkle' : ''} absolute rounded-full`}
+        />
+      ))}
+    </>
+  ),
+  mid: NEAR.map(({ top, left, size }, index) => (
     <span
-      key={`${top}`}
-      data-star="far"
-      style={{
-        top: `${top * 100}%`,
-        left: `${left}%`,
-        width: size,
-        height: size,
-        opacity,
-        animationDuration: `${period.toFixed(2)}s`,
-        animationDelay: `-${phase.toFixed(2)}s`
-      }}
-      className="bg-mist motion-safe:animate-twinkle absolute rounded-full"
-    />
-  )),
-  mid: MID.map(({ top, left, size }) => (
-    <span
-      key={`${top}`}
+      key={index}
       data-star="near"
       style={{
-        top: `${top * 100}%`,
+        top: `${top}%`,
         left: `${left}%`,
         width: size,
         height: size
@@ -79,12 +188,12 @@ const CONTENT: Record<ParallaxLayer, ReactNode> = {
       className="bg-mist absolute rounded-full shadow-[0_0_8px_2px_rgb(from_var(--color-primary)_r_g_b/45%)]"
     />
   )),
-  front: FRONT.map(({ top, left, size }) => (
+  front: DUST.map(({ top, left, size }, index) => (
     <span
-      key={`${top}`}
+      key={index}
       data-dust
       style={{
-        top: `${top * 100}%`,
+        top: `${top}%`,
         left: `${left}%`,
         width: size,
         height: size

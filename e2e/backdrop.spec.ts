@@ -132,8 +132,13 @@ test('each glow breathes ±0.1 around its opacity', async ({ page }) => {
 })
 
 test('far stars twinkle out of step', async ({ page }) => {
+  // why: every twinkling far star is swept, a round trip each.
+  test.setTimeout(120_000)
   await atSolutions(page)
-  const dots = page.locator('[data-parallax-layer="back"] [data-star="far"]')
+  // why: task earth-and-sky, 13: the stars of 1.5 px or more twinkle.
+  const dots = page.locator(
+    '[data-parallax-layer="back"] [data-star="far"][data-twinkle]'
+  )
   expect(await dots.count()).toBeGreaterThan(10)
   const timings = await dots.evaluateAll(elements =>
     elements.map(element => {
@@ -159,6 +164,8 @@ test('far stars twinkle out of step', async ({ page }) => {
     expect(duration).toBeGreaterThanOrEqual(TWINKLE.min)
     expect(duration).toBeLessThanOrEqual(TWINKLE.max)
     expect(iterations).toBe(Infinity)
+    // invariant: task earth-and-sky, 13: the star's own brightness (its
+    // colour's alpha) dims to a quarter and back.
     const opacities = values.map(Number)
     expect(Math.min(...opacities)).toBeCloseTo(TWINKLE.low, 2)
     expect(Math.max(...opacities)).toBeCloseTo(TWINKLE.high, 2)
