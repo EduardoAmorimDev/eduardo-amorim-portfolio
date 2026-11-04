@@ -15,7 +15,7 @@ import {
 // why: the task's own numbers (.tasks/portfolio-lp-swallow-and-copy.md).
 const VIEW = { width: 1440, height: 900 }
 const DARK = 12
-const SWALLOW = { quarter: 0.55, never: 0.9, gone: 0.1 }
+const SWALLOW = { never: 0.9, gone: 0.1 }
 const STEP = { reach: 40, rows: 4, max: 0.5 }
 const COVER_VIEWS = [
   { width: 1440, height: 900 },
@@ -30,15 +30,15 @@ const mean = (pixels: Pixels, x: number, y: number) => {
   return (r + g + b) / 3
 }
 
-/** Longest run of dark pixels in any row: share of the width, middle x, row. */
+/** Longest run of dark pixels in any row: share of the width, middle x. */
 const darkRun = (pixels: Pixels) => {
-  let best = { share: 0, middle: 0, y: 0 }
+  let best = { share: 0, middle: 0 }
   for (let y = 0; y < pixels.height; y += 5) {
     let run = 0
     for (let x = 0; x < pixels.width; x++) {
       run = mean(pixels, x, y) <= DARK ? run + 1 : 0
       if (run / pixels.width > best.share)
-        best = { share: run / pixels.width, middle: x - run / 2, y }
+        best = { share: run / pixels.width, middle: x - run / 2 }
     }
   }
   return best
@@ -80,26 +80,14 @@ const largestStep = async (page: Page, edge: number) => {
 }
 
 test.describe('the black hole almost swallows the visitor', () => {
-  test('the shadow swells as the hero leaves', async ({ page }) => {
-    await gotoHero(page)
-    const quarter = await darkRunAt(page, 0.25)
-    expect(quarter.share).toBeGreaterThanOrEqual(SWALLOW.quarter)
-    expect(quarter.y).toBeLessThan(VIEW.height / 2)
-    expect(quarter.middle).toBeGreaterThan(VIEW.width / 3)
-    expect(quarter.middle).toBeLessThan((2 * VIEW.width) / 3)
-    expect((await darkRunAt(page, 1)).share).toBeLessThanOrEqual(SWALLOW.gone)
-  })
-
-  test('the black hole rises out through the top as it swells', async ({
+  test('the black hole rises out through the top and is gone with the hero', async ({
     page
   }) => {
     await gotoHero(page)
-    const early = await darkRunAt(page, 0.15)
-    const quarter = await darkRunAt(page, 0.25)
-    expect(quarter.y).toBeLessThan(early.y)
     expect((await darkRunAt(page, 0.75)).share).toBeLessThanOrEqual(
       SWALLOW.gone
     )
+    expect((await darkRunAt(page, 1)).share).toBeLessThanOrEqual(SWALLOW.gone)
   })
 
   test('the shadow never covers the whole width', async ({ page }) => {

@@ -20,9 +20,8 @@ embaixo do vidro: tarjas pretas. O fechamento (`#contato`) e o "Sobre" ainda tê
 (o segundo é lorem ipsum). O source não traz métrica de impacto; o custo é a percepção de
 acabamento de um portfólio que vende acabamento.
 
-Quando isto entrar: ao sair da hero, o buraco negro avança em direção ao visitante e sobe ao
-mesmo tempo, saindo por cima da tela enquanto a sombra quase a toma, e então se dissolve no céu
-da seção seguinte; Soluções e Alcance são um só céu,
+Quando isto entrar: ao sair da hero, o buraco negro avança devagar em direção ao visitante e sobe
+ao mesmo tempo, saindo por cima da tela, e então se dissolve no céu da seção seguinte; Soluções e Alcance são um só céu,
 sem linha; o vidro do laptop é tomado pela página de ponta a ponta; o contato fecha com o copy
 novo; e o "Sobre" apresenta o Eduardo.
 
@@ -42,11 +41,15 @@ Medições usadas abaixo, todas em screenshot da viewport a 1440×900 com o tema
 
 ### O buraco negro quase engole o visitante
 
-1. Quando a hero está rolada 0,25, a faixa escura é ≥ 0,55 da largura (hoje 0,44), na metade
-   superior da viewport, e o pixel central dela está no terço central da largura.
-2. Enquanto a hero sai, o buraco negro sobe ao mesmo tempo que cresce, como quem sai por cima da
-   tela: a linha da faixa escura mais larga com a hero rolada 0,25 fica acima da linha com ela
-   rolada 0,15, e com a hero rolada 0,75 a faixa escura é ≤ 0,10 da largura.
+1. Enquanto a hero sai, a câmera avança devagar e para longe da tela: o avanço se espalha pela
+   rolagem até a hero rolada 0,8 (suavizado no início e no fim), e a sombra chega a ~55% da
+   largura de uma janela 16:10, sem tomar a tela (revisão do usuário, 2026-11-04: "diminua a
+   velocidade que o buraco negro se aproxima, pode ficar menos próximo do usuário também").
+   Prova: screenshots da hero rolada 0,15, 0,25, 0,5 e 0,75, revisados pelo usuário; a
+   luminância não separa a sombra do céu preto da hero, então não há medição automática do
+   tamanho.
+2. Enquanto a hero sai, o buraco negro vai para a coluna central e sobe com a rolagem, como quem
+   sai por cima da tela: com a hero rolada 0,75 a faixa escura é ≤ 0,10 da largura.
 3. Sempre, entre a hero rolada 0,25 e rolada 1,5, a faixa escura é < 0,90 da largura: a sombra
    nunca cobre a tela inteira ("quase"). Em repouso o céu ao lado do buraco negro é tão escuro
    quanto a sombra, e o quadro de repouso é o do critério 5.
@@ -156,7 +159,8 @@ Medições usadas abaixo, todas em screenshot da viewport a 1440×900 com o tema
 
 - Pedido do usuário nesta conversa (sem endereço; trechos decisivos citados):
   - "Ao scrollar para sair da Hero, o buraco negro deve vir mais para tela do que já vem hoje, quase "engolindo" o usuário." → 1–7
-  - "O buraco negro, mesmo vindo em direção ao usuário deve ir para cima [...] como se fosse sair por cima da tela, ao mesmo tempo que o zoom é feito nele" → 1, 2
+  - "O buraco negro, mesmo vindo em direção ao usuário deve ir para cima [...] como se fosse sair por cima da tela, ao mesmo tempo que o zoom é feito nele" → 2
+  - "diminua a velocidade que o buraco negro se aproxima, pode ficar menos próximo do usuário também" → 1
   - "ainda consigo ver a diferença entre a seção soluções e a seção de alcance que contém os devices." → 8–10
   - "o conteúdo do laptop está com tarjas pretas, encima e embaixo, isso não pode acontecer." → 11, 12
   - "O copy do footer pode ser "Posso trazer um horizonte de possibilidades até você." "Você viu onde podemos chegar. Já sabemos nosso ponto de partida.", o restante do footer está perfeito!" → 13, 14
@@ -171,7 +175,7 @@ This task is the record of decision. If a linked document diverges, ask before b
 
 | # | Kind | Question | Until answered |
 |---|---|---|---|
-| 1 | open | Intensidade do "engolir": sombra ≥ 55% da largura com a hero rolada 25%, nunca 90%; o buraco negro vai para a coluna central, sobe com a rolagem (pedido do usuário: "deve ir para cima, como se fosse sair por cima da tela, ao mesmo tempo que o zoom é feito nele") e a luz do disco escurece até 12% ao avançar, para o copy de `#prova-social` continuar legível sobre o disco. | Escrito em 1–4; ajustar os números na revisão visual. |
+| 1 | open | Intensidade da aproximação: avanço até a hero rolada 0,8, câmera parando a 10 unidades (sombra ~55% de uma janela 16:10), luz do disco escurecendo até 12%. Ajustado duas vezes pelo usuário (subir em vez de descer; mais lento e mais longe). | Escrito em 1–2; ajustar na revisão visual. |
 | 2 | open | Em janelas mais estreitas que o vidro (proporção < 1,457: tablet 4:3, celular em pé), cobrir o vidro quebraria o hand-off (a página teria de ser montada em outra largura). Padrão: nessas janelas fica como hoje (faixas laterais). | 11 vale só para proporção ≥ 1,457. |
 | 3 | open | `<h2>` do contato sem ponto final, como todos os títulos da página; o parágrafo mantém o ponto. | Escrito em 13 sem ponto. |
 | 4 | open | Copy do "Sobre" redigido a partir da bio: "desempenhei um papel fundamental" virou "tive papel central" (não "liderei", para não exagerar); "independência financeira" virou "investindo com estratégia". Aprovar ou ajustar. | Escrito em 16 como está. |
