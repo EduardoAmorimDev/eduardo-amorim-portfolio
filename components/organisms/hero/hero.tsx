@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { useState, type ReactNode } from 'react'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
+import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
 import { BLEED, Gargantua } from './gargantua'
 
@@ -49,6 +50,9 @@ export const Hero = ({ id, children }: HeroProps) => {
       >
         <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate />
+        {/* why: the canvas runs half a screen past the hero, and only its
+            rows on screen are worth a ray each. */}
+        <VisibleScissor />
         <Gargantua />
       </Canvas>
       {children}

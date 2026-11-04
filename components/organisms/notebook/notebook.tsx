@@ -5,6 +5,7 @@ import { MathUtils } from 'three'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import type { DprSetting } from '@/lib/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
+import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { ParallaxField } from '@/components/organisms/parallax-field'
@@ -111,6 +112,9 @@ export const Notebook = ({ id }: NotebookProps) => {
         >
           <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
           <RenderGate active={!handedOff} />
+          {/* why: the stage enters from below the projects' cards; only its
+              rows on screen are drawn until it fills the window. */}
+          <VisibleScissor />
           <NotebookScene progress={progress} screenLive={screenLive} />
         </Canvas>
         <DeviceCopy id={id} progress={progress} active={screenLive} />
