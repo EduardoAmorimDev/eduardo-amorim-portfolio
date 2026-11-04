@@ -1,6 +1,6 @@
 'use client'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Suspense, useRef, useState, type RefObject } from 'react'
+import { Suspense, useEffect, useRef, useState, type RefObject } from 'react'
 import {
   MathUtils,
   Matrix4,
@@ -49,6 +49,24 @@ const BEFORE_DEVICES = -2
 const AFTER_LAPTOP = -0.5
 
 const lookAtMatrix = new Matrix4()
+
+/**
+ * Compiles every material of the scene, the hidden devices' included, as
+ * soon as it mounts. Place it after the last thing to load.
+ */
+const Precompile = () => {
+  const gl = useThree(state => state.gl)
+  const scene = useThree(state => state.scene)
+  const camera = useThree(state => state.camera)
+  useEffect(() => {
+    // why: three compiles a material's shader the first time its object is
+    // drawn, so the tablet and the laptop, hidden until they enter, stalled
+    // the carousel mid-motion; compiled here, while the section is still a
+    // screen away, they enter without a hitch.
+    gl.compileAsync(scene, camera).catch(() => undefined)
+  }, [gl, scene, camera])
+  return null
+}
 
 type DeviceCarouselProps = {
   progress: RefObject<number>
@@ -181,6 +199,7 @@ export const DeviceCarousel = ({
             side={side}
             viewRef={screenView}
           />
+          <Precompile />
         </Suspense>
       </group>
     </group>

@@ -3,11 +3,13 @@ import { Html, useGLTF } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, useState, type RefObject } from 'react'
 import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
+import { useStaticPage } from '@/lib/use-static-page'
 import {
   fitIn,
   floatAt,
   isShown,
   renderScale,
+  ZOOM_SETTLE,
   stageViewport,
   type Frame
 } from './stages'
@@ -132,6 +134,10 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
   // why: the page is drawn at about its size on screen (renderScale), which
   // reaches 1 as the camera ends its dive, for the hand-off to the page.
   const [zoom, setZoom] = useState(1)
+  const html = useStaticPage(screenUrl)
+  const backing = useRef<HTMLDivElement>(null)
+  const pending = useRef({ zoom: 1, since: 0 })
+  const shown = useRef(true)
   const pagePosition = useMemo(() => {
     const { x, y, z } = anchor.screen.position
     return new Vector3(x, y - SCREEN_GAP, z - PAGE_DROP)
@@ -182,13 +188,24 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
       up,
       pageHeight: size.height * pageScale * UNITS_PER_PX * lidScale
     }
-    if (isShown(body.current)) {
+    // why: off stage the page is display:none, so the browser stops drawing
+    // it; it stays loaded, and shows at once when the laptop comes in.
+    const onStage = isShown(body.current)
+    if (backing.current && onStage !== shown.current) {
+      backing.current.style.display = onStage ? '' : 'none'
+      shown.current = onStage
+    }
+    if (onStage) {
       const next = renderScale(
         UNITS_PER_PX * lidScale,
         camera.position.distanceTo(centre),
         size.height
       )
-      if (next !== zoom) setZoom(next)
+      const now = clock.elapsedTime
+      if (next !== pending.current.zoom)
+        pending.current = { zoom: next, since: now }
+      else if (next !== zoom && now - pending.current.since >= ZOOM_SETTLE)
+        setZoom(next)
     }
   }, BEFORE_HTML)
 
@@ -226,6 +243,7 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
           pointerEvents="none"
         >
           <div
+            ref={backing}
             className="bg-ink relative overflow-hidden"
             // why: rounding the black backing keeps the glass's corners;
             // the page itself stays square, like the real one it becomes.
@@ -240,15 +258,20 @@ export const Laptop = ({ progress, screenUrl, side, viewRef }: LaptopProps) => {
                 picture: the wheel scrolls the portfolio (driving the
                 animation) instead of the embedded site, and focus skips it.
                 scrolling="no" hides the embedded page's scrollbar. */}
-            {screenUrl && (
+            {screenUrl && html && (
               <iframe
                 ref={page}
+                // invariant: srcdoc wins over src, which only names the page
+                // this is a script-free copy of (use-static-page.ts).
+                srcDoc={html}
                 src={screenUrl}
                 title="Preview of the projects section on a laptop"
                 width={size.width}
                 height={size.height}
                 tabIndex={-1}
                 aria-hidden
+                // why: a picture of the section, never a page that runs.
+                sandbox="allow-same-origin"
                 scrolling="no"
                 className="pointer-events-none absolute border-0 opacity-0"
                 style={{

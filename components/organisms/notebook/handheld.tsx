@@ -10,7 +10,8 @@ import {
   type Group
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
-import { isShown, renderScale } from './stages'
+import { useStaticPage } from '@/lib/use-static-page'
+import { isShown, renderScale, ZOOM_SETTLE } from './stages'
 
 /** A phone or tablet: a rounded slab with a live page on its front glass. */
 export type HandheldSpec = {
@@ -150,9 +151,21 @@ export const Handheld = ({
   // why: the page is drawn at about its size on screen (renderScale); the
   // zoom keeps its layout width, so the site still lays out for the device.
   const [zoom, setZoom] = useState(1)
-  useFrame(({ camera }) => {
+  const html = useStaticPage(screenUrl)
+  const content = useRef<HTMLDivElement>(null)
+  const pending = useRef({ zoom: 1, since: 0 })
+  const shown = useRef(true)
+  useFrame(({ camera, clock }) => {
     const group = screen.current
-    if (!group || !isShown(group)) return
+    if (!group) return
+    // why: off stage the page is display:none, so the browser stops drawing
+    // it; it stays loaded, and shows at once when the device comes back.
+    const onStage = isShown(group)
+    if (content.current && onStage !== shown.current) {
+      content.current.style.display = onStage ? '' : 'none'
+      shown.current = onStage
+    }
+    if (!onStage) return
     const position = group.getWorldPosition(new Vector3())
     const scale = group.getWorldScale(new Vector3()).x
     const next = renderScale(
@@ -160,7 +173,11 @@ export const Handheld = ({
       camera.position.distanceTo(position),
       screenHeight
     )
-    if (next !== zoom) setZoom(next)
+    const now = clock.elapsedTime
+    if (next !== pending.current.zoom)
+      pending.current = { zoom: next, since: now }
+    else if (next !== zoom && now - pending.current.since >= ZOOM_SETTLE)
+      setZoom(next)
   })
   // invariant: with `transform`, drei maps 1 CSS px to distanceFactor / 400
   // units; dividing by the zoom keeps the zoomed page as wide as the display.
@@ -195,19 +212,25 @@ export const Handheld = ({
             }
           >
             <div
+              ref={content}
               className="bg-ink"
               style={{ width: page.width, height: page.height, zoom }}
             >
               {/* why: same as the laptop's page: a picture, not a site to
                 use, so the wheel keeps driving the portfolio. */}
-              {screenUrl && (
+              {screenUrl && html && (
                 <iframe
+                  // invariant: srcdoc wins over src, which only names the
+                  // page this is a script-free copy of (use-static-page.ts).
+                  srcDoc={html}
                   src={screenUrl}
                   title={spec.title}
                   width={page.width}
                   height={page.height}
                   tabIndex={-1}
                   aria-hidden
+                  // why: a picture of the section, never a page that runs.
+                  sandbox="allow-same-origin"
                   scrolling="no"
                   className="pointer-events-none border-0"
                   style={{ borderRadius: spec.pageRadius }}

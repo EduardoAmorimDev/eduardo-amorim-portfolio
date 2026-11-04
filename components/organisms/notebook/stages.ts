@@ -92,9 +92,12 @@ export const fitIn = (viewport: Viewport, frame: Frame, side: boolean) => {
 export const offstage = (viewport: Viewport, frame: Frame, side: boolean) =>
   (viewport.width + frame.width * fitIn(viewport, frame, side)) / 2
 
-// why: the scales a device's page is drawn at (CSS `zoom`); steps, so it is
-// only redrawn when its size on screen changes enough to matter.
-const RENDER_STEPS = [0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]
+// why: the scales a device's page is drawn at (CSS `zoom`); few steps, so it
+// is only laid out again when its size on screen changes enough to matter.
+const RENDER_STEPS = [0.25, 0.5, 0.75, 1]
+// why: a new zoom is applied only once it has held this long (s), so a
+// device in motion is not laid out again at every step it passes.
+export const ZOOM_SETTLE = 0.25
 
 /**
  * The CSS `zoom` to draw a device's page at so it is rasterised at about the

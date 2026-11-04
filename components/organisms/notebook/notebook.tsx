@@ -1,4 +1,5 @@
 'use client'
+import { PerformanceMonitor } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { MathUtils } from 'three'
@@ -18,6 +19,9 @@ const SCREEN_LEAD = '100% 0px'
 // fades out; by then it has let go and moves with the real section, so the
 // fade only swaps the picture of the page for the page itself.
 const HANDOFF = 0.25
+// why: crisp edges by default; a GPU that drops frames on the carousel
+// draws one pixel per CSS px instead, which keeps the motion smooth.
+const DPR = { full: [1.5, 2] as [number, number], reduced: 1 }
 
 type NotebookProps = { id: string }
 
@@ -34,6 +38,7 @@ export const Notebook = ({ id }: NotebookProps) => {
   const screenLive = useNearViewport(section, SCREEN_LEAD)
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
+  const [dpr, setDpr] = useState<number | [number, number]>(DPR.full)
 
   useEffect(() => {
     const update = () => {
@@ -83,10 +88,16 @@ export const Notebook = ({ id }: NotebookProps) => {
         <Canvas
           className="isolate"
           data-testid="notebook-scene"
-          dpr={[1.5, 2]}
+          dpr={dpr}
           gl={{ alpha: true }}
           camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
         >
+          <PerformanceMonitor
+            onDecline={() => setDpr(DPR.reduced)}
+            onIncline={() => setDpr(DPR.full)}
+            flipflops={3}
+            onFallback={() => setDpr(DPR.reduced)}
+          />
           <RenderGate active={!handedOff} />
           <NotebookScene progress={progress} screenLive={screenLive} />
         </Canvas>
