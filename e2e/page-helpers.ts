@@ -285,3 +285,28 @@ export const gotoNotebook = async (page: Page) => {
   // why: a few frames for the devices' damped poses to settle at the start.
   await page.waitForTimeout(1500)
 }
+
+/** Answers the place lookup with `place`, or with no place (204). */
+export const placeIs = (page: Page, place?: Record<string, unknown>) =>
+  page.route('**/api/onde-estou', route =>
+    route.fulfill(
+      place
+        ? { json: place, headers: { 'cache-control': 'private, no-store' } }
+        : { status: 204 }
+    )
+  )
+
+/** Scrolls to contato and waits for its place lookup to be answered. */
+export const atContato = async (page: Page) => {
+  await page.goto('/')
+  const answered = page.waitForResponse('**/api/onde-estou')
+  await scrollWindowTo(
+    page,
+    await page.locator('#contato').evaluate(section => {
+      const { top } = section.getBoundingClientRect()
+      return top + scrollY
+    })
+  )
+  await answered
+  return page.locator('#contato')
+}

@@ -1,6 +1,12 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { paintedShare, scrollWindowTo } from './page-helpers'
+import {
+  atContato,
+  documentTop,
+  paintedShare,
+  placeIs,
+  scrollWindowTo
+} from './page-helpers'
 
 const SECTION_IDS = [
   'hero',
@@ -125,47 +131,28 @@ test('hero CTA scrolls to contato', async ({ page }) => {
     .toBe(true)
 })
 
-/** Answers the place lookup with `place`, or with no place (204). */
-const placeIs = (page: Page, place?: Record<string, unknown>) =>
-  page.route('**/api/onde-estou', route =>
-    route.fulfill(
-      place
-        ? { json: place, headers: { 'cache-control': 'private, no-store' } }
-        : { status: 204 }
-    )
-  )
-
-/** Scrolls to contato and waits for its place lookup to be answered. */
-const atContato = async (page: Page) => {
-  await page.goto('/')
-  const answered = page.waitForResponse('**/api/onde-estou')
-  await scrollWindowTo(
-    page,
-    await page.locator('#contato').evaluate(section => {
-      const { top } = section.getBoundingClientRect()
-      return top + scrollY
-    })
-  )
-  await answered
-  return page.locator('#contato')
-}
+// why: task earth-and-sky, 6-8, word for word.
+const OPENING = 'Começamos no limite do que dá para construir.'
+const NO_PLACE = 'Agora a viagem volta para a Terra, onde seu projeto começa.'
+const CLOSING = 'Para onde ele vai, você decide.'
 
 test('contato invites the visitor from where they are', async ({ page }) => {
   // why: a synthetic place, as Vercel's headers would give it.
   await placeIs(page, { latitude: -25.43, longitude: -49.27, city: 'Curitiba' })
   const contato = await atContato(page)
-  // invariant: task you-are-here, 5, word for word.
   await expect(contato.locator('span').first()).toHaveText('Contato')
   await expect(contato.locator('h2')).toHaveCount(1)
   await expect(contato.locator('h2')).toHaveAccessibleName(
-    'Até aqui, você viu onde podemos chegar.'
+    'Do horizonte de eventos até você.'
   )
   const text = contato.locator('p')
   await expect(text).toHaveCount(1)
-  await expect(text).toContainText('No momento, você está aqui, em Curitiba.')
-  await expect(text).toContainText('A escolha é sua.')
+  await expect(text).toContainText(
+    `${OPENING} Agora o mapa aponta para Curitiba, de onde seu projeto parte.`
+  )
+  await expect(text).toContainText(CLOSING)
   await expect(contato.getByRole('button')).toHaveCount(1)
-  await expect(contato.getByRole('button')).toHaveText('Entrar em contato')
+  await expect(contato.getByRole('button')).toHaveText('Vamos conversar')
   await expect(contato.locator('[data-testid="globe-scene"]')).toHaveCount(1)
 })
 
@@ -175,12 +162,48 @@ test.describe('a place guessed from the time zone', () => {
   test('contato names no city', async ({ page }) => {
     await placeIs(page)
     const contato = await atContato(page)
-    // invariant: task you-are-here, 2: a zone spans many cities.
+    // invariant: a zone spans many cities (task you-are-here, 2).
     await expect(contato.locator('p')).toContainText(
-      'No momento, você está por aqui.'
+      'Agora o mapa aponta para perto de você, de onde seu projeto parte.'
     )
     await expect(contato.locator('p')).not.toContainText('São Paulo')
   })
+})
+
+test.describe('no place at all', () => {
+  // why: a real zone that the 52-zone table does not list.
+  test.use({ timezoneId: 'Pacific/Galapagos' })
+
+  test('contato with no place', async ({ page }) => {
+    await placeIs(page)
+    const contato = await atContato(page)
+    await expect(contato.locator('p')).toContainText(`${OPENING} ${NO_PLACE}`)
+    await expect(contato.locator('p')).toContainText(CLOSING)
+  })
+})
+
+test('contato before the place arrives', async ({ page }) => {
+  let answer = () => {}
+  const held = new Promise<void>(resolve => {
+    answer = resolve
+  })
+  await page.route('**/api/onde-estou', async route => {
+    await held
+    await route.fulfill({
+      json: { latitude: -25.43, longitude: -49.27, city: 'Curitiba' },
+      headers: { 'cache-control': 'private, no-store' }
+    })
+  })
+  await page.goto('/')
+  const contato = page.locator('#contato')
+  const asked = page.waitForRequest('**/api/onde-estou')
+  await scrollWindowTo(page, await documentTop(contato))
+  await asked
+  await expect(contato.locator('p')).toContainText(NO_PLACE)
+  answer()
+  await expect(contato.locator('p')).toContainText(
+    'Agora o mapa aponta para Curitiba, de onde seu projeto parte.'
+  )
 })
 
 test('social proof shows six placeholder logos', async ({ page }) => {

@@ -1,6 +1,6 @@
 'use client'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import {
   AdditiveBlending,
   BufferAttribute,
@@ -24,9 +24,6 @@ const MAX_LINKS = 1400
 // why: the cursor pushes the vapour aside like air (radius and push in globe
 // radii); nodes spring back to their drift once it has passed.
 const PUSH = { radius: 0.42, strength: 0.32, spring: 3.2 }
-
-/** Where the pointer is over the canvas, -1..1, and whether it is there. */
-export type PointerInCanvas = { x: number; y: number; inside: boolean }
 
 // why: a fixed hash per index, so the vapour looks the same on every visit.
 const hash = (index: number, salt: number) => {
@@ -65,13 +62,12 @@ const createWeb = () => ({
 })
 
 type GlobeVaporProps = {
-  pointer: RefObject<PointerInCanvas>
   still: RefObject<boolean>
   color: Color
 }
 
 /** The vapour web around the globe, parted by the cursor. */
-export const GlobeVapor = ({ pointer, still, color }: GlobeVaporProps) => {
+export const GlobeVapor = ({ still, color }: GlobeVaporProps) => {
   const group = useRef<Group>(null)
   const dots = useRef<Points>(null)
   const lines = useRef<LineSegments>(null)
@@ -79,6 +75,25 @@ export const GlobeVapor = ({ pointer, still, color }: GlobeVaporProps) => {
   // for mutable values, created on the first frame.
   const web = useRef<ReturnType<typeof createWeb>>(null)
   const dpr = useThree(state => state.viewport.dpr)
+  const gl = useThree(state => state.gl)
+  // why: the canvas lies under the page and takes no events (the FAQ above
+  // must stay clickable), so the cursor is followed on the window; null
+  // once it has left the page.
+  const cursorAt = useRef<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      cursorAt.current = { x: event.clientX, y: event.clientY }
+    }
+    const leave = () => {
+      cursorAt.current = null
+    }
+    window.addEventListener('pointermove', move, { passive: true })
+    document.documentElement.addEventListener('pointerleave', leave)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      document.documentElement.removeEventListener('pointerleave', leave)
+    }
+  }, [])
   const uniforms = useMemo(
     () => ({ uColor: { value: color }, uDpr: { value: dpr } }),
     [color, dpr]
@@ -102,11 +117,22 @@ export const GlobeVapor = ({ pointer, still, color }: GlobeVaporProps) => {
     const t = still.current ? 0 : clock.elapsedTime
 
     // why: the cursor, cast onto the globe's front plane, in the web's own
-    // space, where the push is measured.
-    const there = pointer.current
-    let pushing = there.inside && !still.current
-    if (pushing) {
-      ndc.set(there.x, -there.y)
+    // space, where the push is measured; read each frame, as scrolling
+    // moves the canvas under a still cursor.
+    const there = cursorAt.current
+    const box = gl.domElement.getBoundingClientRect()
+    let pushing =
+      there !== null &&
+      !still.current &&
+      there.x >= box.left &&
+      there.x <= box.right &&
+      there.y >= box.top &&
+      there.y <= box.bottom
+    if (pushing && there) {
+      ndc.set(
+        ((there.x - box.left) / box.width) * 2 - 1,
+        -(((there.y - box.top) / box.height) * 2 - 1)
+      )
       raycaster.setFromCamera(ndc, camera)
       shell.updateWorldMatrix(true, false)
       plane.constant = -shell.getWorldPosition(away).z

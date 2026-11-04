@@ -83,6 +83,10 @@ test.describe('tall window', () => {
   test.use({ viewport: { width: 1440, height: 2400 } })
 
   test('each heading draws its own wait', async ({ page }) => {
+    // why: a window this tall reaches the Earth's light, which rises half a
+    // screen over the FAQ (task earth-and-sky, 9), so the globe draws on
+    // every one of the ~750 frames the clock runs.
+    test.setTimeout(60_000)
     await gotoStopped(page, 100)
     const headings = [page.locator('#cases h2'), page.locator('#workflow h2')]
     const logs = await Promise.all(headings.map(watch))

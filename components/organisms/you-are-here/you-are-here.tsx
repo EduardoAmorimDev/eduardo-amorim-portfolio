@@ -15,6 +15,16 @@ const LOOKUP_LEAD = '100% 0px'
 
 type YouAreHereProps = { id: string }
 
+// why: the line points at the place as well as it is known: the city from
+// the request, only "near you" from a time zone, which spans many cities,
+// and the Earth itself while the lookup is pending or found nothing.
+const mapLine = (place: VisitorPlace | null | undefined) => {
+  if (!place)
+    return 'Agora a viagem volta para a Terra, onde seu projeto começa.'
+  const where = place.approximate || !place.city ? 'perto de você' : place.city
+  return `Agora o mapa aponta para ${where}, de onde seu projeto parte.`
+}
+
 /**
  * The page's ending: after the black hole of the hero ("where we can go"),
  * the Earth, with a pin on the visitor's place ("where you are"), and the
@@ -35,28 +45,49 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
     return () => controller.abort()
   }, [near, place])
 
-  const city = place?.approximate ? undefined : place?.city
+  // why: the scene lays the globe out in the section alone, though its
+  // canvas rises above it (globe-layout.ts).
+  const [stageHeight, setStageHeight] = useState(0)
+  useEffect(() => {
+    const element = section.current
+    if (!element) return
+    const observer = new ResizeObserver(() =>
+      setStageHeight(element.clientHeight)
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <section
       id={id}
       ref={section}
       aria-labelledby={`${id}-title`}
-      className="relative min-h-svh overflow-clip"
+      className="relative min-h-svh overflow-x-clip"
     >
-      {/* why: dragging turns the globe (globe-scene.tsx); on touch, vertical
-          swipes still scroll the page, so only horizontal ones turn it. */}
+      {/* why: the Earth's light rises half a screen over the FAQ and fades
+          into it, so the two read as one space; the canvas sits under the
+          page's text and takes no events, the FAQ stays clickable, and the
+          vapour follows the cursor on the window (globe-vapor.tsx). */}
       <Canvas
         aria-hidden="true"
-        className="isolate cursor-grab touch-pan-y active:cursor-grabbing"
-        style={{ position: 'absolute', inset: 0 }}
+        className="pointer-events-none -z-[5] [mask-image:linear-gradient(to_bottom,transparent,black_50svh)]"
+        style={{
+          position: 'absolute',
+          top: '-50svh',
+          right: 0,
+          bottom: 0,
+          left: 0,
+          height: 'auto',
+          pointerEvents: 'none'
+        }}
         data-testid="globe-scene"
         dpr={[1.5, 2]}
         gl={{ alpha: true }}
         camera={{ position: [0, 0, 3.4], fov: 35 }}
       >
         <RenderGate />
-        <GlobeScene place={place ?? null} />
+        <GlobeScene place={place ?? null} stageHeight={stageHeight} />
         {/* why: the Earth's light, spilled by its bright land, limb and
             vapour, rather than painted around it. */}
         <Bloom strength={0.75} radius={0.45} threshold={0.45} />
@@ -69,25 +100,22 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           <GlitchText
             as="h2"
             id={`${id}-title`}
-            text="Até aqui, você viu onde podemos chegar."
+            text="Do horizonte de eventos até você."
             className="font-display text-title-md lg:text-title-lg pointer-events-auto mt-4"
           />
           <p className="text-subtitle text-foreground/80 pointer-events-auto mt-6">
-            {place === null
-              ? 'No momento, você está em algum lugar deste planeta.'
-              : city
-                ? `No momento, você está aqui, em ${city}.`
-                : 'No momento, você está por aqui.'}
-            <br />A escolha é sua.
+            Começamos no limite do que dá para construir. {mapLine(place)}
+            <br />
+            Para onde ele vai, você decide.
           </p>
           {/* hazard: the button has no destination yet; WhatsApp, e-mail, a
-              calendar or a form is still open (task Unresolved 1) and blocks
-              the go-live. */}
+              calendar or a form is still open (task earth-and-sky,
+              Unresolved 1) and blocks the go-live. */}
           <button
             type="button"
             className="bg-primary text-body text-mist hover:bg-steel pointer-events-auto mt-8 inline-flex h-14 items-center rounded-full px-8 font-semibold transition-colors"
           >
-            Entrar em contato
+            Vamos conversar
           </button>
         </div>
       </div>
