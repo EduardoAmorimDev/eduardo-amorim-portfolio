@@ -1,11 +1,15 @@
 'use client'
 import { Canvas } from '@react-three/fiber'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
-import { BLEED, Gargantua } from './gargantua'
+import {
+  onReducedMotionChange,
+  prefersReducedMotion
+} from '@/lib/media-preferences'
+import { BLEED, Gargantua, isGone } from './gargantua'
 
 // why: the image is soft light, so one shader pass per CSS px suffices, and
 // each pass traces a ray, the scene's whole cost; a GPU that cannot keep up
@@ -24,12 +28,35 @@ type HeroProps = {
  */
 export const Hero = ({ id, children }: HeroProps) => {
   const [dpr, setDpr] = useState(DPR.full)
+  const section = useRef<HTMLElement>(null)
+  // why: the canvas runs a screen past the hero, still on screen after its
+  // image has faded out; it stops drawing then instead of tracing clear rays.
+  const [gone, setGone] = useState(false)
+
+  useEffect(() => {
+    const update = () => {
+      const element = section.current
+      if (!element) return
+      const { top, height } = element.getBoundingClientRect()
+      setGone(isGone(-top / Math.max(height, 1), prefersReducedMotion()))
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    const stop = onReducedMotionChange(update)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+      stop()
+    }
+  }, [])
 
   return (
     // why: overflow-x only, so the canvas spills below the section; the next
     // block paints over the spill (later in the DOM), its sky and text on top.
     <section
       id={id}
+      ref={section}
       className="bg-background relative h-svh overflow-x-clip select-none"
     >
       {/* why: decoration (criterion 42): the hero's meaning is its copy. The
@@ -51,7 +78,7 @@ export const Hero = ({ id, children }: HeroProps) => {
         }}
       >
         <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
-        <RenderGate />
+        <RenderGate active={!gone} />
         {/* why: the canvas runs half a screen past the hero, and only its
             rows on screen are worth a ray each. */}
         <VisibleScissor />

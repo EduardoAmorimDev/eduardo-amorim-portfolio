@@ -23,6 +23,9 @@ uniform float uBleed;
 uniform float uTime;
 uniform vec2 uLook;
 uniform float uPush;
+uniform float uNear;
+uniform float uCut;
+uniform float uVanish;
 uniform vec2 uCentre;
 uniform float uWiden;
 uniform float uIntro;
@@ -31,8 +34,9 @@ uniform vec3 uWarm;
 uniform vec3 uCool;
 uniform vec3 uSky;
 
-// why: the canvas fades to clear over its last 75svh, ending where it
-// does, as the hero's CSS mask did, so the lens dissolves into the sky.
+// why: the canvas fades to clear over 75svh, ending uCut rows above its
+// bottom (half a screen below the hero at rest, none once dived), so the
+// lens dissolves into the sky.
 const float FADE_SCREENS = 0.75;
 const float DISK_IN = 3.0;
 const float DISK_OUT = 22.0;
@@ -144,7 +148,8 @@ void main() {
   vec2 p = ((frag - 0.5 * uResolution) / uResolution.y - uCentre) * uWiden;
 
   // why: a camera just above the disk's plane, rolled, as in Interstellar.
-  float dist = mix(26.0, 19.0, uPush) + (1.0 - uIntro) * 14.0;
+  // why: eased in 1/distance, so the shadow grows evenly as the camera dives.
+  float dist = 1.0 / mix(1.0 / 26.0, 1.0 / uNear, uPush) + (1.0 - uIntro) * 14.0;
   // why: a slow orbit (~15 px/s on the sky at 1440×900) makes the stars
   // flow and bend around the lens; the disk, symmetric, looks the same.
   float yaw = 0.6 + uLook.x * 0.05 + uTime * 0.01;
@@ -205,6 +210,9 @@ void main() {
   float starDim = clamp(inversesqrt(max(magnified, 1.0)), 0.2, 1.0);
   if (!captured) col += (1.0 - cover) * sky(dir, starDim);
   col += uWarm * glow;
+  // why: the light dims as the camera dives, so the dive reads as falling
+  // into the dark and the copy rising over the disk stays legible.
+  col *= mix(1.0, 0.12, uPush);
 
   col = aces(col * 1.1 * uIntro);
   // why: vignette and film grain give the frame its cinematic finish.
@@ -217,7 +225,7 @@ void main() {
   graded += grain * (0.012 + 0.06 * smoothstep(0.02, 0.4, light));
   // invariant: rows count up from the canvas's bottom edge; the canvas's
   // alpha is premultiplied, so the colour fades with it.
-  float fade = clamp(gl_FragCoord.y / (FADE_SCREENS * uResolution.y), 0.0, 1.0);
+  float fade = clamp((gl_FragCoord.y - uCut) / (FADE_SCREENS * uResolution.y), 0.0, 1.0) * (1.0 - uVanish);
   gl_FragColor = vec4(clamp(graded, 0.0, 1.0) * fade, fade);
 }
 `

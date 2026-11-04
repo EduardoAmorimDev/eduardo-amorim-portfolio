@@ -25,10 +25,35 @@ const STILL_TIME = 40
 const INTRO_SECONDS = 2.4
 const easeOut = (t: number) => 1 - (1 - t) ** 3
 /**
- * Share of the screen the canvas runs on below the hero, where the image
- * dissolves into the page's sky (task reach-and-seams, 1–2).
+ * Share of the screen the canvas runs on below the hero: half of it is where
+ * the image dissolves into the page's sky at rest (task reach-and-seams,
+ * 1–2), the rest is where the black hole follows the visitor on the way out.
  */
-export const BLEED = 0.5
+export const BLEED = 1
+// why: the spill the page shows at rest, in screens below the hero; the dive
+// uncovers the rest of the canvas as it goes.
+const SPILL = 0.5
+// why: share of a screen scrolled by which the camera has dived all the way
+// (task swallow-and-copy, 1–2).
+const DIVE_SCREENS = 0.4
+// why: the closest the camera gets; at 7 the shadow is ~78% of a 16:10
+// window's width, almost swallowing it (task swallow-and-copy, 2–3).
+const NEAR = 7
+// invariant: the shadow's width in screen heights is about SHADOW_SPAN / the
+// camera's distance (photon capture radius × focal × 2); this keeps it
+// under SWALLOW_MAX of the window's width on any shape of window.
+const SHADOW_SPAN = 8.84
+const SWALLOW_MAX = 0.8
+// why: scrolled screens over which the image fades to clear after the dive,
+// so the black hole has dissolved into the sky once the hero has gone.
+const VANISH = [0.6, 0.95] as const
+
+/**
+ * Whether the canvas shows nothing once the hero has scrolled `scrolled`
+ * screens: faded out after the dive, or, holding still, its spill gone by.
+ */
+export const isGone = (scrolled: number, still: boolean) =>
+  scrolled >= (still ? 1 + SPILL : VANISH[1])
 
 /**
  * The hero's black hole: one full-screen shader that ray traces the light
@@ -51,6 +76,9 @@ export const Gargantua = () => {
       uTime: { value: 0 },
       uLook: { value: new Vector2() },
       uPush: { value: 0 },
+      uNear: { value: NEAR },
+      uCut: { value: 0 },
+      uVanish: { value: 0 },
       uCentre: { value: new Vector2() },
       uWiden: { value: 1 },
       uIntro: { value: 0 },
@@ -100,13 +128,21 @@ export const Gargantua = () => {
     u.uBleed.value = buffer.y - screen
     buffer.y = screen
     const screenHeight = size.height / (1 + BLEED)
-    u.uCentre.value.copy(size.width > screenHeight ? CENTRE.wide : CENTRE.tall)
-    u.uWiden.value = widen(size.width / screenHeight)
+    const centre = size.width > screenHeight ? CENTRE.wide : CENTRE.tall
+    const aspect = size.width / screenHeight
+    u.uWiden.value = widen(aspect)
+    u.uNear.value = Math.max(
+      NEAR,
+      SHADOW_SPAN / (SWALLOW_MAX * aspect * u.uWiden.value)
+    )
     if (still.current) {
       u.uTime.value = STILL_TIME
       u.uIntro.value = 1
       u.uLook.value.set(0, 0)
       u.uPush.value = 0
+      u.uCentre.value.copy(centre)
+      u.uCut.value = (BLEED - SPILL) * screen
+      u.uVanish.value = 0
       return
     }
     u.uTime.value = clock.elapsedTime + STILL_TIME
@@ -123,9 +159,16 @@ export const Gargantua = () => {
       LOOK_SMOOTHING,
       delta
     )
-    // why: 0 with the hero's top at the window's top, 1 once it has gone.
+    // why: screens scrolled past the hero's top: 0 at rest, 1 once it has gone.
     const { top } = gl.domElement.getBoundingClientRect()
-    u.uPush.value = MathUtils.clamp(-top / Math.max(screenHeight, 1), 0, 1)
+    const scrolled = Math.max(-top / Math.max(screenHeight, 1), 0)
+    const dive = 1 - (1 - Math.min(scrolled / DIVE_SCREENS, 1)) ** 2
+    u.uPush.value = dive
+    // why: the black hole drifts to the window's middle column and rides up
+    // with the hero, leaving through the top of the window as it swells.
+    u.uCentre.value.set(MathUtils.lerp(centre.x, 0, dive), centre.y)
+    u.uCut.value = (BLEED - SPILL) * screen * (1 - dive)
+    u.uVanish.value = MathUtils.smoothstep(scrolled, ...VANISH)
   })
 
   return (
