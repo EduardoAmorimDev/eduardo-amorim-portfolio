@@ -1,8 +1,9 @@
 'use client'
-import { PerformanceMonitor } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { MathUtils } from 'three'
+import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
+import type { DprSetting } from '@/lib/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
 import { useNearViewport } from '@/lib/use-near-viewport'
@@ -22,8 +23,8 @@ const SCREEN_LEAD = '100% 0px'
 // fade only swaps the picture of the page for the page itself.
 const HANDOFF = 0.25
 // why: crisp edges by default; a GPU that drops frames on the carousel
-// draws one pixel per CSS px instead, which keeps the motion smooth.
-const DPR = { full: [1.5, 2] as [number, number], reduced: 1 }
+// draws fewer pixels, down to 0.75 per CSS px, which keeps the motion smooth.
+const DPR = { full: [1.5, 2] as [number, number], reduced: 0.75 }
 
 type NotebookProps = { id: string }
 
@@ -40,7 +41,7 @@ export const Notebook = ({ id }: NotebookProps) => {
   const screenLive = useNearViewport(section, SCREEN_LEAD)
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
-  const [dpr, setDpr] = useState<number | [number, number]>(DPR.full)
+  const [dpr, setDpr] = useState<DprSetting>(DPR.full)
 
   useEffect(() => {
     const update = () => {
@@ -98,9 +99,9 @@ export const Notebook = ({ id }: NotebookProps) => {
           <ParallaxField />
         </div>
         {/* why: no OrbitControls, so only the scroll moves the devices.
-            dpr ≥ 1.5: MSAA alone left the thin edges stair-stepped. alpha:
-            the sky is the page background. isolate: keeps drei <Html>'s
-            huge z-index inside the canvas box. */}
+            dpr ≥ 1.5 while the GPU keeps up: MSAA alone left the thin edges
+            stair-stepped. alpha: the sky is the page background. isolate:
+            keeps drei <Html>'s huge z-index inside the canvas box. */}
         <Canvas
           className="isolate"
           data-testid="notebook-scene"
@@ -108,12 +109,7 @@ export const Notebook = ({ id }: NotebookProps) => {
           gl={{ alpha: true }}
           camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
         >
-          <PerformanceMonitor
-            onDecline={() => setDpr(DPR.reduced)}
-            onIncline={() => setDpr(DPR.full)}
-            flipflops={3}
-            onFallback={() => setDpr(DPR.reduced)}
-          />
+          <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
           <RenderGate active={!handedOff} />
           <NotebookScene progress={progress} screenLive={screenLive} />
         </Canvas>

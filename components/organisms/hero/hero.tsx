@@ -1,15 +1,15 @@
 'use client'
-import { PerformanceMonitor } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { useState, type ReactNode } from 'react'
+import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
 import { BLEED, Gargantua } from './gargantua'
 
 // why: the image is soft light, so one shader pass per CSS px suffices, and
 // each pass traces a ray, the scene's whole cost; a GPU that cannot keep up
-// traces fewer, larger pixels, which the film grain hides.
-const DPR = { full: 1, reduced: 0.7 }
+// traces fewer, larger pixels, down to 0.4, which the film grain hides.
+const DPR = { full: 1, reduced: 0.4 }
 
 type HeroProps = {
   id?: string
@@ -47,12 +47,7 @@ export const Hero = ({ id, children }: HeroProps) => {
           pointerEvents: 'none'
         }}
       >
-        <PerformanceMonitor
-          onDecline={() => setDpr(DPR.reduced)}
-          onIncline={() => setDpr(DPR.full)}
-          flipflops={3}
-          onFallback={() => setDpr(DPR.reduced)}
-        />
+        <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate />
         <Gargantua />
       </Canvas>

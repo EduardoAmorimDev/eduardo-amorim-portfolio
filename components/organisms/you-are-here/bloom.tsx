@@ -30,6 +30,9 @@ export const Bloom = ({ strength, radius, threshold }: BloomProps) => {
   const scene = useThree(state => state.scene)
   const camera = useThree(state => state.camera)
   const size = useThree(state => state.size)
+  // why: the composer's targets are sized in device px, so a new pixel
+  // ratio (AdaptiveDpr) rebuilds them; stale, they would blur the scene.
+  const dpr = useThree(state => state.viewport.dpr)
   // why: the composer is rebuilt by the effect and read by the loop; a ref
   // is React's place for such a mutable value.
   const composer = useRef<EffectComposer>(null)
@@ -47,14 +50,14 @@ export const Bloom = ({ strength, radius, threshold }: BloomProps) => {
     )
     // invariant: last, it turns the linear result into the screen's sRGB.
     effects.addPass(new OutputPass())
-    effects.setPixelRatio(gl.getPixelRatio())
+    effects.setPixelRatio(dpr)
     effects.setSize(size.width, size.height)
     composer.current = effects
     return () => {
       effects.dispose()
       composer.current = null
     }
-  }, [gl, scene, camera, size, strength, radius, threshold])
+  }, [gl, scene, camera, size, dpr, strength, radius, threshold])
 
   // invariant: priority 1 makes r3f hand rendering over to this loop.
   useFrame((_, delta) => {

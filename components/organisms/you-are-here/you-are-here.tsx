@@ -2,8 +2,10 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { GlitchText } from '@/components/atoms/glitch-text'
+import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
+import type { DprSetting } from '@/lib/adaptive-dpr'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
 import { Bloom } from './bloom'
@@ -12,6 +14,10 @@ import { GlobeScene } from './globe-scene'
 // why: the place is looked up as the section approaches, so a visitor who
 // never scrolls this far never sends the request.
 const LOOKUP_LEAD = '100% 0px'
+// why: crisp dots by default; the canvas is a screen and a half tall and
+// drawn twice over by the bloom, so a GPU that drops frames on it draws
+// fewer pixels, the dots keeping their CSS size and the glow its softness.
+const DPR = { full: [1.5, 2] as [number, number], reduced: 0.6 }
 
 type YouAreHereProps = { id: string }
 
@@ -34,6 +40,8 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
     })
     return () => controller.abort()
   }, [near, place])
+
+  const [dpr, setDpr] = useState<DprSetting>(DPR.full)
 
   // why: the scene lays the globe out in the section alone, though its
   // canvas rises above it (globe-layout.ts).
@@ -72,10 +80,11 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           pointerEvents: 'none'
         }}
         data-testid="globe-scene"
-        dpr={[1.5, 2]}
+        dpr={dpr}
         gl={{ alpha: true }}
         camera={{ position: [0, 0, 3.4], fov: 35 }}
       >
+        <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate />
         <GlobeScene place={place ?? null} stageHeight={stageHeight} />
         {/* why: the Earth's light, spilled by its bright land, limb and
