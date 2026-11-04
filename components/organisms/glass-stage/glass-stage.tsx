@@ -6,6 +6,11 @@ import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import '@/lib/three-console'
 import { GlassContext, createBackdrop } from './glass-material'
 
+// why: the device's own ratio, up to 2: the canvas covers the whole window
+// and is composited over the page on every frame a piece of glass moves, so
+// drawing it at 1.5× on a 1× screen cost 2.25× the pixels for 64 px icons.
+const DPR: [number, number] = [1, 2]
+
 const StageRoot = () => {
   const rootScene = useThree(state => state.scene)
   // why: <Canvas> renders this only in the browser, after mount, which is
@@ -34,7 +39,7 @@ export const GlassStage = () => (
     aria-hidden="true"
     data-testid="glass-stage"
     frameloop="demand"
-    dpr={[1.5, 2]}
+    dpr={DPR}
     gl={{ alpha: true }}
     style={{
       position: 'fixed',
