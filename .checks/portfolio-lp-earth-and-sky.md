@@ -107,7 +107,7 @@ Proof: `npx playwright test e2e/parallax.spec.ts -g "a night sky"`
 **C18** - As estrelas de fundo de 1,5 px ou mais (`data-twinkle`) cintilam (`twinkle`, 3 s a 8 s),
 fora de fase: a opacidade vai de 1 a 0,25 sobre o brilho próprio (o alfa `--star-peak` da cor). As
 de 1 px não têm animação
-Proof: `npx playwright test e2e/parallax.spec.ts -g "the field is far stars"`
+Proof: `npx playwright test e2e/parallax.spec.ts -g "the field is far stars"` (`data-twinkle` se, e só se, o tamanho for de 1,5 px ou mais)
 Proof: `npx playwright test e2e/backdrop.spec.ts -g "far stars twinkle out of step"`
 
 **C19** - A Via Láctea (`data-milky-way`) está na camada de fundo, tem opacidade até 0,12 e é
@@ -122,10 +122,11 @@ estrelas próximas com halo, `front` = poeira desfocada
 Proof: `npx playwright test e2e/parallax.spec.ts -g "the field is far stars"`
 
 **C22** - O servidor e o cliente geram o mesmo céu: carregar `/` não loga erro de hidratação
-Proof: `npx playwright test e2e/parallax.spec.ts -g "the sky hydrates"`
+Proof: `node --test components/organisms/parallax-field/night-sky.test.ts` (o mesmo céu a cada sorteio, sem acaso fora da semente; o teste de hidratação em produção não falharia, porque o React minifica os erros: achado 1 do Verifier)
 
 **C23** - Sob movimento reduzido, as camadas não se mexem e as estrelas não cintilam
 Proof: `npx playwright test e2e/reduced-motion.spec.ts -g "parallax layers stay put under reduced motion"`
+Proof: `npx playwright test e2e/reduced-motion.spec.ts -g "the sections' background holds still"` (nenhuma estrela cintila)
 
 ## Swept
 

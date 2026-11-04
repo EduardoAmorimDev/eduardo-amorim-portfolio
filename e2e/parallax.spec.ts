@@ -83,7 +83,8 @@ test('the field is far stars, glowing near stars and blurred dust', async ({
           shadow: style.boxShadow,
           filter: style.filter,
           animation: style.animationName,
-          twinkles: child.hasAttribute('data-twinkle')
+          twinkles: child.hasAttribute('data-twinkle'),
+          size: parseFloat(style.width)
         }
       })
     }))
@@ -107,8 +108,10 @@ test('the field is far stars, glowing near stars and blurred dust', async ({
     for (const item of items) {
       // invariant: task earth-and-sky, 13: the brighter far stars twinkle,
       // the faint 1 px ones hold still.
-      if (item.kind === 'far')
-        expect(item.animation).toBe(item.twinkles ? 'twinkle' : 'none')
+      if (item.kind === 'far') {
+        expect(item.twinkles, `a ${item.size} px star`).toBe(item.size >= 1.5)
+        expect(item.animation).toBe(item.size >= 1.5 ? 'twinkle' : 'none')
+      }
       if (name === 'mid') expect(item.shadow, 'a halo').not.toBe('none')
       if (name === 'front')
         expect(item.filter, 'blurred').toMatch(/blur\([1-9]/)
@@ -221,15 +224,4 @@ test('the milky way crowds the stars along a faint diagonal', async ({
   const density = inside / far.length / share
   const outside = (far.length - inside) / far.length / (1 - share)
   expect(density / outside).toBeGreaterThanOrEqual(2)
-})
-
-test('the sky hydrates as the server drew it', async ({ page }) => {
-  const errors: string[] = []
-  page.on('console', message => {
-    if (message.type() === 'error') errors.push(message.text())
-  })
-  page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  expect(errors.filter(text => /hydrat/i.test(text))).toEqual([])
 })
