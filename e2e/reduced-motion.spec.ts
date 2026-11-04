@@ -1,21 +1,15 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { findHorizon } from './black-hole-helpers'
-import { isBlank, readCanvas, readGrid, sweepPointer } from './grid-helpers'
 import {
-  channels,
   documentTop,
-  pixelAt,
-  screenPixels,
   gotoHero,
   gotoNotebook,
   gotoStopped,
-  nextFrames,
+  hideHeroCopy,
   laptopScreen,
+  nextFrames,
   notebookAt,
-  scrollWindowTo,
-  showSceneOnly,
-  tokenRgb
+  scrollWindowTo
 } from './page-helpers'
 
 // why: layers are positioned in whole and sub-pixels; within a pixel of the
@@ -24,15 +18,10 @@ const PARALLAX_SLACK = 1
 const SCROLL_PX = 400
 // why: the checklist's own numbers (C17, C58).
 const GLITCH_WAIT_MS = 15_000
-const REST = { x: 720, y: 288 }
-const REST_SLACK = 4
-const STILL_PX = 1
 // why: two frames at 60 Hz; an animated close would take 300 ms.
 const AT_ONCE_MS = 50
-// why: the checklists' own numbers (gravity C32, black-hole-scale C1): the
-// disk and its arcs reach 4.2 and 1.65 horizon radii, 96 px each at rest.
-const DISK_BOX = { x: 420, y: 160 }
-const STILL_LEVELS = 1
+// why: at 0.01 rad/s of orbit and 24 grain frames a second, a scene still
+// running would differ well within this.
 const STILL_MS = 2000
 
 test.use({ reducedMotion: 'reduce' })
@@ -81,74 +70,23 @@ test('no glitch under reduced motion', async ({ page }) => {
     await expect(heading).toHaveAttribute('data-glitch', 'off')
 })
 
-test('the grid holds still under reduced motion', async ({ page }) => {
+test('the black hole holds still under reduced motion', async ({ page }) => {
   await gotoHero(page)
-  // hazard: after a few getImageData reads Chrome draws a canvas in software,
-  // which antialiases a hair differently; a few reads and redraws first, so
-  // both compared readings come from the same drawing path.
-  for (let warm = 0; warm < 3; warm++) {
-    await readGrid(page)
-    await page.mouse.move(10 + warm, 10)
-    await page.waitForTimeout(300)
-  }
-  const before = await readGrid(page)
+  await hideHeroCopy(page)
+  await nextFrames(page)
+  const frame = () => page.locator('#hero').screenshot()
+  const first = await frame()
+  // invariant: task hero-gargantua, 5: the disk does not turn, the camera
+  // does not move, and the pointer does not turn it.
   for (const spot of [
-    { x: 400, y: 640 },
-    { x: 720, y: 450 },
-    { x: 1100, y: 300 }
+    { x: 100, y: 100 },
+    { x: 1300, y: 800 },
+    { x: 720, y: 450 }
   ])
-    await sweepPointer(page, spot)
-  await page.waitForTimeout(2000)
-  const after = await readGrid(page)
-  expect(Buffer.from(after.pixels.data).equals(before.pixels.data)).toBe(true)
-})
-
-test('no lens under reduced motion', async ({ page }) => {
-  await gotoHero(page)
-  await sweepPointer(page, { x: 400, y: 640 })
-  await sweepPointer(page, { x: 720, y: 420 })
-  await page.waitForTimeout(500)
-  expect(isBlank(await readCanvas(page, 'hero-lens'))).toBe(true)
-})
-
-test('the black hole rests at the centre, 32% down', async ({ page }) => {
-  await gotoHero(page)
-  await showSceneOnly(page)
-  const ink = channels(await tokenRgb(page, 'ink'))
-  const first = await findHorizon(page, ink)
-  expect(
-    Math.hypot(first.cx - REST.x, first.cy - REST.y),
-    `horizon at ${first.cx},${first.cy}`
-  ).toBeLessThanOrEqual(REST_SLACK)
-  await page.waitForTimeout(2000)
-  const second = await findHorizon(page, ink)
-  expect(
-    Math.hypot(second.cx - first.cx, second.cy - first.cy)
-  ).toBeLessThanOrEqual(STILL_PX)
-})
-
-test('the disk holds still under reduced motion', async ({ page }) => {
-  await gotoHero(page)
-  await showSceneOnly(page)
-  const clip = {
-    x: REST.x - DISK_BOX.x,
-    y: REST.y - DISK_BOX.y,
-    width: 2 * DISK_BOX.x,
-    height: 2 * DISK_BOX.y
-  }
-  const first = await screenPixels(page, clip)
+    await page.mouse.move(spot.x, spot.y, { steps: 8 })
   await page.waitForTimeout(STILL_MS)
-  const second = await screenPixels(page, clip)
-  let sum = 0
-  for (let y = 0; y < first.height; y++)
-    for (let x = 0; x < first.width; x++) {
-      const a = pixelAt(first, x, y)
-      const b = pixelAt(second, x, y)
-      for (let channel = 0; channel < 3; channel++)
-        sum += Math.abs((a[channel] ?? 0) - (b[channel] ?? 0))
-    }
-  const mean = sum / (first.width * first.height * 3)
-  expect(mean, 'mean change per channel').toBeLessThanOrEqual(STILL_LEVELS)
+  const second = await frame()
+  expect(second.equals(first), 'two frames 2 s apart are identical').toBe(true)
 })
 
 test('faq answers open and close without animation', async ({ page }) => {

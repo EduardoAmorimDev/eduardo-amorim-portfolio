@@ -1,6 +1,5 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { readGrid, type GridImage } from './grid-helpers'
 import {
   channelGap,
   channels,
@@ -19,6 +18,9 @@ const MIST = 'rgb(242, 247, 255)'
 const WHITE = 'rgb(255, 255, 255)'
 // invariant: the page has one theme; the system's scheme never changes it.
 const THEME = { background: INK, text: MIST, other: WHITE } as const
+// why: the hero is deep space behind its shader, black where no WebGL draws
+// (task hero-gargantua, failure modes: "fundo preto da seção").
+const HERO_BACKGROUND = 'rgb(0, 0, 0)'
 const SCHEMES = ['dark', 'light'] as const
 // why: the checklist's tolerance for the sky's colour, per channel.
 const SKY_SLACK = 3
@@ -55,7 +57,9 @@ const expectSectionsInk = async (page: Page) => {
   const found = await sectionColours(page)
   expect(found.map(({ id }) => id)).toHaveLength(10)
   for (const { id, background, text } of found) {
-    expect(background, `${id} background`).toBe(THEME.background)
+    expect(background, `${id} background`).toBe(
+      id === 'hero' ? HERO_BACKGROUND : THEME.background
+    )
     expect(text, `${id} text`).toBe(THEME.text)
   }
 }
@@ -128,36 +132,6 @@ const expectInkFloor = (pixels: Pixels) => {
   ).toBeGreaterThanOrEqual(MIN_FLOOR_LIFT)
 }
 
-// why: lines leaning in perspective are never fully opaque on any pixel;
-// past half alpha a pixel is mostly line. Its colour is stored times its
-// alpha and read back divided by it, and a GPU canvas read back under load
-// rounds a little more; every other theme colour is 200+ levels away.
-const MOSTLY_LINE = 128
-const slackAt = (alpha: number) => 3 + (3 * 255) / alpha
-
-/** How many mostly-inked grid pixels there are, and how many are not mist. */
-const gridInk = ({ pixels }: GridImage, mist: readonly number[]) => {
-  let lines = 0
-  let off = 0
-  let worst = 0
-  for (let index = 0; index < pixels.data.length; index += 4) {
-    const alpha = pixels.data[index + 3] ?? 0
-    if (alpha < MOSTLY_LINE) continue
-    lines++
-    const rgb = [0, 1, 2].map(channel => pixels.data[index + channel] ?? 0)
-    const excess = channelGap(rgb, mist) - slackAt(alpha)
-    worst = Math.max(worst, excess)
-    if (excess > 0) off++
-  }
-  return { lines, off, worst }
-}
-
-/** Whether every mostly-inked pixel of the hero grid is mist. */
-const gridIsMist = (grid: GridImage, mist: readonly number[]) => {
-  const { lines, off } = gridInk(grid, mist)
-  return lines > 0 && off === 0
-}
-
 const glitchCopyColours = (page: Page) =>
   page
     .locator('h1, h2')
@@ -172,10 +146,6 @@ const glitchCopyColours = (page: Page) =>
 /** Every colour this task fixes, as the page paints it right now. */
 const paintedColours = async (page: Page) => ({
   sections: await sectionColours(page),
-  grid: gridIsMist(
-    await readGrid(page),
-    channels(await tokenRgb(page, 'mist'))
-  ),
   glitch: await glitchCopyColours(page)
 })
 
@@ -197,18 +167,11 @@ for (const scheme of SCHEMES) {
         await tokenRgb(page, 'mist')
       ])
       const headings = await glitchCopyColours(page)
-      expect(headings).toHaveLength(9)
+      expect(headings).toHaveLength(10)
       for (const copies of headings) {
         expect(copies).toHaveLength(2)
         expect(new Set(copies)).toEqual(expected)
       }
-    })
-
-    test(`hero grid is drawn in mist under ${scheme}`, async ({ page }) => {
-      await gotoHero(page)
-      expect(
-        gridIsMist(await readGrid(page), channels(await tokenRgb(page, 'mist')))
-      ).toBe(true)
     })
 
     test(`the document declares a dark color scheme under ${scheme}`, async ({
@@ -238,11 +201,6 @@ test.describe('switching scheme', () => {
 
   test('switching the system scheme changes no colour', async ({ page }) => {
     await gotoHero(page)
-    const ink = gridInk(
-      await readGrid(page),
-      channels(await tokenRgb(page, 'mist'))
-    )
-    expect(ink.lines > 0 && ink.off === 0, JSON.stringify(ink)).toBe(true)
     const before = await paintedColours(page)
     expect(before.sections).toHaveLength(10)
 

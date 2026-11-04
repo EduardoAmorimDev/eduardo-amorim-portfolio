@@ -12,8 +12,10 @@ const QUIET_MS = 4900
 const NEVER_MS = 15_000
 // invariant: a band is four corners of one polygon; three bands, twelve.
 const POINTS_PER_CLIP = 12
-// why: a heading far below the hero, so it is off screen at load.
-const HEADING = '#cases h2'
+// why: off screen at load, and past the notebook's stage, which covers
+// #cases h2 until the hand-off (task device-carousel-dive, 7), takes the
+// pointer there and draws its 3D scene on every frame the clock runs.
+const HEADING = '#workflow h2'
 // why: real time for the visibility observer to report a scroll; the page's
 // own clock stays stopped meanwhile.
 const OBSERVE_MS = 300
@@ -269,7 +271,8 @@ test.describe('dark scheme', () => {
 test('copies are hidden from assistive tech', async ({ page }) => {
   await page.goto('/')
   const headings = page.locator('h1, h2')
-  expect(await headings.count()).toBe(9)
+  // why: the hero's h1, the notebook's h2 and one per other section.
+  expect(await headings.count()).toBe(10)
   for (const heading of await headings.all()) {
     const copies = heading.locator('[data-glitch-copy]')
     await expect(copies).toHaveCount(2)
@@ -282,14 +285,15 @@ test('copies are hidden from assistive tech', async ({ page }) => {
   }
 })
 
-test('no section but the hero has a grid', async ({ page }) => {
+test('no section has a grid', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('[data-testid="sections-grid"]')).toHaveCount(0)
+  await expect(
+    page.locator('[data-testid="sections-grid"], [data-testid="hero-grid"]')
+  ).toHaveCount(0)
   // invariant: a grid of lines is a repeating linear-gradient with a hard
-  // stop at 1px; nothing outside the hero paints one.
+  // stop at 1px; the hero lost its own (task hero-gargantua, 6).
   const lined = await page.evaluate(() =>
     [...document.querySelectorAll('body *')]
-      .filter(node => !node.closest('#hero'))
       .filter(node => {
         const image = getComputedStyle(node).backgroundImage
         return image.includes('linear-gradient') && image.includes(' 1px')

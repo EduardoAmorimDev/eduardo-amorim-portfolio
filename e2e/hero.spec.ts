@@ -1,45 +1,26 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { horizonIn, firstScreen } from './black-hole-helpers'
 import {
   boxesOf,
-  channelGap,
-  channels,
   gotoHero,
+  hideHeroCopy,
+  luminanceAt,
+  nextFrames,
   notebookEnd,
-  pixelAt,
-  scrollWindowTo,
-  showSceneOnly,
-  tokenRgb
+  screenPixels,
+  scrollWindowTo
 } from './page-helpers'
 
-// why: the hero's box is laid out in whole CSS px; a sub-pixel of slack
-// absorbs rounding in the grid's own box.
-const SLACK = 1
-// why: the checklist's own numbers (C42–C48).
-const CENTRE_SLACK = 2
-const TITLE_BAND = { from: 0.4, to: 0.55 }
-const TITLE_PX = { at1440: 157.5, floor: 72 }
-const FONT_SLACK = 1
+// why: `--text-hero: clamp(3rem, 6.4vw, 6.75rem)` (app/globals.css), so
+// 92.16px at 1440 wide, never under 48px nor over 108px.
+const TITLE = { vw: 6.4, floor: 48, cap: 108 }
+const FONT_SLACK = 0.5
 const SIZES = [
   { width: 1440, height: 900 },
   { width: 1024, height: 768 },
   { width: 768, height: 1024 },
   { width: 375, height: 667 }
 ]
-// why: around the black hole, the ellipse its disk and arcs fill, in
-// horizon radii; past it, anything lit off the background is the logo.
-const HOLE_REACH = { x: 4.4, y: 1.8 }
-const LOGO_GAP = 24
-const CORNERS = [
-  { x: 2, y: 2 },
-  { x: 1438, y: 2 },
-  { x: 2, y: 898 },
-  { x: 1438, y: 898 }
-]
-// why: the logo eases into each new lean; this is several of its time
-// constants.
-const LEAN_MS = 1500
 
 test('hero is one screen tall', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -57,10 +38,10 @@ test('hero has no laptop', async ({ page }) => {
   await expect(page.locator('iframe')).toHaveCount(0)
 })
 
-test('only the logo model is loaded', async ({ page }) => {
+test("the only 3D model is the notebook's laptop", async ({ page }) => {
   const models = new Set<string>()
   page.on('request', request => {
-    const match = /\/models\/glass\/([a-z]+)\.glb$/.exec(request.url())
+    const match = /\/models\/(.+)\.glb$/.exec(new URL(request.url()).pathname)
     if (match?.[1]) models.add(match[1])
   })
   await gotoHero(page)
@@ -71,159 +52,22 @@ test('only the logo model is loaded', async ({ page }) => {
     await page.evaluate(() => document.documentElement.scrollHeight)
   )
   await page.waitForLoadState('networkidle')
-  expect([...models]).toEqual(['logo'])
+  // invariant: the black hole is one shader (task hero-gargantua, 1) and
+  // the glass models left with the old hero; laptop.tsx preloads its own.
+  expect([...models]).toEqual(['laptop'])
 })
 
-test('the hero grid covers the hero and nothing else', async ({ page }) => {
+test('the hero has no glass logo, icons, grid, lens or outline title', async ({
+  page
+}) => {
   await gotoHero(page)
-  const grids = page.locator('[data-testid="hero-grid"]')
-  await expect(grids).toHaveCount(1)
-  await expect(page.locator('#hero [data-testid="hero-grid"]')).toHaveCount(1)
-  const hero = await page.locator('#hero').boundingBox()
-  const grid = await grids.boundingBox()
-  if (!hero || !grid) throw new Error('no hero or grid box')
-  for (const side of ['x', 'y', 'width', 'height'] as const)
-    expect(Math.abs(grid[side] - hero[side]), side).toBeLessThanOrEqual(SLACK)
-})
-
-for (const { width, height } of SIZES)
-  test(`the hero copy is centred at ${width}x${height}`, async ({ page }) => {
-    await page.setViewportSize({ width, height })
-    await page.goto('/')
-    await page.waitForLoadState('networkidle')
-    const [title, subtitle, cta] = await boxesOf(page, [
-      '#hero h1',
-      '#hero p',
-      '#hero a'
-    ])
-    if (!title || !subtitle || !cta) throw new Error('no hero copy')
-    for (const [name, box] of [
-      ['title', title],
-      ['subtitle', subtitle],
-      ['cta', cta]
-    ] as const)
-      expect(
-        Math.abs((box.left + box.right) / 2 - width / 2),
-        `${name} centred`
-      ).toBeLessThanOrEqual(CENTRE_SLACK)
-    const middle = (title.top + title.bottom) / 2
-    expect(middle).toBeGreaterThanOrEqual(height * TITLE_BAND.from)
-    expect(middle).toBeLessThanOrEqual(height * TITLE_BAND.to)
-    expect(subtitle.top, 'subtitle below the title').toBeGreaterThanOrEqual(
-      title.bottom
+  // invariant: task hero-gargantua, 6: one canvas, the scene, and the copy.
+  await expect(page.locator('#hero canvas')).toHaveCount(1)
+  await expect(
+    page.locator(
+      '[data-testid="hero-grid"], [data-testid="hero-lens"], [data-lens], #hero img, #hero svg'
     )
-    expect(cta.top, 'cta below the subtitle').toBeGreaterThanOrEqual(
-      subtitle.bottom
-    )
-  })
-
-/** The logo's box on screen: everything lit off the background, outside
- * the resting black hole; the scene must be shown alone. */
-const logoBox = async (page: Page) => {
-  const pixels = await firstScreen(page)
-  const ink = channels(await tokenRgb(page, 'ink'))
-  const hole = horizonIn(pixels, ink)
-  if (!hole) throw new Error('no event horizon on screen')
-  const radius = hole.width / 2
-  const reach = { x: HOLE_REACH.x * radius, y: HOLE_REACH.y * radius }
-  let left = Infinity
-  let right = -Infinity
-  let top = Infinity
-  let bottom = -Infinity
-  let count = 0
-  const lit: { x: number; y: number }[] = []
-  for (let y = 0; y < pixels.height; y++)
-    for (let x = 0; x < pixels.width; x++) {
-      if (((x - hole.cx) / reach.x) ** 2 + ((y - hole.cy) / reach.y) ** 2 <= 1)
-        continue
-      if (channelGap(pixelAt(pixels, x, y), ink) <= LOGO_GAP) continue
-      count++
-      lit.push({ x, y })
-      left = Math.min(left, x)
-      right = Math.max(right, x)
-      top = Math.min(top, y)
-      bottom = Math.max(bottom, y)
-    }
-  // why: the logo is a frame, so its box's centre may be its hole; the lit
-  // pixel nearest that centre is on the glass.
-  const centre = { x: (left + right) / 2, y: (top + bottom) / 2 }
-  const onGlass = lit.reduce(
-    (best, point) =>
-      Math.hypot(point.x - centre.x, point.y - centre.y) <
-      Math.hypot(best.x - centre.x, best.y - centre.y)
-        ? point
-        : best,
-    lit[0] ?? centre
-  )
-  return { left, right, top, bottom, count, onGlass }
-}
-
-test.describe('at rest', () => {
-  test.use({ reducedMotion: 'reduce' })
-
-  for (const { width, height } of [
-    { width: 1440, height: 900 },
-    { width: 375, height: 667 }
-  ])
-    test(`the logo clears the title and the CTA at ${width}x${height}`, async ({
-      page
-    }) => {
-      await page.setViewportSize({ width, height })
-      await gotoHero(page)
-      const [title, cta] = await boxesOf(page, ['#hero h1', '#hero a'])
-      if (!title || !cta) throw new Error('no hero copy')
-      await showSceneOnly(page)
-      // why: the logo leans and shifts towards the pointer; wherever the
-      // pointer is, it must stay clear, so the four corners are tried too.
-      const corners = CORNERS.map(({ x, y }) => ({
-        x: x > 2 ? width - 2 : x,
-        y: y > 2 ? height - 2 : y
-      }))
-      for (const pointer of [null, ...corners]) {
-        if (pointer) {
-          await page.mouse.move(pointer.x, pointer.y, { steps: 4 })
-          await page.waitForTimeout(LEAN_MS)
-        }
-        const logo = await logoBox(page)
-        const at = pointer
-          ? `pointer at ${pointer.x},${pointer.y}`
-          : 'no pointer'
-        expect(logo.count, `the logo is on screen, ${at}`).toBeGreaterThan(500)
-        for (const [name, box] of [
-          ['title', title],
-          ['cta', cta]
-        ] as const) {
-          const crosses =
-            logo.left < box.right &&
-            logo.right > box.left &&
-            logo.top < box.bottom &&
-            logo.bottom > box.top
-          expect(crosses, `logo vs ${name}, ${at}`).toBe(false)
-        }
-      }
-    })
-
-  test('the logo still takes the pointer', async ({ page }) => {
-    await gotoHero(page)
-    await showSceneOnly(page)
-    const { onGlass } = await logoBox(page)
-    // why: the layers come back before the hit test; a hidden element is
-    // skipped by it, so only with every layer shown can one be caught
-    // taking the pointer.
-    await page.evaluate(() => {
-      for (const node of document.querySelectorAll<HTMLElement>('#hero *'))
-        node.style.visibility = ''
-    })
-    // why: R3F hears the pointer on the 3D canvas and leans or grows the
-    // logo from there (glass-motion.test.ts); nothing laid over the scene,
-    // grid, lens or copy, may take the pointer on the logo's glass.
-    const hit = await page.evaluate(({ x, y }) => {
-      const scene = document.querySelector('[data-testid="hero-scene"]')
-      const target = document.elementFromPoint(x, y)
-      return !!target && !!scene?.contains(target)
-    }, onGlass)
-    expect(hit).toBe(true)
-  })
+  ).toHaveCount(0)
 })
 
 test('the hero copy lies over the black hole', async ({ page }) => {
@@ -243,27 +87,98 @@ test('the hero copy lies over the black hole', async ({ page }) => {
   expect(hits).toEqual([true, true, true])
 })
 
-test('the title is 157.5px at 1440px', async ({ page }) => {
+/**
+ * Where the scene's light is centred on screen, the copy hidden: the
+ * luminance-weighted mean of every pixel, so the lit disk around the hole.
+ */
+const lightCentre = async (page: Page) => {
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error('no viewport')
+  await hideHeroCopy(page)
+  await nextFrames(page)
+  const pixels = await screenPixels(page, { x: 0, y: 0, ...viewport })
+  let sum = 0
+  let x = 0
+  let y = 0
+  for (let row = 0; row < pixels.height; row++)
+    for (let column = 0; column < pixels.width; column++) {
+      const light = luminanceAt(pixels, column, row)
+      sum += light
+      x += light * column
+      y += light * row
+    }
+  if (!sum) throw new Error('the scene is black')
+  return { x: x / sum, y: y / sum }
+}
+
+test.describe('layout', () => {
+  // why: a still scene, faded in at once and turned by no pointer (task 5).
+  test.use({ reducedMotion: 'reduce' })
+
+  for (const { width, height } of SIZES.filter(
+    size => size.width > size.height
+  ))
+    test(`the copy is left of the black hole at ${width}x${height}`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height })
+      await gotoHero(page)
+      const boxes = await boxesOf(page, ['#hero h1', '#hero p', '#hero a'])
+      const copyRight = Math.max(...boxes.map(({ right }) => right))
+      // invariant: task hero-gargantua, 3: the hole to the right, the copy
+      // to the left, in the left half of the screen.
+      expect(copyRight).toBeLessThanOrEqual(width / 2)
+      const light = await lightCentre(page)
+      expect(light.x, 'the scene is lit right of the copy').toBeGreaterThan(
+        copyRight
+      )
+    })
+
+  for (const { width, height } of SIZES.filter(
+    size => size.width < size.height
+  ))
+    test(`the copy is under the black hole at ${width}x${height}`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height })
+      await gotoHero(page)
+      const boxes = await boxesOf(page, [
+        '#hero span',
+        '#hero h1',
+        '#hero p',
+        '#hero a'
+      ])
+      const copyTop = Math.min(...boxes.map(({ top }) => top))
+      // invariant: task hero-gargantua, 3: the hole in the top half, the
+      // copy below it.
+      const light = await lightCentre(page)
+      expect(light.y, 'the scene is lit in the top half').toBeLessThan(
+        height / 2
+      )
+      expect(copyTop, 'the copy starts below it').toBeGreaterThan(light.y)
+    })
+})
+
+test('the title is 92.16px at 1440px', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
-  await expect(page.locator('#hero h1')).toHaveCSS('font-size', '157.5px')
+  await expect(page.locator('#hero h1')).toHaveCSS('font-size', '92.16px')
 })
 
 test('the title scales with the window', async ({ page }) => {
-  for (const { width, expected } of [
-    { width: 1024, expected: 112 },
-    { width: 375, expected: TITLE_PX.floor },
-    { width: 1280, expected: (TITLE_PX.at1440 * 1280) / 1440 },
-    { width: 768, expected: (TITLE_PX.at1440 * 768) / 1440 }
-  ]) {
+  for (const width of [1920, 1280, 1024, 768, 375]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/')
     const size = await page
       .locator('#hero h1')
       .evaluate(title => parseFloat(getComputedStyle(title).fontSize))
+    const expected = Math.min(
+      TITLE.cap,
+      Math.max(TITLE.floor, (TITLE.vw * width) / 100)
+    )
     expect(
-      Math.abs(size - Math.max(TITLE_PX.floor, expected)),
-      `at ${width}px: ${size}px`
+      Math.abs(size - expected),
+      `at ${width}px: ${size}px, not ${expected}px`
     ).toBeLessThanOrEqual(FONT_SLACK)
   }
 })
@@ -276,44 +191,15 @@ const wordBoxes = (page: Page, selector: string) =>
     )
     const text = node?.textContent ?? ''
     if (!node) throw new Error('no text')
-    const origin = element.getBoundingClientRect()
-    const words: { word: string; rects: { x: number; y: number }[] }[] = []
+    const words: { word: string; lines: number }[] = []
     for (const match of text.matchAll(/\S+/g)) {
       const range = document.createRange()
       range.setStart(node, match.index)
       range.setEnd(node, match.index + match[0].length)
-      words.push({
-        word: match[0],
-        rects: [...range.getClientRects()].map(rect => ({
-          x: rect.left - origin.left,
-          y: rect.top - origin.top
-        }))
-      })
+      words.push({ word: match[0], lines: range.getClientRects().length })
     }
-    return { words, fontSize: getComputedStyle(element).fontSize }
+    return words
   })
-
-test('the lens outline wraps like the title', async ({ page }) => {
-  for (const size of SIZES) {
-    await page.setViewportSize(size)
-    await page.goto('/')
-    const title = await wordBoxes(page, '#hero h1')
-    const outline = await wordBoxes(page, '#hero [data-lens="outline"]')
-    const at = `${size.width}x${size.height}`
-    expect(outline.fontSize, at).toBe(title.fontSize)
-    expect(
-      outline.words.map(({ word }) => word),
-      at
-    ).toEqual(title.words.map(({ word }) => word))
-    title.words.forEach(({ word, rects }, index) => {
-      const twin = outline.words[index]?.rects[0]
-      const own = rects[0]
-      if (!own || !twin) throw new Error(`${at}: ${word} has no box`)
-      expect(Math.abs(twin.x - own.x), `${at}: ${word}`).toBeLessThanOrEqual(1)
-      expect(Math.abs(twin.y - own.y), `${at}: ${word}`).toBeLessThanOrEqual(1)
-    })
-  }
-})
 
 for (const { width, height } of SIZES)
   test(`no word of the title breaks at ${width}x${height}`, async ({
@@ -321,6 +207,6 @@ for (const { width, height } of SIZES)
   }) => {
     await page.setViewportSize({ width, height })
     await page.goto('/')
-    const { words } = await wordBoxes(page, '#hero h1')
-    for (const { word, rects } of words) expect(rects.length, word).toBe(1)
+    for (const { word, lines } of await wordBoxes(page, '#hero h1'))
+      expect(lines, word).toBe(1)
   })

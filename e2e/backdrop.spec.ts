@@ -6,10 +6,7 @@ import { documentTop, scrollWindowTo } from './page-helpers'
 const GLOW_PATH = { min: 30_000, max: 45_000, reach: 8 }
 const GLOW_BREATH = { min: 8000, max: 12_000, swing: 0.1 }
 const TWINKLE = { min: 3000, max: 8000, low: 0.25, high: 1, distinct: 5 }
-const PULSE = { duration: 12_000, low: 0.95, high: 1.05 }
-const SWAY = { duration: 14_000, angle: 6 }
 const STEPS = 48
-const SLACK = 0.01
 
 type Reading = { duration: number; iterations: number; values: string[] }
 
@@ -134,9 +131,9 @@ test('each glow breathes ±0.1 around its opacity', async ({ page }) => {
   }
 })
 
-test('back-layer dots twinkle out of step', async ({ page }) => {
+test('far stars twinkle out of step', async ({ page }) => {
   await atSolutions(page)
-  const dots = page.locator('[data-parallax-layer="back"] [data-dot]')
+  const dots = page.locator('[data-parallax-layer="back"] [data-star="far"]')
   expect(await dots.count()).toBeGreaterThan(10)
   const timings = await dots.evaluateAll(elements =>
     elements.map(element => {
@@ -165,56 +162,5 @@ test('back-layer dots twinkle out of step', async ({ page }) => {
     const opacities = values.map(Number)
     expect(Math.min(...opacities)).toBeCloseTo(TWINKLE.low, 2)
     expect(Math.max(...opacities)).toBeCloseTo(TWINKLE.high, 2)
-  }
-})
-
-test('rings pulse', async ({ page }) => {
-  await atSolutions(page)
-  const rings = page.locator('[data-parallax-layer="back"] [data-ring]')
-  expect(await rings.count()).toBeGreaterThan(0)
-  for (const ring of await rings.all()) {
-    const { duration, iterations, values } = await sweep(
-      ring,
-      'ring-pulse',
-      'scale'
-    )
-    expect(duration).toBe(PULSE.duration)
-    expect(iterations).toBe(Infinity)
-    const scales = values.map(value => numbers(value)[0] ?? 1)
-    expect(Math.min(...scales)).toBeCloseTo(PULSE.low, 2)
-    expect(Math.max(...scales)).toBeCloseTo(PULSE.high, 2)
-  }
-})
-
-test('mid shapes sway as they float', async ({ page }) => {
-  await atSolutions(page)
-  const shapes = page.locator('[data-parallax-layer="mid"] [data-mid-shape]')
-  expect(await shapes.count()).toBeGreaterThan(0)
-  for (const shape of await shapes.all()) {
-    const floats = await shape
-      .locator('svg')
-      .evaluate(svg =>
-        svg
-          .getAnimations()
-          .some(
-            found =>
-              found instanceof CSSAnimation && found.animationName === 'float'
-          )
-      )
-    expect(floats, 'still floats').toBe(true)
-    const { duration, iterations, values } = await sweep(
-      shape,
-      'sway',
-      'rotate'
-    )
-    expect(duration).toBe(SWAY.duration)
-    expect(iterations).toBe(Infinity)
-    const angles = values.map(value => numbers(value)[0] ?? 0)
-    expect(Math.min(...angles)).toBeGreaterThanOrEqual(-SWAY.angle - SLACK)
-    expect(Math.max(...angles)).toBeLessThanOrEqual(SWAY.angle + SLACK)
-    expect(Math.max(...angles) - Math.min(...angles)).toBeCloseTo(
-      2 * SWAY.angle,
-      1
-    )
   }
 })

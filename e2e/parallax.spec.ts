@@ -1,11 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import {
-  documentTop,
-  nextFrames,
-  scrollWindowTo,
-  tokenRgb
-} from './page-helpers'
+import { documentTop, nextFrames, scrollWindowTo } from './page-helpers'
 
 const SPEEDS = { back: 0.2, mid: 0.5, front: 1.3 }
 const TOLERANCE_PX = 4
@@ -58,68 +53,52 @@ test('layers move at 0.2x, 0.5x and 1.3x of the scroll', async ({ page }) => {
   }
 })
 
-test('front layer is blurred code bars near the side edges', async ({
+test('the field is far stars, glowing near stars and blurred dust', async ({
   page
 }) => {
   await page.goto('/')
-  const viewport = page.viewportSize()
-  if (!viewport) throw new Error('no viewport')
-  const bars = page.locator('[data-parallax-layer="front"] [data-code-bar]')
-  expect(await bars.count()).toBeGreaterThan(0)
-
-  const found = await bars.evaluateAll(elements =>
-    elements.map(element => {
-      let blur = 0
-      for (
-        let node: Element | null = element;
-        node && !node.matches('[data-parallax-layer]');
-        node = node.parentElement
-      ) {
-        const match = /blur\(([\d.]+)px\)/.exec(getComputedStyle(node).filter)
-        if (match) blur = Math.max(blur, Number(match[1]))
-      }
-      const style = getComputedStyle(element)
-      const { left, right } = element.getBoundingClientRect()
-      return {
-        color: style.backgroundColor,
-        radius: parseFloat(style.borderTopLeftRadius),
-        blur,
-        left,
-        right
-      }
-    })
+  // invariant: task you-are-here, 9: stars that twinkle at the back, brighter
+  // ones with a halo in the middle, blurred dust in front, nothing else.
+  const found = await page.evaluate(() =>
+    [
+      ...(document
+        .querySelector('#solucoes')
+        ?.parentElement?.querySelectorAll<HTMLElement>(
+          '[data-parallax-layer]'
+        ) ?? [])
+    ].map(layer => ({
+      name: layer.dataset.parallaxLayer,
+      depth: Number(getComputedStyle(layer).zIndex),
+      items: [...layer.children].map(child => {
+        const style = getComputedStyle(child)
+        return {
+          kind:
+            child.getAttribute('data-star') ??
+            (child.hasAttribute('data-dust') ? 'dust' : child.tagName),
+          shadow: style.boxShadow,
+          filter: style.filter,
+          animation: style.animationName
+        }
+      })
+    }))
   )
-
-  const palette = await Promise.all(
-    (['primary', 'steel', 'mist'] as const).map(token => tokenRgb(page, token))
+  const kinds = Object.fromEntries(
+    found.map(({ name, items }) => [
+      name,
+      [...new Set(items.map(({ kind }) => kind))]
+    ])
   )
-  expect(new Set(found.map(bar => bar.color))).toEqual(new Set(palette))
-  const edge = viewport.width * 0.15
-  for (const bar of found) {
-    expect(bar.radius, 'rounded').toBeGreaterThan(0)
-    expect(bar.blur, 'blurred').toBeGreaterThanOrEqual(8)
-    expect(
-      bar.right <= edge || bar.left >= viewport.width - edge,
-      `bar at ${bar.left}–${bar.right}px is within 15% of a side`
-    ).toBe(true)
-  }
-})
-
-test('middle layer has a glowing octahedron and rounded cube', async ({
-  page
-}) => {
-  await page.goto('/')
-  const mid = page.locator('[data-parallax-layer="mid"]')
-  for (const shape of ['octahedron', 'rounded-cube']) {
-    const element = mid.locator(`[data-shape="${shape}"]`).first()
-    await expect(element, shape).toBeAttached()
-    const glow = await element.evaluate(node => {
-      const { filter, boxShadow } = getComputedStyle(node)
-      return { filter, boxShadow }
-    })
-    expect(
-      glow.filter.includes('drop-shadow') || glow.boxShadow !== 'none',
-      `${shape} glows: ${JSON.stringify(glow)}`
-    ).toBe(true)
+  expect(kinds).toEqual({ back: ['far'], mid: ['near'], front: ['dust'] })
+  for (const { name, depth, items } of found) {
+    expect(items.length, name).toBeGreaterThan(0)
+    // why: the sections sit at z-index 0 of the block, between the layers.
+    if (name === 'front') expect(depth, 'over the sections').toBeGreaterThan(0)
+    else expect(depth, `${name} behind the sections`).toBeLessThan(0)
+    for (const item of items) {
+      if (name === 'back') expect(item.animation).toBe('twinkle')
+      if (name === 'mid') expect(item.shadow, 'a halo').not.toBe('none')
+      if (name === 'front')
+        expect(item.filter, 'blurred').toMatch(/blur\([1-9]/)
+    }
   }
 })

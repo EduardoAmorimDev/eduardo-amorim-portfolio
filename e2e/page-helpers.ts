@@ -192,42 +192,15 @@ export const parseColor = (css: string) => {
   throw new Error(`not a colour this test reads: ${css}`)
 }
 
-/** The hero's copy, the title's lens outline included. */
-const HERO_COPY = '#hero h1, #hero p, #hero a, #hero [data-lens="outline"]'
+/** The hero's copy: eyebrow, title, subtitle and CTA. */
+const HERO_COPY = '#hero span, #hero h1, #hero p, #hero a'
 
-/** Hides the hero's copy, so pixel checks see only the 3D scene under it. */
+/** Hides the hero's copy, so pixel checks see only the scene under it. */
 export const hideHeroCopy = (page: Page) =>
   page.evaluate(selector => {
     for (const node of document.querySelectorAll<HTMLElement>(selector))
       node.style.visibility = 'hidden'
   }, HERO_COPY)
-
-// why: two frames of a stopped clock, for the 3D scene to redraw.
-const FRAME_PAIR_MS = 34
-
-/**
- * Hides the copy, the grid and the lens, so pixel checks see only the 3D
- * scene: the black hole and the glass logo over the page background. The
- * scene draws the grid itself (task black-hole-lensing, 9), so it is given
- * two frames to draw it no more: real ones, or, on a page whose clock was
- * stopped (`stopped`), two run forward.
- */
-export const showSceneOnly = async (
-  page: Page,
-  { stopped = false }: { stopped?: boolean } = {}
-) => {
-  await page.evaluate(selector => {
-    for (const node of document.querySelectorAll<HTMLElement>(selector))
-      node.style.visibility = 'hidden'
-    // why: the black hole bends the grid at the grid's own opacity.
-    const grid = document.querySelector<HTMLElement>(
-      '[data-testid="hero-grid"]'
-    )
-    if (grid) grid.style.opacity = '0'
-  }, `${HERO_COPY}, [data-testid="hero-grid"], [data-testid="hero-lens"]`)
-  if (stopped) await page.clock.runFor(FRAME_PAIR_MS)
-  else await nextFrames(page)
-}
 
 /** Element boxes, read in one round trip. */
 export const boxesOf = (page: Page, selectors: readonly string[]) =>
@@ -258,22 +231,22 @@ export const gotoStopped = async (page: Page, ms: number) => {
 }
 
 /**
- * Loads `/` and waits until the hero's models have arrived and drawn: every
- * model request has settled once the network is idle.
+ * Loads `/` and waits for the hero's arrival to end: the scene's fade in
+ * from black (2.4 s, gargantua.tsx) and the copy's rise into place.
  */
 export const gotoHero = async (page: Page) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
-  // why: a few frames for the icons' first poses to damp into place.
+  await page
+    .locator('#hero')
+    .evaluate(hero =>
+      Promise.all(
+        hero.getAnimations({ subtree: true }).map(({ finished }) => finished)
+      )
+    )
+  // why: the scene's fade runs on its own clock, from its first frame.
   await page.waitForTimeout(1500)
 }
-
-/** Scroll position at which the hero's last screen is on screen. */
-export const heroEnd = (page: Page) =>
-  page.locator('#hero').evaluate(hero => {
-    const { top, height } = hero.getBoundingClientRect()
-    return top + scrollY + height - innerHeight
-  })
 
 /** Scroll position at which the notebook's animation reaches its end. */
 export const notebookEnd = (page: Page) =>

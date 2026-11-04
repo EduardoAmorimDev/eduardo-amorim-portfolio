@@ -72,12 +72,13 @@ test('main has the ten sections in order', async ({ page }) => {
   expect(ids).toEqual(SECTION_IDS)
 })
 
-test('every section but hero and notebook has an h2 and lorem text', async ({
+// why: contato's copy is final (task you-are-here, 5), the rest still lorem.
+test('every section but hero, notebook and contato has an h2 and lorem text', async ({
   page
 }) => {
   await page.goto('/')
   for (const id of SECTION_IDS.filter(
-    id => id !== 'hero' && id !== 'notebook'
+    id => !['hero', 'notebook', 'contato'].includes(id)
   )) {
     const section = page.locator(`#${id}`)
     await expect(section.locator('h2'), id).toHaveCount(1)
@@ -124,13 +125,62 @@ test('hero CTA scrolls to contato', async ({ page }) => {
     .toBe(true)
 })
 
-test('contato has heading, text and CTA button', async ({ page }) => {
+/** Answers the place lookup with `place`, or with no place (204). */
+const placeIs = (page: Page, place?: Record<string, unknown>) =>
+  page.route('**/api/onde-estou', route =>
+    route.fulfill(
+      place
+        ? { json: place, headers: { 'cache-control': 'private, no-store' } }
+        : { status: 204 }
+    )
+  )
+
+/** Scrolls to contato and waits for its place lookup to be answered. */
+const atContato = async (page: Page) => {
   await page.goto('/')
-  const contato = page.locator('#contato')
+  const answered = page.waitForResponse('**/api/onde-estou')
+  await scrollWindowTo(
+    page,
+    await page.locator('#contato').evaluate(section => {
+      const { top } = section.getBoundingClientRect()
+      return top + scrollY
+    })
+  )
+  await answered
+  return page.locator('#contato')
+}
+
+test('contato invites the visitor from where they are', async ({ page }) => {
+  // why: a synthetic place, as Vercel's headers would give it.
+  await placeIs(page, { latitude: -25.43, longitude: -49.27, city: 'Curitiba' })
+  const contato = await atContato(page)
+  // invariant: task you-are-here, 5, word for word.
+  await expect(contato.locator('span').first()).toHaveText('Contato')
   await expect(contato.locator('h2')).toHaveCount(1)
-  await expect(contato.locator('p').filter({ hasText: LOREM })).toHaveCount(1)
+  await expect(contato.locator('h2')).toHaveAccessibleName(
+    'Até aqui, você viu onde podemos chegar.'
+  )
+  const text = contato.locator('p')
+  await expect(text).toHaveCount(1)
+  await expect(text).toContainText('No momento, você está aqui, em Curitiba.')
+  await expect(text).toContainText('A escolha é sua.')
   await expect(contato.getByRole('button')).toHaveCount(1)
-  await expect(contato.getByRole('button')).toHaveText(LOREM)
+  await expect(contato.getByRole('button')).toHaveText('Entrar em contato')
+  await expect(contato.locator('[data-testid="globe-scene"]')).toHaveCount(1)
+})
+
+test.describe('a place guessed from the time zone', () => {
+  test.use({ timezoneId: 'America/Sao_Paulo' })
+
+  test('contato names no city', async ({ page }) => {
+    await placeIs(page)
+    const contato = await atContato(page)
+    // invariant: task you-are-here, 2: a zone spans many cities.
+    await expect(contato.locator('p')).toContainText(
+      'No momento, você está por aqui.'
+    )
+    await expect(contato.locator('p')).not.toContainText('São Paulo')
+  })
 })
 
 test('social proof shows six placeholder logos', async ({ page }) => {
