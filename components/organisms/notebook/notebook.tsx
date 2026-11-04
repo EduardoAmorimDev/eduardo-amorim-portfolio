@@ -1,12 +1,13 @@
 'use client'
 import { Canvas } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MathUtils } from 'three'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
-import type { DprSetting } from '@/lib/adaptive-dpr'
+import { touchDpr, type DprSetting } from '@/lib/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
+import { useFinePointer } from '@/lib/use-fine-pointer'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { ParallaxField } from '@/components/organisms/parallax-field'
 import { SectionsBackdrop } from '@/components/organisms/sections-backdrop'
@@ -46,7 +47,12 @@ export const Notebook = ({ id }: NotebookProps) => {
   const screenLive = useNearViewport(section, SCREEN_LEAD)
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
-  const [dpr, setDpr] = useState<DprSetting>(DPR.full)
+  // why: touch caps the ratio (task portfolio-lp-mobile, 15); the full
+  // ratio holds until the monitor steps, uncapped only before hydration.
+  const fine = useFinePointer()
+  const full = useMemo(() => touchDpr(DPR.full, fine !== false), [fine])
+  const [stepped, setDpr] = useState<DprSetting | null>(null)
+  const dpr = stepped ?? full
 
   useEffect(() => {
     const update = () => {
@@ -92,12 +98,14 @@ export const Notebook = ({ id }: NotebookProps) => {
       className="pointer-events-none relative z-10 h-[700vh]"
     >
       {/* why: select-none: <Html> puts real DOM behind a click-through
-          canvas, so a double click would paint the screen selection blue. */}
+          canvas, so a double click would paint the screen selection blue.
+          h-lvh: the window with the browser's bar tucked away, so no band of
+          page shows under the pinned stage (task portfolio-lp-mobile, 11). */}
       {/* why: isolate, so the sky's negative layers stay inside the stage,
           over its opaque ground and under the canvas. */}
       <div
         ref={stage}
-        className="pointer-events-auto sticky top-0 isolate h-svh select-none"
+        className="pointer-events-auto sticky top-0 isolate h-lvh select-none"
       >
         {/* why: opaque once pinned, in the page's own colour, so the section
             pulled up beneath never shows through the transparent canvas. */}
@@ -123,7 +131,7 @@ export const Notebook = ({ id }: NotebookProps) => {
           gl={{ alpha: true }}
           camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
         >
-          <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
+          <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
           <RenderGate active={!handedOff} />
           {/* why: the stage enters from below the projects' cards; only its
               rows on screen are drawn until it fills the window. */}

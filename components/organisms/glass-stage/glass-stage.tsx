@@ -1,9 +1,10 @@
 'use client'
 import { View } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import '@/lib/three-console'
+import { useFinePointer } from '@/lib/use-fine-pointer'
 import { GlassContext, createBackdrop } from './glass-material'
 
 // why: the device's own ratio, up to 2: the canvas covers the whole window
@@ -11,7 +12,12 @@ import { GlassContext, createBackdrop } from './glass-material'
 // drawing it at 1.5× on a 1× screen cost 2.25× the pixels for 64 px icons.
 const DPR: [number, number] = [1, 2]
 
-const StageRoot = () => {
+/**
+ * What every canvas of glass shares: the backdrop the glass refracts and
+ * the studio reflections, lent to each view's scene. Place it inside the
+ * `<Canvas>`.
+ */
+export const GlassRoot = ({ children }: { children: ReactNode }) => {
   const rootScene = useThree(state => state.scene)
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when a canvas and the theme's CSS variables are available.
@@ -22,32 +28,40 @@ const StageRoot = () => {
   return (
     <GlassContext.Provider value={shared}>
       <StudioEnvironment />
-      <View.Port />
+      {children}
     </GlassContext.Provider>
   )
 }
 
 /**
- * The one canvas every piece of glass on the page is drawn in (task
- * reach-and-seams, Decided 1): fixed over the whole window, above the page
- * and blind to the pointer. Each icon and the cursor is a drei `<View>`
+ * The one canvas the glass is drawn in where the device has a fine pointer
+ * (task reach-and-seams, Decided 1): fixed over the whole window, above the
+ * page and blind to the pointer. Each icon and the cursor is a drei `<View>`
  * that draws into it inside its own box; `frameloop="demand"` keeps it idle
- * until one of them asks for a frame.
+ * until one of them asks for a frame. On touch the icons are drawn by
+ * GlassShelf instead (task portfolio-lp-mobile, Decided), and there is no
+ * cursor, so this is not mounted.
  */
-export const GlassStage = () => (
-  <Canvas
-    aria-hidden="true"
-    data-testid="glass-stage"
-    frameloop="demand"
-    dpr={DPR}
-    gl={{ alpha: true }}
-    style={{
-      position: 'fixed',
-      inset: 0,
-      zIndex: 60,
-      pointerEvents: 'none'
-    }}
-  >
-    <StageRoot />
-  </Canvas>
-)
+export const GlassStage = () => {
+  const fine = useFinePointer()
+  if (!fine) return null
+  return (
+    <Canvas
+      aria-hidden="true"
+      data-testid="glass-stage"
+      frameloop="demand"
+      dpr={DPR}
+      gl={{ alpha: true }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        pointerEvents: 'none'
+      }}
+    >
+      <GlassRoot>
+        <View.Port />
+      </GlassRoot>
+    </Canvas>
+  )
+}

@@ -8,9 +8,13 @@ import {
 } from 'react'
 import {
   PARALLAX_LAYERS,
+  PARALLAX_SLABS,
   PARALLAX_SPEED,
+  SLAB_MARGIN,
   layerHeight,
   layerShift,
+  slabBox,
+  slabIndex,
   type ParallaxLayer
 } from '@/lib/parallax'
 import {
@@ -20,6 +24,7 @@ import {
 import { SKY_FADE, type SkyFade } from '@/lib/sky-fade'
 
 import {
+  CLOUDS,
   MILKY_WAY,
   dustMotes,
   farStars,
@@ -84,14 +89,19 @@ const starStyle = ({
   return style
 }
 
-// why: a broad glow along the band, broken into clouds by fractal noise,
-// as the Milky Way looks by eye; ids are per instance, as each decorated
-// block draws its own.
+// why: a broad glow along the band, broken into clouds as the Milky Way
+// looks by eye; the clouds are a tile of fixed size (CLOUDS), never noise
+// stretched to the layer. Ids are per instance, as each slab draws its own.
+const CLOUD_MASK: CSSProperties = {
+  maskImage: `url(${CLOUDS.url})`,
+  maskMode: 'luminance',
+  maskRepeat: 'repeat',
+  maskSize: `${CLOUDS.tile}px ${CLOUDS.tile}px`,
+  maskPosition: '0 0'
+}
+
 const MilkyWay = () => {
-  const id = useId()
-  const glow = `${id}-glow`
-  const clouds = `${id}-clouds`
-  const mottle = `${id}-mottle`
+  const glow = `${useId()}-glow`
   return (
     <svg
       data-milky-way
@@ -101,6 +111,7 @@ const MilkyWay = () => {
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
       className="absolute inset-0 size-full opacity-[0.12]"
+      style={CLOUD_MASK}
     >
       <defs>
         <linearGradient id={glow} gradientUnits="userSpaceOnUse" {...bandEnds}>
@@ -133,75 +144,76 @@ const MilkyWay = () => {
             style={{ stopColor: 'var(--color-sky)', stopOpacity: 0 }}
           />
         </linearGradient>
-        <filter id={clouds} x="0" y="0" width="100%" height="100%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.09 0.06"
-            numOctaves="4"
-            seed="11"
-          />
-          <feColorMatrix
-            type="matrix"
-            values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1.8 0 0 0 -0.35"
-          />
-        </filter>
-        <mask id={mottle}>
-          <rect width="100" height="100" filter={`url(#${clouds})`} />
-        </mask>
       </defs>
-      <rect
-        width="100"
-        height="100"
-        fill={`url(#${glow})`}
-        mask={`url(#${mottle})`}
-      />
+      <rect width="100" height="100" fill={`url(#${glow})`} />
     </svg>
   )
 }
 
-const CONTENT: Record<ParallaxLayer, ReactNode> = {
-  back: (
-    <>
-      <MilkyWay />
-      {FAR.map(({ top, left, size, peak, tint, period, phase }, index) => (
-        <span
-          key={index}
-          data-star="far"
-          // why: only the brighter stars visibly twinkle, as in a real sky;
-          // every twinkle is a layer of its own, so the faint ones hold still.
-          data-twinkle={size > 1 ? '' : undefined}
-          style={starStyle({ top, left, size, peak, period, phase })}
-          className={`${TINT[tint]} ${size > 1 ? 'motion-safe:animate-twinkle' : ''} absolute rounded-full`}
-        />
-      ))}
-    </>
-  ),
-  mid: NEAR.map(({ top, left, size }, index) => (
-    <span
-      key={index}
-      data-star="near"
-      style={{
-        top: `${top}%`,
-        left: `${left}%`,
-        width: size,
-        height: size
-      }}
-      className="bg-mist absolute rounded-full shadow-[0_0_8px_2px_rgb(from_var(--color-primary)_r_g_b/45%)]"
-    />
-  )),
-  front: DUST.map(({ top, left, size }, index) => (
-    <span
-      key={index}
-      data-dust
-      style={{
-        top: `${top}%`,
-        left: `${left}%`,
-        width: size,
-        height: size
-      }}
-      className="bg-mist/20 absolute rounded-full blur-[6px]"
-    />
-  ))
+const farStar = (
+  { top, left, size, peak, tint, period, phase }: FarStar,
+  index: number
+) => (
+  <span
+    key={index}
+    data-star="far"
+    // why: only the brighter stars visibly twinkle, as in a real sky;
+    // every twinkle is a layer of its own, so the faint ones hold still.
+    data-twinkle={size > 1 ? '' : undefined}
+    style={starStyle({ top, left, size, peak, period, phase })}
+    className={`${TINT[tint]} ${size > 1 ? 'motion-safe:animate-twinkle' : ''} absolute rounded-full`}
+  />
+)
+
+type Placed = { top: number; left: number; size: number }
+
+const nearStar = ({ top, left, size }: Placed, index: number) => (
+  <span
+    key={index}
+    data-star="near"
+    style={{ top: `${top}%`, left: `${left}%`, width: size, height: size }}
+    className="bg-mist absolute rounded-full shadow-[0_0_8px_2px_rgb(from_var(--color-primary)_r_g_b/45%)]"
+  />
+)
+
+const dustMote = ({ top, left, size }: Placed, index: number) => (
+  <span
+    key={index}
+    data-dust
+    style={{ top: `${top}%`, left: `${left}%`, width: size, height: size }}
+    className="bg-mist/20 absolute rounded-full blur-[6px]"
+  />
+)
+
+/** Indices of the items whose top falls in `slab` of the layer's `count`. */
+const inSlab = <T extends { top: number }>(
+  items: readonly T[],
+  slab: number,
+  count: number
+) =>
+  items.flatMap((item, index) =>
+    slabIndex(item.top, count) === slab ? [{ item, index }] : []
+  )
+
+/** What slab `slab` of a layer draws, at the layer's own percentages. */
+const slabContent = (layer: ParallaxLayer, slab: number): ReactNode => {
+  const count = PARALLAX_SLABS[layer]
+  if (layer === 'back')
+    return (
+      <>
+        <MilkyWay />
+        {inSlab(FAR, slab, count).map(({ item, index }) =>
+          farStar(item, index)
+        )}
+      </>
+    )
+  if (layer === 'mid')
+    return inSlab(NEAR, slab, count).map(({ item, index }) =>
+      nearStar(item, index)
+    )
+  return inSlab(DUST, slab, count).map(({ item, index }) =>
+    dustMote(item, index)
+  )
 }
 
 // why: back and mid sit behind the sections, the blurred dust over them;
@@ -228,32 +240,56 @@ export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
   useEffect(() => {
     const container = field.current
     if (!container) return
-    const layers = PARALLAX_LAYERS.flatMap(name => {
-      const element = container.querySelector<HTMLElement>(
-        `[data-parallax-layer="${name}"]`
+    const slabs = [
+      ...container.querySelectorAll<HTMLElement>('[data-parallax-slab]')
+    ].flatMap(element => {
+      const name = PARALLAX_LAYERS.find(
+        layer => layer === element.dataset.parallaxSlab
       )
-      return element ? [{ element, speed: PARALLAX_SPEED[name] }] : []
+      return name ? [{ element, speed: PARALLAX_SPEED[name] }] : []
     })
+    // why: where each slab sits in its layer, read on resize only, so a
+    // scroll reads one box and writes, never forcing a layout per slab.
+    let boxes = slabs.map(() => ({ top: 0, height: 0 }))
+    const measure = () => {
+      boxes = slabs.map(({ element }) => ({
+        top: element.offsetTop,
+        height: element.offsetHeight
+      }))
+    }
 
     // why: transforms are written straight to the DOM on every scroll event
     // (Lenis emits one per frame), so scrolling never re-renders React.
-    // Under reduced motion every layer scrolls with the content (T29).
+    // Under reduced motion every layer scrolls with the content (T29). A
+    // slab more than a screen off the window is hidden, so the browser
+    // keeps no picture of it.
     const update = () => {
       const { top } = container.getBoundingClientRect()
       const still = prefersReducedMotion()
-      for (const { element, speed } of layers)
-        element.style.transform = still
-          ? ''
-          : `translate3d(0, ${layerShift(speed, top)}px, 0)`
+      const screen = window.innerHeight
+      slabs.forEach(({ element, speed }, index) => {
+        const shift = still ? 0 : layerShift(speed, top)
+        const box = boxes[index] ?? { top: 0, height: 0 }
+        const onScreen = top + shift + box.top
+        const near = onScreen < 2 * screen && onScreen + box.height > -screen
+        element.style.transform = still ? '' : `translate3d(0, ${shift}px, 0)`
+        const visibility = near ? '' : 'hidden'
+        if (element.style.visibility !== visibility)
+          element.style.visibility = visibility
+      })
+    }
+    const resize = () => {
+      measure()
+      update()
     }
 
-    update()
+    resize()
     window.addEventListener('scroll', update, { passive: true })
-    window.addEventListener('resize', update)
+    window.addEventListener('resize', resize)
     const stopMotion = onReducedMotionChange(update)
     return () => {
       window.removeEventListener('scroll', update)
-      window.removeEventListener('resize', update)
+      window.removeEventListener('resize', resize)
       stopMotion()
     }
   }, [])
@@ -265,14 +301,34 @@ export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
       className="pointer-events-none absolute inset-0 overflow-clip"
     >
       {PARALLAX_LAYERS.map(name => {
+        const count = PARALLAX_SLABS[name]
+        // why: a size container, so its slabs can be cut in its own height
+        // (cqh); it never moves, only its slabs do.
         const layer = (
           <div
             key={name}
             data-parallax-layer={name}
-            className={`absolute inset-x-0 top-0 will-change-transform ${DEPTH[name]}`}
+            className={`[container-type:size] absolute inset-x-0 top-0 ${DEPTH[name]}`}
             style={{ height: layerHeight(PARALLAX_SPEED[name]) }}
           >
-            {CONTENT[name]}
+            {Array.from({ length: count }, (_, slab) => {
+              const box = slabBox(slab, count, SLAB_MARGIN[name])
+              return (
+                <div
+                  key={slab}
+                  data-parallax-slab={name}
+                  className="absolute inset-x-0 overflow-clip will-change-transform"
+                  style={{ top: box.top, height: box.height }}
+                >
+                  <div
+                    className="absolute inset-x-0 h-[100cqh]"
+                    style={{ top: box.contentTop }}
+                  >
+                    {slabContent(name, slab)}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )
         // why: the mask is drawn in the block's own box, not the drifting

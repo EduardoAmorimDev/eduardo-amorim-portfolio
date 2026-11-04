@@ -6,23 +6,22 @@ const SPEEDS = { back: 0.2, mid: 0.5, front: 1.3 }
 const TOLERANCE_PX = 4
 const SCROLL_PX = 400
 
-// why: the layers of the block holding #solucoes, the block on screen; the
+// why: the slabs of every layer in the block holding #solucoes, the block
+// on screen (task portfolio-lp-mobile, 14: a layer moves as its slabs); the
 // block after the notebook has its own, moving at the same speeds.
 const layerTops = (page: Page) =>
   page.evaluate(() => ({
     scrollY,
-    tops: Object.fromEntries(
-      [
-        ...(document
-          .querySelector('#solucoes')
-          ?.parentElement?.querySelectorAll<HTMLElement>(
-            '[data-parallax-layer]'
-          ) ?? [])
-      ].map(layer => [
-        layer.dataset.parallaxLayer,
-        layer.getBoundingClientRect().top
-      ])
-    )
+    slabs: [
+      ...(document
+        .querySelector('#solucoes')
+        ?.parentElement?.querySelectorAll<HTMLElement>(
+          '[data-parallax-slab]'
+        ) ?? [])
+    ].map(slab => ({
+      layer: slab.dataset.parallaxSlab,
+      top: slab.getBoundingClientRect().top
+    }))
   }))
 
 test('layers move at 0.2x, 0.5x and 1.3x of the scroll', async ({ page }) => {
@@ -41,15 +40,20 @@ test('layers move at 0.2x, 0.5x and 1.3x of the scroll', async ({ page }) => {
   const scrolled = after.scrollY - before.scrollY
   expect(scrolled).toBe(SCROLL_PX)
   for (const [layer, speed] of Object.entries(SPEEDS)) {
-    const from = before.tops[layer]
-    const to = after.tops[layer]
-    if (from === undefined || to === undefined)
-      throw new Error(`no [data-parallax-layer="${layer}"]`)
-    const moved = from - to
-    expect(
-      Math.abs(moved - speed * scrolled),
-      `${layer} moved ${moved}px for ${scrolled}px`
-    ).toBeLessThanOrEqual(TOLERANCE_PX)
+    const slabs = before.slabs.flatMap((slab, index) =>
+      slab.layer === layer
+        ? [{ from: slab.top, to: after.slabs[index]?.top }]
+        : []
+    )
+    expect(slabs.length, `slabs of ${layer}`).toBeGreaterThan(0)
+    for (const { from, to } of slabs) {
+      if (to === undefined) throw new Error(`a ${layer} slab went missing`)
+      const moved = from - to
+      expect(
+        Math.abs(moved - speed * scrolled),
+        `${layer} moved ${moved}px for ${scrolled}px`
+      ).toBeLessThanOrEqual(TOLERANCE_PX)
+    }
   }
 })
 
@@ -70,23 +74,26 @@ test('the field is far stars, glowing near stars and blurred dust', async ({
     ].map(layer => ({
       name: layer.dataset.parallaxLayer,
       depth: Number(getComputedStyle(layer).zIndex),
-      items: [...layer.children].map(child => {
-        const style = getComputedStyle(child)
-        return {
-          kind:
-            child.getAttribute('data-star') ??
-            (child.hasAttribute('data-dust')
-              ? 'dust'
-              : child.hasAttribute('data-milky-way')
-                ? 'milky-way'
-                : child.tagName),
-          shadow: style.boxShadow,
-          filter: style.filter,
-          animation: style.animationName,
-          twinkles: child.hasAttribute('data-twinkle'),
-          size: parseFloat(style.width)
+      // why: a layer draws its items in slabs (task portfolio-lp-mobile, 14).
+      items: [...layer.querySelectorAll('[data-parallax-slab] > div > *')].map(
+        child => {
+          const style = getComputedStyle(child)
+          return {
+            kind:
+              child.getAttribute('data-star') ??
+              (child.hasAttribute('data-dust')
+                ? 'dust'
+                : child.hasAttribute('data-milky-way')
+                  ? 'milky-way'
+                  : child.tagName),
+            shadow: style.boxShadow,
+            filter: style.filter,
+            animation: style.animationName,
+            twinkles: child.hasAttribute('data-twinkle'),
+            size: parseFloat(style.width)
+          }
         }
-      })
+      )
     }))
   )
   const kinds = Object.fromEntries(
@@ -196,13 +203,23 @@ test('the milky way crowds the stars along a faint diagonal', async ({
     .locator('#solucoes')
     .locator('xpath=..')
     .locator('[data-parallax-layer="back"] [data-milky-way]')
-  await expect(band).toHaveCount(1)
-  const { opacity, start, end, half } = await band.evaluate(element => ({
-    opacity: Number(getComputedStyle(element).opacity),
-    start: Number(element.getAttribute('data-band-start')),
-    end: Number(element.getAttribute('data-band-end')),
-    half: Number(element.getAttribute('data-band-half'))
-  }))
+  // invariant: one band, drawn whole in each slab of the back layer and cut
+  // to it (task portfolio-lp-mobile, 2), so every copy is the same band.
+  const copies = await band.evaluateAll(elements =>
+    elements.map(element => ({
+      opacity: Number(getComputedStyle(element).opacity),
+      start: Number(element.getAttribute('data-band-start')),
+      end: Number(element.getAttribute('data-band-end')),
+      half: Number(element.getAttribute('data-band-half'))
+    }))
+  )
+  // why: one copy per slab of the back layer (PARALLAX_SLABS.back).
+  expect(copies).toHaveLength(3)
+  const [first] = copies
+  if (!first) throw new Error('no milky way')
+  for (const copy of copies) expect(copy).toEqual(first)
+  const { opacity, start, end, half } = first
+  expect({ start, end, half }).toEqual({ start: 10, end: 90, half: 9 })
   expect(opacity).toBeGreaterThan(0)
   expect(opacity).toBeLessThanOrEqual(0.12)
   // invariant: diagonal: its middle line drops across the layer.

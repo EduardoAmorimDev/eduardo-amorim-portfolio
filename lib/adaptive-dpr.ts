@@ -43,3 +43,18 @@ export const dprAt = (factor: number, min: number, max: number) => {
   const share = Math.min(Math.max(factor, 0), 1)
   return min + (Math.max(max, min) - min) * share
 }
+
+// why: a phone's screen is 2-3x; past 1.5 buffer px per CSS px its GPU
+// pays for sharpness nobody sees at arm's length (task portfolio-lp-mobile,
+// 15).
+export const TOUCH_MAX_DPR = 1.5
+
+/** `setting` as is with a fine pointer, capped at TOUCH_MAX_DPR on touch. */
+export const touchDpr = (setting: DprSetting, fine: boolean): DprSetting => {
+  if (fine) return setting
+  if (typeof setting === 'number') return Math.min(setting, TOUCH_MAX_DPR)
+  return [
+    Math.min(setting[0], TOUCH_MAX_DPR),
+    Math.min(setting[1], TOUCH_MAX_DPR)
+  ]
+}

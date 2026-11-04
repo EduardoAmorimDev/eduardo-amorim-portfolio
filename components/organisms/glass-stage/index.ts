@@ -1,4 +1,5 @@
 export * from './glass-cursor'
 export * from './glass-icon'
+export * from './glass-shelf'
 export * from './glass-stage'
 export { SOLUTION_MODELS } from './glass-motion'

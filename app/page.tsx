@@ -32,7 +32,7 @@ const Decorated = ({
 }) => (
   <div className={`relative isolate ${className}`}>
     <div
-      className={`pointer-events-none absolute inset-x-0 top-0 ${under ? '-bottom-[100svh]' : 'bottom-0'}`}
+      className={`pointer-events-none absolute inset-x-0 top-0 ${under ? '-bottom-[100lvh]' : 'bottom-0'}`}
     >
       <SectionsBackdrop fade={fade} />
       <ParallaxField fade={fade} />
@@ -57,8 +57,8 @@ export default function Home() {
         <Notebook id="notebook" />
         {/* why: pulled up a screen, under the notebook's last one, so the
             cases sit exactly where the laptop's page fills the window when
-            the notebook lets go, and the real section takes over from it. */}
-        <Decorated className="-mt-[100svh]">
+            the notebook lets go; lvh, the stage's own height. */}
+        <Decorated className="-mt-[100lvh]">
           <Cases />
           <Workflow />
           <Testimonials />

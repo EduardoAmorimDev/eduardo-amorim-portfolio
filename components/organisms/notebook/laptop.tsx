@@ -4,6 +4,7 @@ import { createPortal, useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, useState, type RefObject } from 'react'
 import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
 import { useStaticPage } from '@/lib/use-static-page'
+import { ScaledPage } from './scaled-page'
 import {
   fitIn,
   laptopFloatAt,
@@ -258,18 +259,16 @@ export const Laptop = ({
           rotation-x={Math.PI / 2}
           pointerEvents="none"
         >
-          <div
+          <ScaledPage
             ref={backing}
-            className="bg-ink relative overflow-hidden"
-            // why: rounding the black backing keeps the glass's corners;
-            // the page itself stays square, like the real one it becomes.
-            style={{
-              width: PAGE_WIDTH,
-              height: PAGE_HEIGHT,
-              borderRadius: PAGE_RADIUS,
-              zoom
-            }}
+            width={PAGE_WIDTH}
+            height={PAGE_HEIGHT}
+            scale={zoom}
+            radius={PAGE_RADIUS}
+            className="bg-ink overflow-hidden"
           >
+            {/* why: rounding the black backing keeps the glass's corners;
+                the page itself stays square, like the real one it becomes. */}
             {/* why: pointer-events none and tabIndex -1 keep the page a
                 picture: the wheel scrolls the portfolio (driving the
                 animation) instead of the embedded site, and focus skips it.
@@ -297,7 +296,7 @@ export const Laptop = ({
                 }}
               />
             )}
-          </div>
+          </ScaledPage>
         </Html>,
         anchor.lid
       )}

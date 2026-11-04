@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { MathUtils, type Group } from 'three'
 import {
+  FINE_POINTER,
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
@@ -18,9 +19,6 @@ import { GlassBoundary } from './glass-boundary'
 import { GlassMesh, SharedEnvironment } from './glass-material'
 import { CONTROL_SELECTOR, CURSOR_SCALE, tiltFor } from './glass-motion'
 
-// why: only a device with a mouse or trackpad has a pointer to replace
-// (task reach-and-seams, 25); touch keeps the system's behaviour.
-const FINE_POINTER = '(hover: hover) and (pointer: fine)'
 // why: px of screen per unit, so the 1-unit-tall model is 32 px (task, 22).
 const PX_PER_UNIT = 32
 // invariant: the model's tip, from cursor.glb's bounds; placed on the

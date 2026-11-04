@@ -4,7 +4,9 @@ import { useFrame, useThree } from '@react-three/fiber'
 import {
   Suspense,
   useCallback,
+  useContext,
   useEffect,
+  useId,
   useRef,
   useState,
   type ReactNode
@@ -18,6 +20,7 @@ import { useNearViewport } from '@/lib/use-near-viewport'
 import { GlassBoundary } from './glass-boundary'
 import { GlassMesh, SharedEnvironment } from './glass-material'
 import { spinStep, type GlassModel } from './glass-motion'
+import { ShelfContext } from './shelf-context'
 
 // why: a quarter screen of lead, so the model is loaded and turning before
 // the card scrolls into view (as RenderGate does for the scenes).
@@ -27,7 +30,8 @@ const LEAN = 0.3
 
 type IconSceneProps = { model: GlassModel; onReady: () => void }
 
-const IconScene = ({ model, onReady }: IconSceneProps) => {
+/** One turning glass model, framed for a 64×64 box, in a view's own scene. */
+export const IconScene = ({ model, onReady }: IconSceneProps) => {
   const spin = useRef<Group>(null)
   const still = useRef(false)
   const invalidate = useThree(state => state.invalidate)
@@ -82,14 +86,24 @@ type GlassIconProps = {
 }
 
 /**
- * A 64×64 glass icon, drawn by the page's GlassStage over this box, with
- * the given glyph in its place until the model has loaded.
+ * A 64×64 glass icon, drawn over this box by the page's GlassStage, or on
+ * touch by the GlassShelf around it, with the given glyph in its place until
+ * the model has loaded.
  */
 export const GlassIcon = ({ model, children }: GlassIconProps) => {
   const slot = useRef<HTMLDivElement>(null)
   const near = useNearViewport(slot, LEAD)
   const [ready, setReady] = useState(false)
   const onReady = useCallback(() => setReady(true), [])
+  const shelf = useContext(ShelfContext)
+  const id = useId()
+
+  useEffect(() => {
+    const element = slot.current
+    if (!shelf || !element) return
+    shelf.register(id, { element, model, onReady })
+    return () => shelf.register(id, null)
+  }, [shelf, id, model, onReady])
 
   return (
     <div
@@ -99,7 +113,7 @@ export const GlassIcon = ({ model, children }: GlassIconProps) => {
       className="relative size-16"
     >
       {!ready && children}
-      {near && (
+      {near && !shelf && (
         <View className="absolute inset-0">
           <IconScene model={model} onReady={onReady} />
         </View>

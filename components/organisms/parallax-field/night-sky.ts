@@ -24,6 +24,14 @@ export type StarTint = 'mist' | 'snow' | 'dawn' | 'sky'
  */
 export const MILKY_WAY = { start: 10, end: 90, half: 9 } as const
 
+/**
+ * The Milky Way's clouds: a seamless luminance tile (scripts/milky-way-
+ * clouds.mjs) repeated at a fixed size, so they keep their shape however
+ * tall the layer is (task portfolio-lp-mobile, 1); `pixels` is the image's
+ * own size, 1.5 per CSS px, under 2x on a 3x screen (3).
+ */
+export const CLOUDS = { url: '/sky/clouds.webp', tile: 768, pixels: 1152 }
+
 /** Top of the Milky Way's middle line at `left` percent across. */
 export const bandMiddle = (left: number) =>
   MILKY_WAY.start + ((MILKY_WAY.end - MILKY_WAY.start) * left) / 100

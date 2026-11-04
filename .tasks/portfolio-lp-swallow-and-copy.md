@@ -42,17 +42,18 @@ Medições usadas abaixo, todas em screenshot da viewport a 1440×900 com o tema
 ### O buraco negro quase engole o visitante
 
 1. Enquanto a hero sai, a câmera avança devagar e para longe da tela: o avanço se espalha pela
-   rolagem até a hero rolada 0,8 (suavizado no início e no fim), e a sombra chega a ~55% da
-   largura de uma janela 16:10, sem tomar a tela (revisão do usuário, 2026-11-04: "diminua a
-   velocidade que o buraco negro se aproxima, pode ficar menos próximo do usuário também").
+   rolagem até a hero rolada 1,0 (suavizado no início e no fim), e a câmera para a 12 unidades,
+   com a sombra a ~46% da largura de uma janela 16:10, sem tomar a tela (revisões do usuário,
+   2026-11-04: "diminua a velocidade que o buraco negro se aproxima, pode ficar menos próximo do
+   usuário também"; "Diminua um pouco mais a velocidade e deixe a posição final 1/5 mais longe").
    Prova: screenshots da hero rolada 0,15, 0,25, 0,5 e 0,75, revisados pelo usuário; a
    luminância não separa a sombra do céu preto da hero, então não há medição automática do
    tamanho.
 2. Enquanto a hero sai, o buraco negro vai para a coluna central e sobe com a rolagem, como quem
    sai por cima da tela: com a hero rolada 0,75 a faixa escura é ≤ 0,10 da largura.
-3. Sempre, entre a hero rolada 0,25 e rolada 1,5, a faixa escura é < 0,90 da largura: a sombra
-   nunca cobre a tela inteira ("quase"). Em repouso o céu ao lado do buraco negro é tão escuro
-   quanto a sombra, e o quadro de repouso é o do critério 5.
+3. Sempre, entre a hero rolada 0,5 e rolada 1,5, a faixa escura é < 0,90 da largura: a sombra
+   nunca cobre a tela inteira. Antes de 0,5 o céu preto ao lado do buraco negro é tão escuro
+   quanto a sombra, e a medição não os separa; ali vale a revisão visual do critério 1.
 4. Quando a hero está rolada 1,0, a faixa escura é ≤ 0,10 da largura (hoje 0,26): o buraco
    negro já se dissolveu no céu.
 5. Sempre, no primeiro ecrã (scroll 0), a posição, o tamanho e o enquadramento do buraco negro são
@@ -91,11 +92,9 @@ Medições usadas abaixo, todas em screenshot da viewport a 1440×900 com o tema
 ### O "Sobre" apresenta o Eduardo
 
 15. Sempre, `#sobre` tem o rótulo `Sobre` e o `<h2>` `A cara por trás do resultado`.
-16. Sempre, o texto de `#sobre` são estes quatro parágrafos, nesta ordem, literalmente:
-    1. `Meu nome é Eduardo Amorim. Sou desenvolvedor front-end e construo aplicações web modernas com Next.js, React e TypeScript, com Tailwind, Material UI e as bibliotecas que encurtam o caminho entre a ideia e a tela. Testo com Cypress para que o que funciona hoje continue funcionando amanhã, e transito pelo back-end com Java, Spring e Quarkus. Minha obsessão é performance e experiência do usuário.`
-    2. `Na Syonet, tive papel central na modernização do front-end: um sistema legado em AngularJS virou uma plataforma em React, moderna e de alta performance. Reestruturei componentes, melhorei a arquitetura e otimizei o desempenho para um sistema mais eficiente e escalável. O resultado foi uma experiência melhor, mais engajamento e impacto direto na receita da empresa.`
-    3. `Além do código, atuo em mentorias e em decisões de arquitetura. Meu caminho é a liderança técnica: unir profundidade em desenvolvimento a visão estratégica para impulsionar inovação e crescimento.`
-    4. `Fora do trabalho, sigo explorando novas tecnologias, aprendendo sempre e investindo com estratégia. No tempo livre, equilibro corpo e mente entre vôlei, musculação e xadrez.`
+16. Sempre, o texto de `#sobre` são estes dois parágrafos, nesta ordem, literalmente:
+    1. `Meu nome é Eduardo Amorim. Sou engenheiro full stack, desenvolvo produtos de ponta a ponta, com diversas tecnologias e bibliotecas que encurtam o caminho entre ideia e produto. Sou apaixonado por performance e experiência do usuário.`
+    2. `Além do código, atuo em mentorias, decisões técnicas e de produto. Meu objetivo é ser um profissional com cada vez mais profundidade técnica, visão estratégica e entendimento de qualquer negócio, possibilitando assim, a inovação e o crescimento, por onde quer que passe.`
 17. Sempre, o bloco do retrato de `#sobre` continua o de hoje (placeholder com
     `aria-label="Foto de exemplo"`).
 
@@ -165,6 +164,7 @@ Medições usadas abaixo, todas em screenshot da viewport a 1440×900 com o tema
   - "o conteúdo do laptop está com tarjas pretas, encima e embaixo, isso não pode acontecer." → 11, 12
   - "O copy do footer pode ser "Posso trazer um horizonte de possibilidades até você." "Você viu onde podemos chegar. Já sabemos nosso ponto de partida.", o restante do footer está perfeito!" → 13, 14
   - "use essa referência para montar um copy me apresentando, algo como "A cara por trás do resultado"" + bio de referência colada pelo usuário (front-end, Next.js/React/TypeScript, Tailwind, Material UI, Cypress, Java/Spring/Quarkus; modernização AngularJS → React na Syonet; mentoria e arquitetura; liderança técnica; vôlei, musculação e xadrez) → 15, 16
+  - "pode tirar as tecnoligas, fala que eu sou engenheiro full stack [...] Dai já pode pular para o \"Além do código [...]\" [...] Pode removar a ultima parte, fora do trabalho" → 16 (revisado: dois parágrafos, sem Syonet nem \"Fora do trabalho\")
   - "Faça tudo na main, commit e push também, isso ainda não está em prod." → entrega
 - `.tasks/portfolio-lp-reach-and-seams.md` - critérios 5, 7 e 8 de lá, preservados (7, 9) ou substituídos (8) aqui.
 - Medições de hoje: screenshots a 1440×900 do servidor de dev em `bf72955`.
@@ -175,7 +175,7 @@ This task is the record of decision. If a linked document diverges, ask before b
 
 | # | Kind | Question | Until answered |
 |---|---|---|---|
-| 1 | open | Intensidade da aproximação: avanço até a hero rolada 0,8, câmera parando a 10 unidades (sombra ~55% de uma janela 16:10), luz do disco escurecendo até 12%. Ajustado duas vezes pelo usuário (subir em vez de descer; mais lento e mais longe). | Escrito em 1–2; ajustar na revisão visual. |
+| 1 | open | Intensidade da aproximação: avanço até a hero rolada 1,0, câmera parando a 12 unidades (sombra ~46% de uma janela 16:10), luz do disco escurecendo até 12%. Ajustado três vezes pelo usuário (subir em vez de descer; mais lento e mais longe, duas vezes). | Escrito em 1–2; ajustar na revisão visual. |
 | 2 | open | Em janelas mais estreitas que o vidro (proporção < 1,457: tablet 4:3, celular em pé), cobrir o vidro quebraria o hand-off (a página teria de ser montada em outra largura). Padrão: nessas janelas fica como hoje (faixas laterais). | 11 vale só para proporção ≥ 1,457. |
 | 3 | open | `<h2>` do contato sem ponto final, como todos os títulos da página; o parágrafo mantém o ponto. | Escrito em 13 sem ponto. |
 | 4 | open | Copy do "Sobre" redigido a partir da bio: "desempenhei um papel fundamental" virou "tive papel central" (não "liderei", para não exagerar); "independência financeira" virou "investindo com estratégia". Aprovar ou ajustar. | Escrito em 16 como está. |

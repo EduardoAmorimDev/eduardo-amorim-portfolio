@@ -1,5 +1,9 @@
 import { Section } from '@/components/molecules/section'
-import { GlassIcon, SOLUTION_MODELS } from '@/components/organisms/glass-stage'
+import {
+  GlassIcon,
+  GlassShelf,
+  SOLUTION_MODELS
+} from '@/components/organisms/glass-stage'
 
 // why: each card's glyph stands in for its glass icon until the model has
 // loaded, and for good where it cannot (task reach-and-seams, 16).
@@ -26,22 +30,24 @@ export const Solutions = () => (
     title="Lorem ipsum dolor sit amet"
     intro="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla quis sem at nibh elementum imperdiet."
   >
-    <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {SOLUTIONS.map(({ icon, model, title, text }) => (
-        <li key={title} className="glass-card rounded-3xl p-6">
-          <GlassIcon model={model}>
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="bg-primary/15 stroke-primary size-16 rounded-2xl fill-none stroke-2 p-4"
-            >
-              {icon}
-            </svg>
-          </GlassIcon>
-          <h3 className="text-title-sm mt-5 font-semibold">{title}</h3>
-          <p className="text-body-sm text-foreground/70 mt-2">{text}</p>
-        </li>
-      ))}
-    </ul>
+    <GlassShelf>
+      <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {SOLUTIONS.map(({ icon, model, title, text }) => (
+          <li key={title} className="glass-card rounded-3xl p-6">
+            <GlassIcon model={model}>
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="bg-primary/15 stroke-primary size-16 rounded-2xl fill-none stroke-2 p-4"
+              >
+                {icon}
+              </svg>
+            </GlassIcon>
+            <h3 className="text-title-sm mt-5 font-semibold">{title}</h3>
+            <p className="text-body-sm text-foreground/70 mt-2">{text}</p>
+          </li>
+        ))}
+      </ul>
+    </GlassShelf>
   </Section>
 )

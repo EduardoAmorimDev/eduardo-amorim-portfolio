@@ -218,8 +218,8 @@ test('social proof shows six placeholder logos', async ({ page }) => {
 // why: the copy is the author's, word for word (task swallow-and-copy, 15–17).
 const ABOUT = {
   title: 'A cara por trás do resultado',
-  first: /^Meu nome é Eduardo Amorim\. Sou desenvolvedor front-end/,
-  last: /vôlei, musculação e xadrez\.$/
+  first: /^Meu nome é Eduardo Amorim\. Sou engenheiro full stack/,
+  last: /^Além do código.*por onde quer que passe\.$/
 }
 
 test('about introduces Eduardo beside the photo placeholder', async ({
@@ -230,9 +230,8 @@ test('about introduces Eduardo beside the photo placeholder', async ({
   await expect(about.locator('span').first()).toHaveText('Sobre')
   await expect(about.locator('h2')).toHaveAccessibleName(ABOUT.title)
   await expect(about.getByRole('img', { name: /foto/i })).toBeVisible()
-  await expect(about.locator('p')).toHaveCount(4)
+  await expect(about.locator('p')).toHaveCount(2)
   await expect(about.locator('p').first()).toHaveText(ABOUT.first)
-  await expect(about.locator('p').nth(1)).toContainText('AngularJS')
   await expect(about.locator('p').last()).toHaveText(ABOUT.last)
   await expect(about.locator('p').filter({ hasText: LOREM })).toHaveCount(0)
 })

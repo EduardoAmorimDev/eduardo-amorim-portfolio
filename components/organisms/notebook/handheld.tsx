@@ -11,6 +11,7 @@ import {
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
 import { useStaticPage } from '@/lib/use-static-page'
+import { ScaledPage } from './scaled-page'
 import { isShown, renderScale, ZOOM_SETTLE } from './stages'
 
 /** A phone or tablet: a rounded slab with a live page on its front glass. */
@@ -211,10 +212,13 @@ export const Handheld = ({
               />
             }
           >
-            <div
+            <ScaledPage
               ref={content}
+              width={page.width}
+              height={page.height}
+              scale={zoom}
+              radius={spec.pageRadius}
               className="bg-ink"
-              style={{ width: page.width, height: page.height, zoom }}
             >
               {/* why: same as the laptop's page: a picture, not a site to
                 use, so the wheel keeps driving the portfolio. */}
@@ -236,7 +240,7 @@ export const Handheld = ({
                   style={{ borderRadius: spec.pageRadius }}
                 />
               )}
-            </div>
+            </ScaledPage>
           </Html>
         )}
       </group>

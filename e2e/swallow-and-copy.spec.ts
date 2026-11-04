@@ -92,9 +92,9 @@ test.describe('the black hole almost swallows the visitor', () => {
 
   test('the shadow never covers the whole width', async ({ page }) => {
     await gotoHero(page)
-    // why: from a quarter screen on: at rest the sky beside the black hole
-    // is as dark as its shadow, and the resting frame is criterion 5's.
-    for (const scrolled of [0.25, 0.5, 0.75, 1, 1.25, 1.5])
+    // why: from half a screen on, where the dimmed disk lies beside the
+    // shadow; before that the black sky beside it is as dark as the shadow.
+    for (const scrolled of [0.5, 0.75, 1, 1.25, 1.5])
       expect(
         (await darkRunAt(page, scrolled)).share,
         `hero scrolled ${scrolled}`

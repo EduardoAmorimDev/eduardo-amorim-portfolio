@@ -103,11 +103,12 @@ export const DeviceCopy = ({ id, progress, active }: DeviceCopyProps) => {
       {STEPS.map((chapter, index) => (
         // why: the outer box places the chapter (it centres itself with a
         // translate when side by side), the inner one fades it, so the two
-        // translates never fight over the same property.
+        // translates never fight. Its bottom clears the browser's bar
+        // (100dvh) on a stage as tall as 100lvh (task portfolio-lp-mobile).
         <div
           key={chapter.label}
           aria-current={index === step ? 'step' : undefined}
-          className={`absolute inset-x-6 bottom-10 mx-auto max-w-xl lg:landscape:inset-x-auto lg:landscape:top-1/2 lg:landscape:bottom-auto lg:landscape:w-[24%] lg:landscape:max-w-sm lg:landscape:-translate-y-1/2 ${SIDE_CLASS[chapter.side]}`}
+          className={`absolute inset-x-6 bottom-[calc(2.5rem+100lvh-100dvh)] mx-auto max-w-xl lg:landscape:inset-x-auto lg:landscape:top-1/2 lg:landscape:bottom-auto lg:landscape:w-[24%] lg:landscape:max-w-sm lg:landscape:-translate-y-1/2 ${SIDE_CLASS[chapter.side]}`}
         >
           <div
             className={`transition-[opacity,translate] duration-500 ${shown(index === step)}`}

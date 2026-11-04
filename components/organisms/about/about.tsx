@@ -3,10 +3,8 @@ import { Section } from '@/components/molecules/section'
 // why: the visitor meets the person behind the work; written from his own
 // bio (task swallow-and-copy, 16), so edit it there before here.
 const ABOUT_PARAGRAPHS = [
-  'Meu nome é Eduardo Amorim. Sou desenvolvedor front-end e construo aplicações web modernas com Next.js, React e TypeScript, com Tailwind, Material UI e as bibliotecas que encurtam o caminho entre a ideia e a tela. Testo com Cypress para que o que funciona hoje continue funcionando amanhã, e transito pelo back-end com Java, Spring e Quarkus. Minha obsessão é performance e experiência do usuário.',
-  'Na Syonet, tive papel central na modernização do front-end: um sistema legado em AngularJS virou uma plataforma em React, moderna e de alta performance. Reestruturei componentes, melhorei a arquitetura e otimizei o desempenho para um sistema mais eficiente e escalável. O resultado foi uma experiência melhor, mais engajamento e impacto direto na receita da empresa.',
-  'Além do código, atuo em mentorias e em decisões de arquitetura. Meu caminho é a liderança técnica: unir profundidade em desenvolvimento a visão estratégica para impulsionar inovação e crescimento.',
-  'Fora do trabalho, sigo explorando novas tecnologias, aprendendo sempre e investindo com estratégia. No tempo livre, equilibro corpo e mente entre vôlei, musculação e xadrez.'
+  'Meu nome é Eduardo Amorim. Sou engenheiro full stack, desenvolvo produtos de ponta a ponta, com diversas tecnologias e bibliotecas que encurtam o caminho entre ideia e produto. Sou apaixonado por performance e experiência do usuário.',
+  'Além do código, atuo em mentorias, decisões técnicas e de produto. Meu objetivo é ser um profissional com cada vez mais profundidade técnica, visão estratégica e entendimento de qualquer negócio, possibilitando assim, a inovação e o crescimento, por onde quer que passe.'
 ]
 
 export const About = () => (

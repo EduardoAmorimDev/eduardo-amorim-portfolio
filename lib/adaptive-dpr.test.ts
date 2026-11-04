@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { DPR_STEP, dprAt, frameRateBounds, resolveDpr } from './adaptive-dpr.ts'
+import {
+  DPR_STEP,
+  TOUCH_MAX_DPR,
+  dprAt,
+  frameRateBounds,
+  resolveDpr,
+  touchDpr
+} from './adaptive-dpr.ts'
 
 test('a 60 Hz display declines under 54 fps and inclines from 58.2', () => {
   const [decline, incline] = frameRateBounds(60)
@@ -40,4 +47,14 @@ test('a max under min holds at min', () => {
 
 test('the ratio moves in four steps from max to min', () => {
   assert.equal(1 / DPR_STEP, 4)
+})
+
+test('touchDpr caps every ratio at 1.5 on touch and keeps it otherwise', () => {
+  assert.equal(TOUCH_MAX_DPR, 1.5)
+  assert.deepEqual(touchDpr([1.5, 2], false), [1.5, 1.5])
+  assert.deepEqual(touchDpr([1, 2], false), [1, 1.5])
+  assert.equal(touchDpr(2, false), 1.5)
+  assert.equal(touchDpr(1, false), 1)
+  assert.deepEqual(touchDpr([1.5, 2], true), [1.5, 2])
+  assert.equal(touchDpr(2, true), 2)
 })

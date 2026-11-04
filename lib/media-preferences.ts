@@ -14,3 +14,10 @@ export const onReducedMotionChange = (listener: () => void) =>
 // the page open applies to the very next trigger.
 export const prefersReducedMotion = () =>
   window.matchMedia(REDUCED_MOTION).matches
+
+// why: only a device with a mouse or trackpad has a pointer to replace
+// (task reach-and-seams, 25); touch keeps the system's behaviour.
+export const FINE_POINTER = '(hover: hover) and (pointer: fine)'
+
+/** Whether the device points with a mouse or trackpad, read at the moment. */
+export const prefersFinePointer = () => window.matchMedia(FINE_POINTER).matches

@@ -29,3 +29,40 @@ export const layerScreenTop = (speed: number, containerTop: number) =>
  */
 export const layerHeight = (speed: number) =>
   `calc(${Math.round(speed * 100)}% + 100svh)`
+
+// why: each layer is drawn as horizontal slabs, each moved and composited
+// on its own, so no moving layer is taller than about a screen on a phone
+// (task portfolio-lp-mobile, 14); a whole front layer measured 8,397 px
+// at 390 x 844. More slabs where the layer is taller (its speed).
+export const PARALLAX_SLABS: Readonly<Record<ParallaxLayer, number>> = {
+  back: 3,
+  mid: 5,
+  front: 10
+}
+
+// why: px a slab reaches past its share of the layer, above and below, so
+// a near star's halo or a dust mote's blur on a seam is never cut; the back
+// has neither, and its Milky Way must not be drawn twice where slabs meet.
+export const SLAB_MARGIN: Readonly<Record<ParallaxLayer, number>> = {
+  back: 0,
+  mid: 16,
+  front: 40
+}
+
+/** The slab of `count` that holds an item `top` percent down its layer. */
+export const slabIndex = (top: number, count: number) =>
+  Math.min(Math.max(Math.floor((top / 100) * count), 0), count - 1)
+
+/**
+ * CSS for slab `index` of `count`, in the layer's container units (`cqh`):
+ * the slab's own box, and the offset that puts its content back at the
+ * layer's origin, so items keep their percent of the layer.
+ */
+export const slabBox = (index: number, count: number, margin: number) => {
+  const share = 100 / count
+  return {
+    top: `calc(${index * share}cqh - ${margin}px)`,
+    height: `calc(${share}cqh + ${2 * margin}px)`,
+    contentTop: `calc(${margin}px - ${index * share}cqh)`
+  }
+}
