@@ -15,6 +15,13 @@ const stripScripts = (html: string) => {
       'script, link[rel="modulepreload"], link[rel="preload"][as="script"]'
     )
     .forEach(node => node.remove())
+  // why: a picture holds still; a glow drifting inside a page drawn in 3D
+  // made the browser paint that page again on every frame, which showed as
+  // jank and flicker on phones (task portfolio-lp-mobile-alcance, 1).
+  const still = page.createElement('style')
+  still.textContent =
+    '*,*::before,*::after{animation:none!important;transition:none!important}'
+  page.head.append(still)
   return `<!doctype html>${page.documentElement.outerHTML}`
 }
 
