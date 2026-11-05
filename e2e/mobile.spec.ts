@@ -423,4 +423,132 @@ test.describe('touch', () => {
     for (const canvases of await canvasesAlong(page))
       expect(canvases.length).toBeLessThanOrEqual(MAX_CANVASES)
   })
+  /**
+   * Scrolls through the Alcance down and back up in steps, calling `sample`
+   * at every step, with the scroll settled.
+   */
+  const passThroughAlcance = async (
+    page: Page,
+    sample: () => Promise<void>,
+    steps = 24
+  ) => {
+    const progress = [
+      ...Array.from({ length: steps + 1 }, (_, i) => i / steps),
+      ...Array.from({ length: steps + 1 }, (_, i) => 1 - i / steps)
+    ]
+    for (const p of progress) {
+      await scrollWindowTo(page, await notebookAt(page, p))
+      await page.waitForTimeout(150)
+      await sample()
+    }
+  }
+
+  test('the device pages hold still', async ({ page }) => {
+    await gotoNotebook(page)
+    await expect(page.locator('#notebook iframe')).toHaveCount(3)
+    const glows = await page
+      .locator('#notebook iframe')
+      .evaluateAll(frames =>
+        frames.flatMap(frame =>
+          [
+            ...((frame as HTMLIFrameElement).contentDocument?.querySelectorAll(
+              '[data-testid="sections-glow"]'
+            ) ?? [])
+          ].map(glow => getComputedStyle(glow).animationName)
+        )
+      )
+    expect(glows.length).toBeGreaterThan(0)
+    for (const name of glows) expect(name).toBe('none')
+  })
+
+  test('on touch each device page keeps one scale', async ({ page }) => {
+    await gotoNotebook(page)
+    const scales: Record<string, Set<string>> = {}
+    await passThroughAlcance(page, async () => {
+      const seen = await page
+        .locator('#notebook [data-scaled-page]')
+        .evaluateAll(boxes =>
+          boxes.map(box => ({
+            device: box.querySelector('iframe')?.title ?? '',
+            scale: box.getAttribute('data-scale') ?? ''
+          }))
+        )
+      for (const { device, scale } of seen)
+        if (device) (scales[device] ??= new Set()).add(scale)
+    })
+    expect(Object.keys(scales)).toHaveLength(3)
+    for (const [device, values] of Object.entries(scales))
+      expect([...values], device).toHaveLength(1)
+  })
+
+  test('on touch the alcance canvas never resizes', async ({ page }) => {
+    // why: a slowed CPU drops frames, which is what used to step the ratio.
+    test.setTimeout(120_000)
+    const cdp = await page.context().newCDPSession(page)
+    await gotoNotebook(page)
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 })
+    const canvas = page.locator('[data-testid="notebook-scene"] canvas')
+    const sizes = new Set<string>()
+    const ratios = new Set<number>()
+    await passThroughAlcance(
+      page,
+      async () => {
+        const { width, height, ratio } = await canvas.evaluate(node => {
+          const element = node as HTMLCanvasElement
+          return {
+            width: element.width,
+            height: element.height,
+            ratio: element.width / element.clientWidth
+          }
+        })
+        sizes.add(`${width}x${height}`)
+        ratios.add(Math.round(ratio * 100) / 100)
+      },
+      10
+    )
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+    expect([...sizes]).toHaveLength(1)
+    expect([...ratios]).toEqual([1.25])
+  })
+
+  test('on touch the device pages keep their stacking', async ({ page }) => {
+    await gotoNotebook(page)
+    const stacks: Record<string, Set<string>> = {}
+    await passThroughAlcance(page, async () => {
+      const seen = await page.locator('#notebook iframe').evaluateAll(frames =>
+        frames.map(frame => {
+          // why: drei's wrapper is the outermost box it places in 3D.
+          let wrapper: HTMLElement | null = frame as HTMLElement
+          while (
+            wrapper &&
+            !wrapper.classList.contains('will-change-transform')
+          )
+            wrapper = wrapper.parentElement
+          return {
+            device: frame.getAttribute('title') ?? '',
+            z: wrapper?.style.zIndex ?? ''
+          }
+        })
+      )
+      for (const { device, z } of seen) (stacks[device] ??= new Set()).add(z)
+    })
+    expect(Object.keys(stacks)).toHaveLength(3)
+    for (const [device, values] of Object.entries(stacks))
+      expect([...values], device).toHaveLength(1)
+  })
+
+  test('the handheld glass keeps square corners', async ({ page }) => {
+    await gotoNotebook(page)
+    const corners = await page
+      .locator(
+        '#notebook iframe[title*="phone"], #notebook iframe[title*="tablet"]'
+      )
+      .evaluateAll(frames =>
+        frames.map(frame => {
+          const clip = frame.closest<HTMLElement>('[data-scaled-page]')
+          return clip ? getComputedStyle(clip).borderRadius : 'none'
+        })
+      )
+    expect(corners).toEqual(['0px', '0px'])
+  })
 })
