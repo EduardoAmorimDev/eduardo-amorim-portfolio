@@ -404,6 +404,11 @@ test.describe('touch', () => {
       seen.push(
         await page.evaluate(() =>
           [...document.querySelectorAll('canvas')].map(canvas => ({
+            // why: the hero and the globe draw at the screen's own ratio,
+            // up to 2 (user, 2026-11-05); the cap holds for the rest.
+            capped: !canvas.closest(
+              '[data-testid="hero-scene"], [data-testid="globe-scene"]'
+            ),
             ratio: canvas.clientWidth ? canvas.width / canvas.clientWidth : 0
           }))
         )
@@ -415,8 +420,26 @@ test.describe('touch', () => {
   test('on touch no canvas draws above 1.5x', async ({ page }) => {
     const stops = await canvasesAlong(page)
     expect(stops.flat().length).toBeGreaterThan(0)
-    for (const { ratio } of stops.flat())
-      expect(ratio).toBeLessThanOrEqual(MAX_TOUCH_DPR + 0.01)
+    for (const { ratio, capped } of stops.flat())
+      expect(ratio).toBeLessThanOrEqual(capped ? MAX_TOUCH_DPR + 0.01 : 2.01)
+  })
+
+  test('the hero and the globe draw sharp on a dense screen', async ({
+    page
+  }) => {
+    // why: the user, 2026-11-05: both lost their sharpness on phones, drawn
+    // at 1 and 1.5 px per CSS px on a 3x screen; they start at 2.
+    const ratio = (selector: string) =>
+      page.locator(`${selector} canvas`).evaluate(node => {
+        const canvas = node as HTMLCanvasElement
+        return canvas.width / canvas.clientWidth
+      })
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    expect(await ratio('[data-testid="hero-scene"]')).toBeCloseTo(2, 1)
+    await scrollWindowTo(page, await documentTop(page.locator('#contato')))
+    await page.waitForTimeout(300)
+    expect(await ratio('[data-testid="globe-scene"]')).toBeCloseTo(2, 1)
   })
 
   test('on touch at most four webgl canvases', async ({ page }) => {

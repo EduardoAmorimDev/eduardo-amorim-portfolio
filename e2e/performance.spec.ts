@@ -11,7 +11,9 @@ const RUNS = 3
 // lite on three slow ones in a row; four windows leave it time to decide.
 const WARM_UP_MS = 9000
 const LITE = { attribute: 'data-performance', value: 'lite' }
-const LITE_DPR = { hero: 0.4, notebook: 0.75, globe: 0.6, glass: 1 }
+// why: the hero and the globe keep their adaptive ratio in lite, for their
+// sharpness on dense screens (user, 2026-11-05); these two are pinned.
+const LITE_DPR = { notebook: 0.75, glass: 1 }
 
 const DESKTOP = { viewport: { width: 1440, height: 900 } }
 const PHONE = {
@@ -290,16 +292,8 @@ test('lite mode drops the costly effects', async ({ page }) => {
     'lite'
   )
 
-  expect(await ratioOf(page, '[data-testid="hero-scene"]')).toBeCloseTo(
-    LITE_DPR.hero,
-    1
-  )
   expect(await ratioOf(page, '[data-testid="notebook-scene"]')).toBeCloseTo(
     LITE_DPR.notebook,
-    1
-  )
-  expect(await ratioOf(page, '[data-testid="globe-scene"]')).toBeCloseTo(
-    LITE_DPR.globe,
     1
   )
 
