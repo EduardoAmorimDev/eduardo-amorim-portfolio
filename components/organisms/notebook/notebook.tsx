@@ -30,7 +30,12 @@ const HANDOFF = 0.25
 const GROUND_FADE = 0.1
 // why: crisp edges by default; a GPU that drops frames on the carousel
 // draws fewer pixels, down to 0.75 per CSS px, which keeps the motion smooth.
-const DPR = { full: [1.5, 2] as [number, number], reduced: 0.75 }
+// Touch keeps one ratio, under the 1.5 cap (portfolio-lp-mobile, 15).
+const DPR = {
+  full: [1.5, 2] as [number, number],
+  reduced: 0.75,
+  touch: 1.25
+}
 
 type NotebookProps = { id: string }
 
@@ -52,7 +57,11 @@ export const Notebook = ({ id }: NotebookProps) => {
   const fine = useFinePointer()
   const full = useMemo(() => touchDpr(DPR.full, fine !== false), [fine])
   const [stepped, setDpr] = useState<DprSetting | null>(null)
-  const dpr = stepped ?? full
+  // why: on touch one ratio for the visit; every step resized the canvas,
+  // which clears it, and showed as a flicker (task
+  // portfolio-lp-mobile-alcance, 3).
+  const touch = fine === false
+  const dpr = touch ? DPR.touch : (stepped ?? full)
 
   useEffect(() => {
     const update = () => {
@@ -131,7 +140,9 @@ export const Notebook = ({ id }: NotebookProps) => {
           gl={{ alpha: true }}
           camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
         >
-          <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
+          {!touch && (
+            <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
+          )}
           <RenderGate active={!handedOff} />
           {/* why: the stage enters from below the projects' cards; only its
               rows on screen are drawn until it fills the window. */}

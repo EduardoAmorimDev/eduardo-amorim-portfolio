@@ -116,6 +116,15 @@ export const renderScale = (
   return RENDER_STEPS.find(step => step >= shown) ?? 1
 }
 
+/**
+ * renderScale for a device at rest, seen from the resting camera: on touch
+ * a page keeps this one scale for the whole visit, as every change of scale
+ * left a frame with the page at the wrong size (task
+ * portfolio-lp-mobile-alcance, 2).
+ */
+export const restRenderScale = (unitsPerPx: number, screenHeight: number) =>
+  renderScale(unitsPerPx, restPosition.length(), screenHeight)
+
 /** Whether an object and every one of its ancestors are visible. */
 export const isShown = (object: Object3D) => {
   for (let node: Object3D | null = object; node; node = node.parent) {

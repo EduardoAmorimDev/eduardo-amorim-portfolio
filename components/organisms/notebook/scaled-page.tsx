@@ -32,6 +32,7 @@ export const ScaledPage = ({
   <div
     ref={ref}
     data-scaled-page
+    data-scale={scale}
     style={{
       width: width * scale,
       height: height * scale,

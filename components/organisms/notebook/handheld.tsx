@@ -10,9 +10,10 @@ import {
   type Group
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
+import { useFinePointer } from '@/lib/use-fine-pointer'
 import { useStaticPage } from '@/lib/use-static-page'
 import { ScaledPage } from './scaled-page'
-import { isShown, renderScale, ZOOM_SETTLE } from './stages'
+import { isShown, renderScale, restRenderScale, ZOOM_SETTLE } from './stages'
 
 /** A phone or tablet: a rounded slab with a live page on its front glass. */
 export type HandheldSpec = {
@@ -56,6 +57,9 @@ export const TABLET: HandheldSpec = {
 const BEVEL = 0.025
 // why: lifting the page a hair off the glass keeps the two from flickering.
 const SCREEN_GAP = 0.001
+// invariant: the canvas at z-index 1 over every page at 0; the devices never
+// overlap on stage, so they need no order among themselves.
+export const STILL_STACK: [number, number] = [2, 0]
 
 const bodySize = ({ page, screenWidth, bezel }: HandheldSpec) => ({
   width: screenWidth + bezel * 2,
@@ -153,6 +157,7 @@ export const Handheld = ({
   // zoom keeps its layout width, so the site still lays out for the device.
   const [zoom, setZoom] = useState(1)
   const html = useStaticPage(screenUrl)
+  const touch = useFinePointer() === false
   const content = useRef<HTMLDivElement>(null)
   const pending = useRef({ zoom: 1, since: 0 })
   const shown = useRef(true)
@@ -166,9 +171,15 @@ export const Handheld = ({
       content.current.style.display = onStage ? '' : 'none'
       shown.current = onStage
     }
+    const scale = group.getWorldScale(new Vector3()).x
+    // why: set while still off stage, so the page enters at its one scale.
+    if (touch) {
+      const rest = restRenderScale(unitsPerPx * scale, screenHeight)
+      if (rest !== zoom) setZoom(rest)
+      return
+    }
     if (!onStage) return
     const position = group.getWorldPosition(new Vector3())
-    const scale = group.getWorldScale(new Vector3()).x
     const next = renderScale(
       unitsPerPx * scale,
       camera.position.distanceTo(position),
@@ -201,6 +212,9 @@ export const Handheld = ({
             wrapperClass="will-change-transform"
             occlude="blending"
             distanceFactor={distanceFactor}
+            // why: on touch one stacking order for the visit; drei otherwise
+            // rewrites it every frame (task portfolio-lp-mobile-alcance, 4).
+            zIndexRange={touch ? STILL_STACK : undefined}
             pointerEvents="none"
             // hazard: left to itself, drei measures the page once to size the
             // hole the page shows through, and on the tablet's turn it read
@@ -217,7 +231,6 @@ export const Handheld = ({
               width={page.width}
               height={page.height}
               scale={zoom}
-              radius={spec.pageRadius}
               className="bg-ink"
             >
               {/* why: same as the laptop's page: a picture, not a site to

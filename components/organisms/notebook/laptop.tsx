@@ -3,13 +3,16 @@ import { Html, useGLTF } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, useState, type RefObject } from 'react'
 import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
+import { useFinePointer } from '@/lib/use-fine-pointer'
 import { useStaticPage } from '@/lib/use-static-page'
+import { STILL_STACK } from './handheld'
 import { ScaledPage } from './scaled-page'
 import {
   fitIn,
   laptopFloatAt,
   isShown,
   renderScale,
+  restRenderScale,
   ZOOM_SETTLE,
   stageViewport,
   type Frame
@@ -151,6 +154,7 @@ export const Laptop = ({
   // reaches 1 as the camera ends its dive, for the hand-off to the page.
   const [zoom, setZoom] = useState(1)
   const html = useStaticPage(screenUrl)
+  const touch = useFinePointer() === false
   const backing = useRef<HTMLDivElement>(null)
   const pending = useRef({ zoom: 1, since: 0 })
   const shown = useRef(true)
@@ -212,7 +216,13 @@ export const Laptop = ({
       backing.current.style.display = onStage ? '' : 'none'
       shown.current = onStage
     }
-    if (onStage) {
+    // why: on touch the page keeps its resting scale for the whole visit,
+    // the dive included, set while still off stage so it enters at it (task
+    // portfolio-lp-mobile-alcance, 2).
+    if (touch) {
+      const rest = restRenderScale(UNITS_PER_PX * lidScale, size.height)
+      if (rest !== zoom) setZoom(rest)
+    } else if (onStage) {
       const next = renderScale(
         UNITS_PER_PX * lidScale,
         camera.position.distanceTo(centre),
@@ -250,6 +260,7 @@ export const Laptop = ({
           // invariant: dividing by the zoom keeps the zoomed page as wide as
           // the glass; the hole is sized from the page, not measured.
           distanceFactor={DISTANCE_FACTOR / zoom}
+          zIndexRange={touch ? STILL_STACK : undefined}
           geometry={
             <planeGeometry
               args={[PAGE_WIDTH * UNITS_PER_PX, PAGE_HEIGHT * UNITS_PER_PX]}
