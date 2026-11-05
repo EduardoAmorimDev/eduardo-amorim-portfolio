@@ -5,7 +5,9 @@ import { documentTop, scrollWindowTo } from './page-helpers'
 // why: the checklist's own numbers (C62–C66).
 const GLOW_PATH = { min: 30_000, max: 45_000, reach: 8 }
 const GLOW_BREATH = { min: 8000, max: 12_000, swing: 0.1 }
-const TWINKLE = { min: 3000, max: 8000, low: 0.25, high: 1, distinct: 5 }
+const TWINKLE = { min: 3000, max: 8000, low: 0.25, high: 1, groups: 4 }
+// why: one breath per glow, plain numbers (task portfolio-lp-60fps, 10).
+const BREATHS = { primary: 'glow-breathe-a', steel: 'glow-breathe-b' }
 const STEPS = 48
 
 type Reading = { duration: number; iterations: number; values: string[] }
@@ -118,9 +120,11 @@ test('each glow breathes ±0.1 around its opacity', async ({ page }) => {
   await atSolutions(page)
   const glows = page.locator('[data-testid="sections-glow"]')
   for (let index = 0; index < (await glows.count()); index++) {
+    const kind = await glows.nth(index).getAttribute('data-glow')
+    const name = kind === 'primary' || kind === 'steel' ? BREATHS[kind] : ''
     const { duration, iterations, values } = await sweep(
       glows.nth(index),
-      'glow-breathe',
+      name,
       'opacity'
     )
     expect(duration).toBeGreaterThanOrEqual(GLOW_BREATH.min)
@@ -131,45 +135,73 @@ test('each glow breathes ±0.1 around its opacity', async ({ page }) => {
     expect(Math.min(...opacities)).toBeCloseTo(base - GLOW_BREATH.swing, 2)
     expect(Math.max(...opacities)).toBeCloseTo(base + GLOW_BREATH.swing, 2)
   }
+  // invariant: plain numbers, so the breath runs on the compositor.
+  const texts = await page.evaluate(names => {
+    const found: string[] = []
+    const walk = (rules: CSSRuleList) => {
+      for (const rule of rules) {
+        if (rule instanceof CSSKeyframesRule && names.includes(rule.name))
+          found.push(rule.cssText)
+        if ('cssRules' in rule && rule.cssRules instanceof CSSRuleList)
+          walk(rule.cssRules)
+      }
+    }
+    for (const sheet of document.styleSheets) walk(sheet.cssRules)
+    return found
+  }, Object.values(BREATHS))
+  expect(texts).toHaveLength(2)
+  for (const text of texts) expect(text).not.toContain('var(')
 })
 
-test('far stars twinkle out of step', async ({ page }) => {
-  // why: every twinkling far star is swept, a round trip each.
-  test.setTimeout(120_000)
+test('far stars twinkle in four groups', async ({ page }) => {
   await atSolutions(page)
-  // why: task earth-and-sky, 13: the stars of 1.5 px or more twinkle.
-  const dots = page.locator(
-    '[data-parallax-layer="back"] [data-star="far"][data-twinkle]'
+  // why: task portfolio-lp-60fps, 9 (in place of earth-and-sky 13's out
+  // of step): the stars of 1.5 px or more twinkle with one of four groups.
+  const slabs = page.locator('[data-parallax-slab="back"]')
+  expect(await slabs.count()).toBeGreaterThan(0)
+  for (const slab of await slabs.all())
+    expect(
+      await slab.locator('[data-twinkle-group]').count()
+    ).toBeLessThanOrEqual(TWINKLE.groups)
+  const stray = await page.evaluate(
+    () =>
+      [...document.querySelectorAll('[data-star="far"]')].filter(
+        star =>
+          star.hasAttribute('data-twinkle') !==
+          !!star.closest('[data-twinkle-group]')
+      ).length
   )
-  expect(await dots.count()).toBeGreaterThan(10)
-  const timings = await dots.evaluateAll(elements =>
-    elements.map(element => {
-      const { animationDuration, animationDelay } = getComputedStyle(element)
-      return `${animationDuration} ${animationDelay}`
-    })
-  )
+  expect(stray, 'every twinkling star, and only those, in a group').toBe(0)
+  const groups = page
+    .locator('#solucoes')
+    .locator('xpath=..')
+    .locator('[data-parallax-slab="back"]')
+    .first()
+    .locator('[data-twinkle-group]')
+  expect(await groups.count()).toBe(TWINKLE.groups)
+  const timings = new Set<string>()
   const periods = new Set<string>()
-  const phases = new Set<string>()
-  for (const timing of timings) {
-    const [period = '', phase = ''] = timing.split(' ')
-    periods.add(period)
-    phases.add(phase)
-  }
-  expect(periods.size).toBeGreaterThanOrEqual(TWINKLE.distinct)
-  expect(phases.size).toBeGreaterThanOrEqual(TWINKLE.distinct)
-  for (const dot of await dots.all()) {
+  for (const group of await groups.all()) {
+    const timing = await group.evaluate(element => {
+      const { animationDuration, animationDelay } = getComputedStyle(element)
+      return { animationDuration, animationDelay }
+    })
+    periods.add(timing.animationDuration)
+    timings.add(timing.animationDelay)
     const { duration, iterations, values } = await sweep(
-      dot,
+      group,
       'twinkle',
       'opacity'
     )
     expect(duration).toBeGreaterThanOrEqual(TWINKLE.min)
     expect(duration).toBeLessThanOrEqual(TWINKLE.max)
     expect(iterations).toBe(Infinity)
-    // invariant: task earth-and-sky, 13: the star's own brightness (its
-    // colour's alpha) dims to a quarter and back.
+    // invariant: the star's own brightness (its colour's alpha) dims to a
+    // quarter and back with its group.
     const opacities = values.map(Number)
     expect(Math.min(...opacities)).toBeCloseTo(TWINKLE.low, 2)
     expect(Math.max(...opacities)).toBeCloseTo(TWINKLE.high, 2)
   }
+  expect(periods.size).toBe(TWINKLE.groups)
+  expect(timings.size).toBe(TWINKLE.groups)
 })

@@ -21,7 +21,7 @@ export const SectionsBackdrop = ({ fade }: SectionsBackdropProps) => (
       <div
         data-testid="sections-glow"
         data-glow="primary"
-        className="motion-safe:animate-glow-a absolute top-[8%] -left-[12%] size-[55vmax] rounded-full opacity-30 blur-[100px] [--glow-opacity:0.3]"
+        className="motion-safe:animate-glow-a absolute top-[8%] -left-[12%] size-[55vmax] rounded-full opacity-30 blur-[100px]"
         style={{
           backgroundImage:
             'radial-gradient(circle, var(--color-primary), transparent 70%)'
@@ -30,7 +30,7 @@ export const SectionsBackdrop = ({ fade }: SectionsBackdropProps) => (
       <div
         data-testid="sections-glow"
         data-glow="steel"
-        className="motion-safe:animate-glow-b absolute -right-[14%] bottom-[-20%] size-[50vmax] rounded-full opacity-40 blur-[100px] [--glow-opacity:0.4]"
+        className="motion-safe:animate-glow-b absolute -right-[14%] bottom-[-20%] size-[50vmax] rounded-full opacity-40 blur-[100px]"
         style={{
           backgroundImage:
             'radial-gradient(circle, var(--color-steel), transparent 70%)'

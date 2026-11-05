@@ -21,6 +21,7 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
+import { currentTier, onTierChange } from '@/lib/performance-tier'
 import { SKY_FADE, type SkyFade } from '@/lib/sky-fade'
 
 import {
@@ -68,23 +69,19 @@ const bandEnds = {
 type FarStar = ReturnType<typeof farStars>[number]
 
 // why: --star-peak is the star's own brightness, the alpha of its colour;
-// the twinkle dims it to a quarter and back (app/globals.css).
+// its group's twinkle dims it to a quarter and back (app/globals.css).
 const starStyle = ({
   top,
   left,
   size,
-  peak,
-  period,
-  phase
-}: Omit<FarStar, 'tint'>) => {
+  peak
+}: Pick<FarStar, 'top' | 'left' | 'size' | 'peak'>) => {
   const style: CSSProperties & { '--star-peak': number } = {
     top: `${top}%`,
     left: `${left}%`,
     width: size,
     height: size,
-    '--star-peak': peak,
-    animationDuration: `${period}s`,
-    animationDelay: `-${phase}s`
+    '--star-peak': peak
   }
   return style
 }
@@ -150,20 +147,27 @@ const MilkyWay = () => {
   )
 }
 
-const farStar = (
-  { top, left, size, peak, tint, period, phase }: FarStar,
-  index: number
-) => (
+const farStar = ({ top, left, size, peak, tint }: FarStar, index: number) => (
   <span
     key={index}
     data-star="far"
-    // why: only the brighter stars visibly twinkle, as in a real sky;
-    // every twinkle is a layer of its own, so the faint ones hold still.
+    // why: only the brighter stars visibly twinkle, as in a real sky; they
+    // twinkle with their group (TWINKLE_GROUPS), the faint ones hold still.
     data-twinkle={size > 1 ? '' : undefined}
-    style={starStyle({ top, left, size, peak, period, phase })}
-    className={`${TINT[tint]} ${size > 1 ? 'motion-safe:animate-twinkle' : ''} absolute rounded-full`}
+    style={starStyle({ top, left, size, peak })}
+    className={`${TINT[tint]} absolute rounded-full`}
   />
 )
+
+// why: the brighter far stars twinkle in four groups, each its own period
+// and phase and one composited layer; a layer per star (192 on the page)
+// cost the compositor every frame (task portfolio-lp-60fps, 9).
+export const TWINKLE_GROUPS = [
+  { period: 3.7, delay: 0 },
+  { period: 4.9, delay: 1.6 },
+  { period: 6.1, delay: 3.4 },
+  { period: 7.3, delay: 0.9 }
+] as const
 
 type Placed = { top: number; left: number; size: number }
 
@@ -198,15 +202,36 @@ const inSlab = <T extends { top: number }>(
 /** What slab `slab` of a layer draws, at the layer's own percentages. */
 const slabContent = (layer: ParallaxLayer, slab: number): ReactNode => {
   const count = PARALLAX_SLABS[layer]
-  if (layer === 'back')
+  if (layer === 'back') {
+    const stars = inSlab(FAR, slab, count)
     return (
       <>
         <MilkyWay />
-        {inSlab(FAR, slab, count).map(({ item, index }) =>
-          farStar(item, index)
+        {stars.flatMap(({ item, index }) =>
+          item.size > 1 ? [] : [farStar(item, index)]
         )}
+        {TWINKLE_GROUPS.map(({ period, delay }, group) => {
+          const members = stars.filter(
+            ({ item, index }) =>
+              item.size > 1 && index % TWINKLE_GROUPS.length === group
+          )
+          return members.length ? (
+            <div
+              key={`group-${group}`}
+              data-twinkle-group={group}
+              className="motion-safe:animate-twinkle absolute inset-0"
+              style={{
+                animationDuration: `${period}s`,
+                animationDelay: `-${delay}s`
+              }}
+            >
+              {members.map(({ item, index }) => farStar(item, index))}
+            </div>
+          ) : null
+        })}
       </>
     )
+  }
   if (layer === 'mid')
     return inSlab(NEAR, slab, count).map(({ item, index }) =>
       nearStar(item, index)
@@ -227,6 +252,11 @@ const DEPTH: Record<ParallaxLayer, string> = {
 type ParallaxFieldProps = {
   /** Fades every layer at the container's edges (lib/sky-fade.ts). */
   fade?: SkyFade
+  /**
+   * Holds the sky still, for a sky in a pinned box (the notebook's stage),
+   * where its box never moves while the sky shows; no script runs for it.
+   */
+  still?: boolean
 }
 
 /**
@@ -234,12 +264,12 @@ type ParallaxFieldProps = {
  * (lib/parallax.ts) and hold still under reduced motion. Must sit inside a
  * container that creates a stacking context (`relative isolate`).
  */
-export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
+export const ParallaxField = ({ fade, still = false }: ParallaxFieldProps) => {
   const field = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const container = field.current
-    if (!container) return
+    if (!container || still) return
     const slabs = [
       ...container.querySelectorAll<HTMLElement>('[data-parallax-slab]')
     ].flatMap(element => {
@@ -248,6 +278,34 @@ export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
       )
       return name ? [{ element, speed: PARALLAX_SPEED[name] }] : []
     })
+
+    // why: on the scroll timeline the compositor moves the slabs; the
+    // script only lays the two ends of the drift out, on resize (task
+    // portfolio-lp-60fps, 8). The ends are those of layerShift: the block's
+    // top a screen below the window's top, then its bottom at the top.
+    if (CSS.supports('animation-timeline: view()')) {
+      container.style.setProperty('view-timeline-name', '--sky')
+      const lay = () => {
+        const screen = document.documentElement.clientHeight
+        const height = container.offsetHeight
+        const still = prefersReducedMotion()
+        for (const { element, speed } of slabs) {
+          element.style.setProperty('--sky-from', `${(speed - 1) * screen}px`)
+          element.style.setProperty('--sky-to', `${(1 - speed) * height}px`)
+          // invariant: the shorthand resets the timeline, so it comes first.
+          element.style.animation = still ? 'none' : 'sky-drift linear both'
+          if (!still) element.style.setProperty('animation-timeline', '--sky')
+        }
+      }
+      lay()
+      window.addEventListener('resize', lay)
+      const stopMotion = onReducedMotionChange(lay)
+      return () => {
+        window.removeEventListener('resize', lay)
+        stopMotion()
+      }
+    }
+
     // why: where each slab sits in its layer, read on resize only, so a
     // scroll reads one box and writes, never forcing a layout per slab.
     let boxes = slabs.map(() => ({ top: 0, height: 0 }))
@@ -258,12 +316,13 @@ export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
       }))
     }
 
-    // why: transforms are written straight to the DOM on every scroll event
-    // (Lenis emits one per frame), so scrolling never re-renders React.
-    // Under reduced motion every layer scrolls with the content (T29). A
-    // slab more than a screen off the window is hidden, so the browser
-    // keeps no picture of it.
+    // why: without a scroll timeline, transforms are written straight to
+    // the DOM on every scroll event (Lenis emits one per frame), so
+    // scrolling never re-renders React. Under reduced motion every layer
+    // scrolls with the content (T29); lite holds it still from CSS, so the
+    // script stops. A slab more than a screen off the window is hidden.
     const update = () => {
+      if (currentTier() === 'lite') return
       const { top } = container.getBoundingClientRect()
       const still = prefersReducedMotion()
       const screen = window.innerHeight
@@ -282,17 +341,26 @@ export const ParallaxField = ({ fade }: ParallaxFieldProps) => {
       measure()
       update()
     }
+    const stop = () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', resize)
+    }
 
     resize()
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', resize)
     const stopMotion = onReducedMotionChange(update)
+    // why: lite holds the sky still; every slab shows again, unshifted.
+    const stopTier = onTierChange(() => {
+      stop()
+      for (const { element } of slabs) element.style.visibility = ''
+    })
     return () => {
-      window.removeEventListener('scroll', update)
-      window.removeEventListener('resize', resize)
+      stop()
       stopMotion()
+      stopTier()
     }
-  }, [])
+  }, [still])
 
   return (
     <div

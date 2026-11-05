@@ -32,6 +32,7 @@ const Decorated = ({
 }) => (
   <div className={`relative isolate ${className}`}>
     <div
+      data-block-sky
       className={`pointer-events-none absolute inset-x-0 top-0 ${under ? '-bottom-[100lvh]' : 'bottom-0'}`}
     >
       <SectionsBackdrop fade={fade} />

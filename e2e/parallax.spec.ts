@@ -74,26 +74,33 @@ test('the field is far stars, glowing near stars and blurred dust', async ({
     ].map(layer => ({
       name: layer.dataset.parallaxLayer,
       depth: Number(getComputedStyle(layer).zIndex),
-      // why: a layer draws its items in slabs (task portfolio-lp-mobile, 14).
-      items: [...layer.querySelectorAll('[data-parallax-slab] > div > *')].map(
-        child => {
-          const style = getComputedStyle(child)
-          return {
-            kind:
-              child.getAttribute('data-star') ??
-              (child.hasAttribute('data-dust')
-                ? 'dust'
-                : child.hasAttribute('data-milky-way')
-                  ? 'milky-way'
-                  : child.tagName),
-            shadow: style.boxShadow,
-            filter: style.filter,
-            animation: style.animationName,
-            twinkles: child.hasAttribute('data-twinkle'),
-            size: parseFloat(style.width)
-          }
+      // why: a layer draws its items in slabs (task portfolio-lp-mobile,
+      // 14), the twinkling stars inside their group (portfolio-lp-60fps, 9).
+      items: [
+        ...layer.querySelectorAll(
+          '[data-parallax-slab] :is([data-star], [data-dust], [data-milky-way])'
+        )
+      ].map(child => {
+        const style = getComputedStyle(child)
+        const group = child.closest('[data-twinkle-group]')
+        return {
+          kind:
+            child.getAttribute('data-star') ??
+            (child.hasAttribute('data-dust')
+              ? 'dust'
+              : child.hasAttribute('data-milky-way')
+                ? 'milky-way'
+                : child.tagName),
+          shadow: style.boxShadow,
+          filter: style.filter,
+          animation: style.animationName,
+          groupAnimation: group
+            ? getComputedStyle(group).animationName
+            : 'none',
+          twinkles: child.hasAttribute('data-twinkle'),
+          size: parseFloat(style.width)
         }
-      )
+      })
     }))
   )
   const kinds = Object.fromEntries(
@@ -117,7 +124,8 @@ test('the field is far stars, glowing near stars and blurred dust', async ({
       // the faint 1 px ones hold still.
       if (item.kind === 'far') {
         expect(item.twinkles, `a ${item.size} px star`).toBe(item.size >= 1.5)
-        expect(item.animation).toBe(item.size >= 1.5 ? 'twinkle' : 'none')
+        expect(item.animation).toBe('none')
+        expect(item.groupAnimation).toBe(item.size >= 1.5 ? 'twinkle' : 'none')
       }
       if (name === 'mid') expect(item.shadow, 'a halo').not.toBe('none')
       if (name === 'front')

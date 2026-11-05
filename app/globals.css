@@ -53,10 +53,10 @@
      glows drift on closed paths of under 8vmax in 30–45 s and breathe ±0.1
      in 8–12 s; the far stars twinkle. */
   --animate-glow-a:
-    glow-drift 38s ease-in-out infinite, glow-breathe 10s ease-in-out infinite;
+    glow-drift 38s ease-in-out infinite, glow-breathe-a 10s ease-in-out infinite;
   --animate-glow-b:
     glow-drift 44s ease-in-out infinite reverse,
-    glow-breathe 9s ease-in-out infinite;
+    glow-breathe-b 9s ease-in-out infinite;
   --animate-twinkle: twinkle 5s ease-in-out infinite;
   /* hazard: plain numbers only; a var() here would move all the stars'
      twinkles off the compositor onto the main thread, every frame. Each
@@ -118,13 +118,25 @@
     }
   }
 
-  @keyframes glow-breathe {
+  /* hazard: plain numbers, one keyframe per glow; a var() here kept the
+     breath on the main thread, dirtying the page's style every frame (task
+     portfolio-lp-60fps, 10). a: 0.3 ± 0.1, b: 0.4 ± 0.1. */
+  @keyframes glow-breathe-a {
     0%,
     100% {
-      opacity: calc(var(--glow-opacity) - 0.1);
+      opacity: 0.2;
     }
     50% {
-      opacity: calc(var(--glow-opacity) + 0.1);
+      opacity: 0.4;
+    }
+  }
+  @keyframes glow-breathe-b {
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.5;
     }
   }
 }
@@ -184,4 +196,52 @@ body {
   .glass-cursor * {
     cursor: none;
   }
+}
+
+/* why: a sky slab rides the scroll on the compositor where the browser has
+   scroll-driven animations (parallax-field.tsx sets the timeline and the two
+   offsets, in px, on resize), so scrolling runs no script for it (task
+   portfolio-lp-60fps, 8). */
+@keyframes sky-drift {
+  from {
+    transform: translate3d(0, var(--sky-from), 0);
+  }
+  to {
+    transform: translate3d(0, var(--sky-to), 0);
+  }
+}
+
+/* why: the lite tier (lib/performance-tier.ts) holds the sky still: the
+   layers scroll with the content, as under reduced motion, and neither the
+   stars nor the glows animate (task portfolio-lp-60fps, 6). */
+[data-performance='lite'] [data-parallax-slab] {
+  transform: none !important;
+}
+[data-performance='lite'] [data-parallax-slab],
+[data-performance='lite'] [data-parallax-slab] *,
+[data-performance='lite'] [data-testid='sections-glow'] {
+  animation: none !important;
+}
+
+/* why: a still slab needs no layer of its own; flattened, the lite sky is
+   painted once with its block (task portfolio-lp-60fps, 6). */
+[data-performance='lite'] [data-parallax-slab] {
+  will-change: auto;
+}
+
+/* why: the notebook's opaque stage fills the window (notebook.tsx marks
+   it), so the skies of the blocks beneath it go out of the page instead
+   of being drawn unseen every frame (task portfolio-lp-60fps, 1). */
+[data-stage-covers] [data-block-sky] {
+  display: none;
+}
+
+/* why: lite spares the GPU its two widest filters: the cards' backdrop blur
+   and the glows' 100 px blur, recomposited every frame something moves
+   (task portfolio-lp-60fps, 6); the gradients alone stay soft. */
+[data-performance='lite'] .glass-card {
+  backdrop-filter: none;
+}
+[data-performance='lite'] [data-testid='sections-glow'] {
+  filter: none;
 }
