@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
 import './globals.css'
-import ReactLenis from 'lenis/react'
+import { PerformanceWatch } from '@/components/atoms/performance-watch'
+import { SmoothScroll } from '@/components/atoms/smooth-scroll'
 
 const montserrat = Montserrat({
   variable: '--font-montserrat',
@@ -30,11 +31,13 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="en"
+      // why: the performance tier marks <html> from the browser
+      // (lib/performance-tier.ts), which the server never renders.
+      suppressHydrationWarning
       className={`${montserrat.variable} ${warping.variable} h-full antialiased`}
     >
-      {/* why: anchors lets Lenis run in-page links (the hero CTA) through its
-          own smooth scroll instead of the browser's jump. */}
-      <ReactLenis root options={{ anchors: true }} />
+      <SmoothScroll />
+      <PerformanceWatch />
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   )
