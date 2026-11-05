@@ -2,21 +2,65 @@ import { MathUtils, Matrix4, Quaternion, Vector3, type Object3D } from 'three'
 
 type Window = readonly [start: number, end: number]
 
+/** A device of the carousel. */
+export type Device = 'phone' | 'tablet' | 'laptop'
+
+// why: the carousel's order before the visitor's own device moves last.
+const DEVICES: readonly Device[] = ['phone', 'tablet', 'laptop']
+// invariant: Tailwind's `md` and `lg` breakpoints; device-copy.tsx
+// switches with `lg:landscape:`, the stage (isSideLayout) with it.
+const TABLET_MIN_WIDTH = 768
+const SIDE_MIN_WIDTH = 1024
+
+/** The device the visitor holds, told by the window's width in CSS px. */
+export const viewerDevice = (width: number): Device =>
+  width >= SIDE_MIN_WIDTH
+    ? 'laptop'
+    : width >= TABLET_MIN_WIDTH
+      ? 'tablet'
+      : 'phone'
+
+/** The carousel's order: the other two as ever, the visitor's own last. */
+export const deviceOrder = (viewer: Device): Device[] => [
+  ...DEVICES.filter(device => device !== viewer),
+  viewer
+]
+
 /**
- * Windows of the section's scroll progress (0..1) for each step: the
- * phone → tablet → laptop carousel, then the dive into the laptop's screen.
+ * The scroll windows (0..1) of one place in the carousel: entering, leaving
+ * (never, for the last), the tablet's turn (only when not last) and the
+ * laptop's own straighten, open and power-on, remapped to 0..1.
  */
+export type Slot = {
+  in: Window
+  out: Window | null
+  turn: Window | null
+  own: Window
+}
+
+// why: one window for a device's exit and the next one's entrance, so one
+// enters as the other leaves; a turn sits in the middle of the rest between.
+// A device that is not last runs its own gesture while it is on stage; the
+// last one after it has come in.
+const SLOTS: readonly [Slot, Slot, Slot] = [
+  { in: [0, 0.14], out: [0.22, 0.32], turn: [0.15, 0.21], own: [0, 0.22] },
+  {
+    in: [0.22, 0.32],
+    out: [0.42, 0.52],
+    turn: [0.34, 0.4],
+    own: [0.22, 0.42]
+  },
+  { in: [0.42, 0.52], out: null, turn: null, own: [0.52, 0.72] }
+]
+
+/** The windows of `device`'s place in `order`. */
+export const slotOf = (order: readonly Device[], device: Device): Slot => {
+  const place = order.indexOf(device)
+  return place === 0 ? SLOTS[0] : place === 1 ? SLOTS[1] : SLOTS[2]
+}
+
+/** Windows of the section's scroll progress (0..1) beyond the carousel. */
 export const STAGES = {
-  // why: the phone spins in from afar and lands facing the viewer.
-  phoneIn: [0, 0.14],
-  // why: one window for both, so the tablet enters as the phone leaves.
-  phoneOut: [0.22, 0.32],
-  // why: inside the tablet's rest (0.32-0.42), so it turns while still.
-  tabletTurn: [0.34, 0.4],
-  tabletOut: [0.42, 0.52],
-  // invariant: the laptop's own straighten/open/power windows run inside
-  // this one, remapped to 0..1.
-  laptop: [0.52, 0.72],
   // why: ends before 1 so the damped camera has settled on the screen by
   // the time the section lets go and the real page takes over.
   zoom: [0.8, 0.96]
@@ -56,10 +100,7 @@ export const stageViewport = (size: Size): Viewport => {
   return { height, width: (height * size.width) / size.height }
 }
 
-// invariant: Tailwind's `lg` breakpoint, and CSS `landscape` is width >
-// height; device-copy.tsx switches with `lg:landscape:`, the stage with it.
-const SIDE_MIN_WIDTH = 1024
-
+// invariant: CSS `landscape` is width > height, as here.
 /** Wide landscape screens put the copy beside each device, not under it. */
 export const isSideLayout = (size: Size) =>
   size.width >= SIDE_MIN_WIDTH && size.width > size.height
@@ -125,6 +166,18 @@ export const renderScale = (
 export const restRenderScale = (unitsPerPx: number, screenHeight: number) =>
   renderScale(unitsPerPx, restPosition.length(), screenHeight)
 
+/**
+ * Where the page on the last device's glass sits in the world, for the
+ * camera to dive into it: the centre of its window-sized part, the way it
+ * faces, its up, and that part's height.
+ */
+export type ScreenView = {
+  centre: Vector3
+  normal: Vector3
+  up: Vector3
+  pageHeight: number
+}
+
 /** Whether an object and every one of its ancestors are visible. */
 export const isShown = (object: Object3D) => {
   for (let node: Object3D | null = object; node; node = node.parent) {
@@ -142,9 +195,9 @@ export const floatAt = (elapsed: number) =>
   Math.sin(elapsed * FLOAT.speed) * FLOAT.height
 
 /**
- * The laptop's bob, settling as the camera dives (`dive` 0..1): the camera
- * follows the screen, so a bob left running at the end of the dive moved
- * the camera, the 3D page and the canvas every frame for a still picture.
+ * The last device's bob, settling as the camera dives (`dive` 0..1): the
+ * camera follows the screen, so a bob left running at the end of the dive
+ * moved the camera, the 3D page and the canvas every frame for a still one.
  */
-export const laptopFloatAt = (elapsed: number, dive: number) =>
+export const divingFloatAt = (elapsed: number, dive: number) =>
   floatAt(elapsed) * (1 - Math.min(Math.max(dive, 0), 1))

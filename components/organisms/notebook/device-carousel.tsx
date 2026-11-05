@@ -1,6 +1,13 @@
 'use client'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Suspense, useEffect, useRef, useState, type RefObject } from 'react'
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject
+} from 'react'
 import {
   MathUtils,
   Matrix4,
@@ -8,26 +15,37 @@ import {
   type Group,
   type PerspectiveCamera
 } from 'three'
-import { Handheld, PHONE, TABLET } from './handheld'
-import { Laptop, LAPTOP_FRAME, type ScreenView } from './laptop'
+import {
+  asViewerDevice,
+  handheldFrame,
+  isLandscape,
+  PHONE,
+  TABLET
+} from './devices'
+import { Handheld } from './handheld'
+import { Laptop, LAPTOP_FRAME } from './laptop'
 import {
   CAMERA,
   CAMERA_REST,
+  deviceOrder,
+  divingFloatAt,
   ease,
   fitIn,
-  floatAt,
   isSideLayout,
   local,
   offstage,
+  slotOf,
   SMOOTHING,
   STAGES,
   stageLift,
   stageViewport,
-  type Frame
+  type Device,
+  type Frame,
+  type ScreenView
 } from './stages'
 
-// why: the room each handheld needs at rest, with a margin; the tablet's
-// frame is square and holds its 45° diagonal (~3.44) mid-turn.
+// why: the room each handheld needs at rest, for its own page, with a
+// margin; the tablet's is square and holds its 45° diagonal (~3.44) mid-turn.
 const PHONE_FRAME: Frame = { width: 1.6, height: 3 }
 const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
 // why: the phone starts this far behind the stage, edge-on to the viewer,
@@ -41,12 +59,12 @@ const TABLET_LEAN = { x: 0.4, y: -0.6, z: -0.2 }
 // why: the open lid rises well above the laptop's pivot, so at full size
 // it would touch the heading; lowering it centres the open laptop instead.
 const LAPTOP_DROP = 0.45
-// hazard: runs before the laptop (-1) and every <Html> (0), so they all read
+// hazard: runs before the devices (-1) and every <Html> (0), so they all read
 // this frame's progress and poses instead of the previous frame's.
 const BEFORE_DEVICES = -2
-// hazard: the dive reads where the laptop's screen is this frame, so it runs
-// after the laptop has posed (-1) and before <Html> (0) reads the camera.
-const AFTER_LAPTOP = -0.5
+// hazard: the dive reads where the last device's screen is this frame, so it
+// runs after the devices have posed (-1) and before <Html> (0) reads the camera.
+const AFTER_DEVICES = -0.5
 
 const lookAtMatrix = new Matrix4()
 
@@ -71,16 +89,19 @@ const Precompile = () => {
 type DeviceCarouselProps = {
   progress: RefObject<number>
   screenUrl?: string
+  /** The visitor's own device, which comes last and is dived into. */
+  viewer: Device
 }
 
 /**
- * Phone, then tablet, then laptop, swapped across the stage by the scroll;
- * at the end the camera dives into the laptop's screen until its page fills
- * the window.
+ * The phone, the tablet and the laptop, swapped across the stage by the
+ * scroll, the visitor's own device last; at the end the camera dives into
+ * that device's screen until its page fills the window.
  */
 export const DeviceCarousel = ({
   progress,
-  screenUrl
+  screenUrl,
+  viewer
 }: DeviceCarouselProps) => {
   const phone = useRef<Group>(null)
   const tablet = useRef<Group>(null)
@@ -93,10 +114,28 @@ export const DeviceCarousel = ({
   const screenView = useRef<ScreenView | null>(null)
   const [landscape, setLandscape] = useState(false)
   const size = useThree(state => state.size)
+  const { width, height } = size
   const viewport = stageViewport(size)
   const side = isSideLayout(size)
-  const phoneFit = fitIn(viewport, PHONE_FRAME, side)
-  const tabletFit = fitIn(viewport, TABLET_FRAME, side)
+  const order = useMemo(() => deviceOrder(viewer), [viewer])
+  // why: the last device's page is the window, so its body takes the
+  // window's proportion and, on a landscape window, lies on its side.
+  const lastOnSide = isLandscape(size)
+  const phoneSpec = useMemo(
+    () =>
+      viewer === 'phone' ? asViewerDevice(PHONE, { width, height }) : PHONE,
+    [viewer, width, height]
+  )
+  const tabletSpec = useMemo(
+    () =>
+      viewer === 'tablet' ? asViewerDevice(TABLET, { width, height }) : TABLET,
+    [viewer, width, height]
+  )
+  const phoneOnSide = viewer === 'phone' && lastOnSide
+  const phoneFrame = handheldFrame(PHONE_FRAME, PHONE, phoneSpec, phoneOnSide)
+  const tabletFrame = handheldFrame(TABLET_FRAME, TABLET, tabletSpec, false)
+  const phoneFit = fitIn(viewport, phoneFrame, side)
+  const tabletFit = fitIn(viewport, tabletFrame, side)
   const laptopDrop = -LAPTOP_DROP * fitIn(viewport, LAPTOP_FRAME, side)
 
   useFrame(({ clock }, delta) => {
@@ -108,33 +147,43 @@ export const DeviceCarousel = ({
       delta
     )
     const p = smoothed.current
-    const bob = floatAt(clock.elapsedTime)
+    dive.current = ease(p, STAGES.zoom)
+    // why: the last device holds still as the camera dives into it.
+    const bob = (device: Device) =>
+      divingFloatAt(clock.elapsedTime, device === viewer ? dive.current : 0)
     // why: the camera sits above the stage looking down at it; tilting the
     // handhelds back by that angle makes their glass face the viewer.
     const tilt = -Math.atan2(CAMERA.position[1], CAMERA.position[2])
 
-    const phoneIn = ease(p, STAGES.phoneIn)
-    const phoneOut = ease(p, STAGES.phoneOut)
+    // why: the phone always comes from behind the stage, facing the viewer
+    // as it lands; only the first device is on stage from the start.
+    const phoneSlot = slotOf(order, 'phone')
+    const phoneIn = ease(p, phoneSlot.in)
+    const phoneOut = phoneSlot.out ? ease(p, phoneSlot.out) : 0
     phone.current.position.set(
-      -phoneOut * offstage(viewport, PHONE_FRAME, side),
-      bob,
+      -phoneOut * offstage(viewport, phoneFrame, side),
+      bob('phone'),
       MathUtils.lerp(PHONE_START.z, 0, phoneIn)
     )
     const phoneLean = 1 - phoneIn
     phone.current.rotation.set(
       tilt + PHONE_LEAN.x * phoneLean,
       MathUtils.lerp(PHONE_START.spin, 0, phoneIn),
-      PHONE_LEAN.z * phoneLean
+      PHONE_LEAN.z * phoneLean + (phoneOnSide ? Math.PI / 2 : 0)
     )
-    phone.current.visible = phoneOut < 1
+    phone.current.visible =
+      (order[0] === 'phone' || phoneIn > 0) && phoneOut < 1
 
-    const tabletIn = phoneOut
-    const tabletOut = ease(p, STAGES.tabletOut)
-    const turn = ease(p, STAGES.tabletTurn)
-    const tabletOff = offstage(viewport, TABLET_FRAME, side)
+    const tabletSlot = slotOf(order, 'tablet')
+    const tabletIn = ease(p, tabletSlot.in)
+    const tabletOut = tabletSlot.out ? ease(p, tabletSlot.out) : 0
+    // why: it turns while it rests on stage, unless it is last, where it
+    // keeps the window's orientation all along.
+    const turn = tabletSlot.turn ? ease(p, tabletSlot.turn) : Number(lastOnSide)
+    const tabletOff = offstage(viewport, tabletFrame, side)
     tablet.current.position.set(
       (1 - tabletIn) * tabletOff - tabletOut * tabletOff,
-      bob,
+      bob('tablet'),
       0
     )
     const tabletLean = 1 - tabletIn
@@ -149,12 +198,14 @@ export const DeviceCarousel = ({
     const nextLandscape = turn >= 0.5
     if (nextLandscape !== landscape) setLandscape(nextLandscape)
 
-    const laptopIn = tabletOut
+    const laptopSlot = slotOf(order, 'laptop')
+    const laptopIn = ease(p, laptopSlot.in)
+    const laptopOut = laptopSlot.out ? ease(p, laptopSlot.out) : 0
+    const laptopOff = offstage(viewport, LAPTOP_FRAME, side)
     laptop.current.position.x =
-      (1 - laptopIn) * offstage(viewport, LAPTOP_FRAME, side)
-    laptop.current.visible = laptopIn > 0
-    laptopProgress.current = local(p, STAGES.laptop)
-    dive.current = ease(p, STAGES.zoom)
+      (1 - laptopIn) * laptopOff - laptopOut * laptopOff
+    laptop.current.visible = laptopIn > 0 && laptopOut < 1
+    laptopProgress.current = local(p, laptopSlot.own)
   }, BEFORE_DEVICES)
 
   useFrame(({ camera }) => {
@@ -179,18 +230,28 @@ export const DeviceCarousel = ({
     camera.position.lerpVectors(CAMERA_REST.position, eye, depth)
     camera.quaternion.slerpQuaternions(CAMERA_REST.quaternion, facing, depth)
     camera.updateMatrixWorld()
-  }, AFTER_LAPTOP)
+  }, AFTER_DEVICES)
 
   return (
     <group position-y={stageLift(viewport, side)}>
       <group ref={phone}>
         <group scale={phoneFit}>
-          <Handheld spec={PHONE} screenUrl={screenUrl} />
+          <Handheld
+            spec={phoneSpec}
+            screenUrl={screenUrl}
+            landscape={phoneOnSide}
+            viewRef={viewer === 'phone' ? screenView : undefined}
+          />
         </group>
       </group>
       <group ref={tablet}>
         <group scale={tabletFit}>
-          <Handheld spec={TABLET} screenUrl={screenUrl} landscape={landscape} />
+          <Handheld
+            spec={tabletSpec}
+            screenUrl={screenUrl}
+            landscape={landscape}
+            viewRef={viewer === 'tablet' ? screenView : undefined}
+          />
         </group>
       </group>
       <group ref={laptop} position-y={laptopDrop}>
@@ -200,6 +261,7 @@ export const DeviceCarousel = ({
             dive={dive}
             screenUrl={screenUrl}
             side={side}
+            last={viewer === 'laptop'}
             viewRef={screenView}
           />
           <Precompile />

@@ -5,6 +5,7 @@ import { CanvasTexture } from 'three'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
 import { DeviceCarousel } from './device-carousel'
+import type { Device } from './stages'
 
 // why: the projects section alone (app/embed/projetos), shown live on every
 // device's screen, laid out at that device's width.
@@ -56,13 +57,16 @@ type NotebookSceneProps = {
   screenLive: boolean
   /** Whether the floor takes the devices' soft contact shadow. */
   shadows?: boolean
+  /** The visitor's own device, which the carousel ends on. */
+  viewer: Device
 }
 
 /** Phone, tablet and laptop on a floor, under two spotlights, driven by the scroll. */
 export const NotebookScene = ({
   progress,
   screenLive,
-  shadows = true
+  shadows = true,
+  viewer
 }: NotebookSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
@@ -102,6 +106,7 @@ export const NotebookScene = ({
         <DeviceCarousel
           progress={progress}
           screenUrl={screenLive ? SCREEN_URL : undefined}
+          viewer={viewer}
         />
       </Suspense>
 

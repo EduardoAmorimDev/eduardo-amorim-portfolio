@@ -16,6 +16,7 @@ import { DeviceCopy } from './device-copy'
 import { NotebookScene } from './notebook-scene'
 import { CAMERA } from './stages'
 import { useScrollProgress } from './use-scroll-progress'
+import { useViewerDevice } from './use-viewer-device'
 import { STILL_SIZE } from '@/lib/canvas-size'
 
 // why: the embedded pages start loading a screen before the section, well
@@ -42,10 +43,10 @@ const DPR = {
 type NotebookProps = { id: string }
 
 /**
- * Phone, tablet, then a laptop that opens, carried across the stage by the
- * scroll, each beside a chapter of the story; the camera then dives into the
- * laptop's screen, whose page is the projects section that follows, and the
- * real section takes over unnoticed; scrolling back plays it all in reverse.
+ * Phone, tablet and a laptop that opens, carried across the stage by the
+ * scroll, the visitor's own device last, each beside a chapter of the story;
+ * the camera then dives into the last one's screen, whose page is the
+ * projects section that follows, and the real section takes over unnoticed.
  */
 export const Notebook = ({ id }: NotebookProps) => {
   const section = useRef<HTMLElement>(null)
@@ -54,6 +55,9 @@ export const Notebook = ({ id }: NotebookProps) => {
   // why: the stage's fades and hand-off only change while it is on screen.
   const onScreen = useNearViewport(section, RENDER_LEAD)
   const progress = useScrollProgress(section, screenLive)
+  // why: one source for the carousel and its copy, so the chapters always
+  // number the devices in the order they come on stage.
+  const viewer = useViewerDevice()
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
   // why: touch caps the ratio (task portfolio-lp-mobile, 15); the full
@@ -175,9 +179,15 @@ export const Notebook = ({ id }: NotebookProps) => {
             progress={progress}
             screenLive={screenLive}
             shadows={!lite}
+            viewer={viewer}
           />
         </Canvas>
-        <DeviceCopy id={id} progress={progress} active={screenLive} />
+        <DeviceCopy
+          id={id}
+          progress={progress}
+          active={screenLive}
+          viewer={viewer}
+        />
       </div>
     </section>
   )

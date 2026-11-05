@@ -1,7 +1,7 @@
 'use client'
 import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   ExtrudeGeometry,
   MeshStandardMaterial,
@@ -13,46 +13,15 @@ import { readColorToken } from '@/lib/color-tokens'
 import { useFinePointer } from '@/lib/use-fine-pointer'
 import { useLiteMode } from '@/lib/use-lite-mode'
 import { useStaticPage } from '@/lib/use-static-page'
+import { bodySize, type HandheldSpec } from './devices'
 import { ScaledPage } from './scaled-page'
-import { isShown, renderScale, restRenderScale, ZOOM_SETTLE } from './stages'
-
-/** A phone or tablet: a rounded slab with a live page on its front glass. */
-export type HandheldSpec = {
-  /** The page in CSS px, upright (portrait); the site lays out for it. */
-  page: { width: number; height: number }
-  /** Width of the visible display in scene units; height follows the page. */
-  screenWidth: number
-  /** Glass around the display, in scene units. */
-  bezel: number
-  depth: number
-  /** Radius of the slab's outline corners, in scene units. */
-  corner: number
-  /** Radius of the page's corners, in the page's CSS px. */
-  pageRadius: number
-  title: string
-}
-
-export const PHONE: HandheldSpec = {
-  // why: a common phone width; the site renders its mobile layout.
-  page: { width: 390, height: 844 },
-  screenWidth: 1.12,
-  bezel: 0.05,
-  depth: 0.1,
-  corner: 0.17,
-  pageRadius: 42,
-  title: 'Preview of the projects section on a phone'
-}
-
-export const TABLET: HandheldSpec = {
-  // why: a common tablet's portrait width; the site renders its tablet layout.
-  page: { width: 820, height: 1180 },
-  screenWidth: 1.85,
-  bezel: 0.09,
-  depth: 0.08,
-  corner: 0.14,
-  pageRadius: 24,
-  title: 'Preview of the projects section on a tablet'
-}
+import {
+  isShown,
+  renderScale,
+  restRenderScale,
+  ZOOM_SETTLE,
+  type ScreenView
+} from './stages'
 
 // why: rounds the slab's front and back edges; must stay under depth / 2.
 const BEVEL = 0.025
@@ -61,11 +30,9 @@ const SCREEN_GAP = 0.001
 // invariant: the canvas at z-index 1 over every page at 0; the devices never
 // overlap on stage, so they need no order among themselves.
 export const STILL_STACK: [number, number] = [2, 0]
-
-const bodySize = ({ page, screenWidth, bezel }: HandheldSpec) => ({
-  width: screenWidth + bezel * 2,
-  height: (screenWidth * page.height) / page.width + bezel * 2
-})
+// hazard: <Html> places the page in its own useFrame (priority 0) and the
+// dive reads the view at -0.5; running first gives both this frame's pose.
+const BEFORE_DIVE = -1
 
 const roundedRect = (width: number, height: number, radius: number) => {
   const [x, y] = [-width / 2, -height / 2]
@@ -108,12 +75,15 @@ type HandheldProps = {
   screenUrl?: string
   /** Turns the page to read upright once the body has turned 90° in Z. */
   landscape?: boolean
+  /** Filled every frame with where the page sits, for the camera's dive. */
+  viewRef?: RefObject<ScreenView | null>
 }
 
 export const Handheld = ({
   spec,
   screenUrl,
-  landscape = false
+  landscape = false,
+  viewRef
 }: HandheldProps) => {
   const geometry = useMemo(() => createSlab(spec), [spec])
   // hazard: drei's <Html> mounted in the canvas's first commit loses its
@@ -176,6 +146,17 @@ export const Handheld = ({
       shown.current = onStage
     }
     const scale = group.getWorldScale(new Vector3()).x
+    const position = group.getWorldPosition(new Vector3())
+    if (viewRef) {
+      // invariant: the page faces the group's +z with its top towards +y,
+      // centred on the group, and is exactly window-sized when last.
+      viewRef.current = {
+        centre: position,
+        normal: new Vector3(0, 0, 1).transformDirection(group.matrixWorld),
+        up: new Vector3(0, 1, 0).transformDirection(group.matrixWorld),
+        pageHeight: page.height * unitsPerPx * scale
+      }
+    }
     // why: set while still off stage, so the page enters at its one scale.
     if (touch) {
       const rest = restRenderScale(unitsPerPx * scale, screenHeight)
@@ -183,7 +164,6 @@ export const Handheld = ({
       return
     }
     if (!onStage) return
-    const position = group.getWorldPosition(new Vector3())
     const next = renderScale(
       unitsPerPx * scale,
       camera.position.distanceTo(position),
@@ -194,7 +174,7 @@ export const Handheld = ({
       pending.current = { zoom: next, since: now }
     else if (next !== zoom && now - pending.current.since >= ZOOM_SETTLE)
       setZoom(next)
-  })
+  }, BEFORE_DIVE)
   // invariant: with `transform`, drei maps 1 CSS px to distanceFactor / 400
   // units; dividing by the zoom keeps the zoomed page as wide as the display.
   const distanceFactor = (unitsPerPx * 400) / zoom

@@ -9,14 +9,15 @@ import { useStaticPage } from '@/lib/use-static-page'
 import { STILL_STACK } from './handheld'
 import { ScaledPage } from './scaled-page'
 import {
+  divingFloatAt,
   fitIn,
-  laptopFloatAt,
   isShown,
   renderScale,
   restRenderScale,
   ZOOM_SETTLE,
   stageViewport,
-  type Frame
+  type Frame,
+  type ScreenView
 } from './stages'
 
 // why: the model comes from canvas-lab (assets/laptop.glb) and is built in
@@ -96,19 +97,6 @@ const findParts = (root: Object3D) => {
   return { base, lid, screen }
 }
 
-/**
- * Where the page on the laptop's glass sits in the world, for a camera to
- * dive into it: the centre of the viewport-sized part of the page (its top,
- * where the page is taller than the window), the way it faces, its up, and
- * that part's height.
- */
-export type ScreenView = {
-  centre: Vector3
-  normal: Vector3
-  up: Vector3
-  pageHeight: number
-}
-
 type LaptopProps = {
   /** The laptop's own progress (0..1), already damped by the carousel. */
   progress: RefObject<number>
@@ -116,6 +104,8 @@ type LaptopProps = {
   screenUrl?: string
   /** Whether the copy sits beside the stage, which leaves it half the width. */
   side: boolean
+  /** Whether it is last: the visitor's device, which the camera dives into. */
+  last: boolean
   /** Filled every frame with where the page sits, once the model has loaded. */
   viewRef: RefObject<ScreenView | null>
   /** How far the camera has dived into the screen (0..1). */
@@ -126,6 +116,7 @@ export const Laptop = ({
   progress,
   screenUrl,
   side,
+  last,
   viewRef,
   dive
 }: LaptopProps) => {
@@ -140,17 +131,20 @@ export const Laptop = ({
   // why: the selector re-renders only on resize, never per frame.
   const size = useThree(state => state.size)
   const fit = fitIn(stageViewport(size), LAPTOP_FRAME, side)
-  // why: the page is laid out at the window's width, so it is the very
-  // layout of the real section below. A window wider than the glass gets a
-  // taller page that covers it, top-aligned, with no black bands (task
-  // swallow-and-copy, 11); a narrower one keeps the whole window-sized page
-  // in view, pillarboxed, as the dive must end on exactly that page.
-  const covers = size.width / size.height >= PAGE_WIDTH / PAGE_HEIGHT
-  const pageScale = covers ? PAGE_WIDTH / size.width : PAGE_HEIGHT / size.height
-  const frameHeight = covers ? PAGE_HEIGHT / pageScale : size.height
+  // why: last, the page is laid out at the window's width, so it is the very
+  // layout of the real section below; otherwise at the glass's own width.
+  // A window wider than the glass gets a taller page that covers it,
+  // top-aligned (task swallow-and-copy, 11); a narrower one keeps the whole
+  // window-sized page in view, pillarboxed, as the dive must end on it.
+  const layout = last ? size : { width: PAGE_WIDTH, height: PAGE_HEIGHT }
+  const covers = layout.width / layout.height >= PAGE_WIDTH / PAGE_HEIGHT
+  const pageScale = covers
+    ? PAGE_WIDTH / layout.width
+    : PAGE_HEIGHT / layout.height
+  const frameHeight = covers ? PAGE_HEIGHT / pageScale : layout.height
   // why: how far the window-sized top of the page sits above the glass's
   // centre, in the page's px, for the dive to end on it.
-  const windowLift = covers ? (PAGE_HEIGHT - size.height * pageScale) / 2 : 0
+  const windowLift = covers ? (PAGE_HEIGHT - layout.height * pageScale) / 2 : 0
   // why: the page is drawn at about its size on screen (renderScale), which
   // reaches 1 as the camera ends its dive, for the hand-off to the page.
   const [zoom, setZoom] = useState(1)
@@ -192,7 +186,10 @@ export const Laptop = ({
     )
     // why: bobbing here, not with drei's <Float>, so it runs before <Html>
     // reads the lid's pose this frame.
-    body.current.position.y = laptopFloatAt(clock.elapsedTime, dive.current)
+    body.current.position.y = divingFloatAt(
+      clock.elapsedTime,
+      last ? dive.current : 0
+    )
     parts.current.lid.rotation.x = LID_OPEN * open
     // why: fading the page in over the black backing reads as the screen
     // turning on.
@@ -207,12 +204,13 @@ export const Laptop = ({
     const up = new Vector3(0, 0, 1).transformDirection(lid.matrixWorld)
     const lidScale = lid.getWorldScale(new Vector3()).x
     centre.addScaledVector(up, windowLift * UNITS_PER_PX * lidScale)
-    viewRef.current = {
-      centre,
-      normal,
-      up,
-      pageHeight: size.height * pageScale * UNITS_PER_PX * lidScale
-    }
+    if (last)
+      viewRef.current = {
+        centre,
+        normal,
+        up,
+        pageHeight: layout.height * pageScale * UNITS_PER_PX * lidScale
+      }
     // why: off stage the page is display:none, so the browser stops drawing
     // it; it stays loaded, and shows at once when the laptop comes in.
     const onStage = isShown(body.current)
@@ -296,7 +294,7 @@ export const Laptop = ({
                 srcDoc={html}
                 src={screenUrl}
                 title="Preview of the projects section on a laptop"
-                width={size.width}
+                width={layout.width}
                 height={frameHeight}
                 tabIndex={-1}
                 aria-hidden
@@ -305,7 +303,7 @@ export const Laptop = ({
                 scrolling="no"
                 className="pointer-events-none absolute border-0 opacity-0"
                 style={{
-                  left: (PAGE_WIDTH - size.width) / 2,
+                  left: (PAGE_WIDTH - layout.width) / 2,
                   top: (PAGE_HEIGHT - frameHeight) / 2,
                   transform: `scale(${pageScale})`
                 }}
