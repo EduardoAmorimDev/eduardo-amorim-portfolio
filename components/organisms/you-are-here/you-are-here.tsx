@@ -104,11 +104,14 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           <span className="text-caption text-foreground/60 font-semibold tracking-[0.3em] uppercase">
             Contato
           </span>
+          {/* why: on short phones the globe's white light sits behind the
+              title, where white letters vanished; a soft halo in the page's
+              ink cuts them out of it and is unseen on the dark sky. */}
           <GlitchText
             as="h2"
             id={`${id}-title`}
             text="Posso trazer um horizonte de possibilidades até você"
-            className="font-display text-title-md lg:text-title-lg pointer-events-auto mt-4"
+            className="font-display text-title-md lg:text-title-lg pointer-events-auto mt-4 [text-shadow:0_0_24px_rgb(from_var(--color-ink)_r_g_b/90%),0_0_6px_rgb(from_var(--color-ink)_r_g_b/80%)]"
           />
           {/* why: the text is the same wherever the visitor is; the place
               only moves the pin on the globe (task reach-and-seams, 20). */}
