@@ -19,11 +19,13 @@ const MAX_MAGNIFICATION = 2
 const MAX_TOUCH_DPR = 1.5
 const MAX_CANVASES = 4
 const MAX_SLAB_SCREENS = 2
+// why: on a phone the phone comes last, laid out at the window, and the
+// laptop keeps its own width (task portfolio-lp-device-last, 7-8).
 const DEVICE_WIDTHS = {
-  'Preview of the projects section on a phone': 390,
+  'Preview of the projects section on a phone': PHONE.width,
   'Preview of the projects section on a tablet': 820,
   'Preview of the projects section on a tablet, landscape': 1180,
-  'Preview of the projects section on a laptop': PHONE.width
+  'Preview of the projects section on a laptop': 1280
 }
 // why: time for the glass models to load and draw (as reach-and-seams).
 const LOAD_MS = 3000
@@ -287,12 +289,13 @@ test.describe('touch', () => {
   })
 
   // why: a device's page is laid out only while the device is on stage
-  // (off stage it is display:none); the tablet before its turn.
+  // (off stage it is display:none); on a phone the tablet comes first and
+  // turns at 0.15-0.21, then the laptop, then the phone.
   const ON_STAGE = [
-    { device: 'phone', progress: 0.1 },
-    { device: 'tablet', progress: 0.3 },
-    { device: 'tablet', progress: 0.45, label: ', landscape' },
-    { device: 'laptop', progress: 0.85 }
+    { device: 'tablet', progress: 0.1 },
+    { device: 'tablet', progress: 0.215, label: ', landscape' },
+    { device: 'laptop', progress: 0.37 },
+    { device: 'phone', progress: 0.85 }
   ] as const
 
   test('every device page lays out at its device width', async ({ page }) => {
@@ -366,7 +369,7 @@ test.describe('touch', () => {
   }) => {
     await gotoNotebook(page)
     // why: past the hand-off (a quarter screen past the end) the real
-    // section is what shows; before it, the laptop's page stands in.
+    // section is what shows; before it, the last device's page stands in.
     const from = (await notebookEnd(page)) + PHONE.height * 0.25 + 1
     const to = await documentTop(page.locator('#workflow'))
     // why: by the hand-off the section's title has scrolled up past the

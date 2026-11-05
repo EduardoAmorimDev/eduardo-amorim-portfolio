@@ -16,6 +16,7 @@ import {
 const SCREENS_TALL = 7
 const EMBED_PATH = '/embed/projetos'
 const PHONE_WIDTH = 390
+const PHONE_HEIGHT = 844
 const TABLET = { portrait: [820, 1180], landscape: [1180, 820] } as const
 // why: the copy of task reach-and-seams, 10–11.
 const LABEL = 'Alcance'
@@ -77,6 +78,49 @@ const scrollToProgress = async (page: Page, progress: number) => {
   await scrollWindowTo(page, await notebookAt(page, progress))
   await page.waitForTimeout(SETTLE_MS)
 }
+
+type Device = 'phone' | 'tablet' | 'laptop'
+// why: the task's orders (.tasks/portfolio-lp-device-last.md, 3), by the
+// window sizes the task names for each visitor's device.
+const ORDERS = [
+  { width: 1440, height: 900, order: ['phone', 'tablet', 'laptop'] },
+  { width: 820, height: 1180, order: ['phone', 'laptop', 'tablet'] },
+  { width: 390, height: 844, order: ['tablet', 'laptop', 'phone'] }
+] as const
+// why: the chapter of each device in CHAPTERS, and its name in the label.
+const CHAPTER_OF = { phone: 0, tablet: 1, laptop: 2 } as const
+const NAME_OF = {
+  phone: 'Apps',
+  tablet: 'Sites e landing pages',
+  laptop: 'Sistemas'
+} as const
+// why: a point of the section's progress where the device in each place is
+// alone on stage: resting first, resting second, opened last.
+const PLACES = [0.1, 0.37, 0.62]
+const LAPTOP_WIDTH = 1280
+
+const screenOf = (page: Page, device: Device) =>
+  page.locator(`#notebook iframe[title$="on a ${device}"]`)
+
+const sizeOf = (page: Page, device: Device) =>
+  screenOf(page, device).evaluate(frame => [
+    Number(frame.getAttribute('width')),
+    Number(frame.getAttribute('height'))
+  ])
+
+/** The devices whose page is drawn: off stage it is display:none. */
+const devicesOnStage = (page: Page) =>
+  page.locator('#notebook iframe').evaluateAll(frames =>
+    frames
+      .filter(frame => {
+        const box = frame.closest('[data-scaled-page]')
+        return box !== null && getComputedStyle(box).display !== 'none'
+      })
+      .map(frame => /on a (\w+)$/.exec(frame.getAttribute('title') ?? '')?.[1])
+  )
+
+const chapterLabels = (page: Page) =>
+  page.getByTestId('notebook-copy').locator('h3').locator('..').locator('span')
 
 /** Share of pixels whose channels differ by more than `PIXEL_GAP`. */
 const differingShare = (a: Pixels, b: Pixels) => {
@@ -170,6 +214,31 @@ test('every device shows the projects section at its own width', async ({
   })
 })
 
+// why: the windows of the task (portfolio-lp-device-last, 7-9) and two that
+// match no device's own page, so the last page can only be the window's.
+const OWN_WIDTHS = [
+  { width: 820, height: 1180, last: 'tablet' },
+  { width: 1000, height: 700, last: 'tablet' },
+  { width: 390, height: 844, last: 'phone' },
+  { width: 375, height: 667, last: 'phone' }
+] as const
+
+for (const { width, height, last } of OWN_WIDTHS)
+  test(`every device shows the projects section at its own width at ${width}x${height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height })
+    await gotoNotebook(page)
+    const own = {
+      phone: [PHONE_WIDTH, PHONE_HEIGHT],
+      tablet: [...TABLET.portrait],
+      [last]: [width, height]
+    }
+    expect(await sizeOf(page, 'phone')).toEqual(own.phone)
+    expect(await sizeOf(page, 'tablet')).toEqual(own.tablet)
+    expect((await sizeOf(page, 'laptop'))[0]).toBe(LAPTOP_WIDTH)
+  })
+
 test('the chapter follows the device on stage, both ways', async ({ page }) => {
   // why: eight settled scrolls take 20 s, and reaching the notebook now
   // also loads the glass icons just above it (task reach-and-seams, 13).
@@ -185,6 +254,189 @@ test('the chapter follows the device on stage, both ways', async ({ page }) => {
     expect(await currentChapter(page), `back at ${progress}`).toBe(chapter)
   }
 })
+
+for (const { width, height, order } of ORDERS)
+  test(`the chapters are numbered in the order of the devices at ${width}x${height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height })
+    await page.goto('/')
+    const notebook = page.locator('#notebook')
+    await expect(chapterLabels(page)).toHaveText(
+      order.map((device, index) => `0${index + 1} · ${NAME_OF[device]}`)
+    )
+    await expect(notebook.locator('h3')).toHaveText(
+      order.map(device => CHAPTERS[CHAPTER_OF[device]] ?? '')
+    )
+    await expect(notebook.getByTestId('notebook-copy').locator('p')).toHaveText(
+      order.map(device => CHAPTER_BODIES[CHAPTER_OF[device]] ?? '')
+    )
+  })
+
+for (const { width, height, order } of ORDERS.slice(1))
+  test(`the chapter follows its device on stage at ${width}x${height}`, async ({
+    page
+  }) => {
+    test.setTimeout(45_000)
+    await page.setViewportSize({ width, height })
+    await gotoNotebook(page)
+    const stops = [
+      ...order.map((device, index) => ({
+        progress: PLACES[index] ?? 0,
+        chapter: CHAPTER_OF[device]
+      })),
+      { progress: 0.85, chapter: null }
+    ]
+    for (const { progress, chapter } of [...stops, ...[...stops].reverse()]) {
+      await scrollToProgress(page, progress)
+      expect(await currentChapter(page), `at ${progress}`).toBe(chapter)
+    }
+  })
+
+// why: the edges of Tailwind's md and lg (task portfolio-lp-device-last, 1).
+const EDGES = [
+  { width: 767, last: 'phone' },
+  { width: 768, last: 'tablet' },
+  { width: 1023, last: 'tablet' },
+  { width: 1024, last: 'laptop' }
+] as const
+
+for (const { width, last } of EDGES)
+  test(`the window width picks the last device at ${width}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await gotoNotebook(page)
+    await expect(chapterLabels(page).last()).toHaveText(`03 · ${NAME_OF[last]}`)
+    expect((await sizeOf(page, last))[0]).toBe(width)
+  })
+
+for (const { width, height, order } of ORDERS)
+  test(`the devices come on stage in the visitor's order at ${width}x${height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height })
+    await gotoNotebook(page)
+    for (const [index, device] of order.entries()) {
+      const progress = PLACES[index] ?? 0
+      await scrollToProgress(page, progress)
+      expect(await devicesOnStage(page), `at ${progress}`).toEqual([device])
+    }
+  })
+
+test('crossing a width limit mid-Alcance reorders the devices', async ({
+  page
+}) => {
+  test.setTimeout(45_000)
+  const titles = () =>
+    page
+      .locator('#notebook iframe')
+      .evaluateAll(frames =>
+        frames.map(frame => frame.getAttribute('title') ?? '').sort()
+      )
+  await gotoNotebook(page)
+  const all = await titles()
+  expect(new Set(all).size).toBe(3)
+  for (const { width, height, order } of [ORDERS[0], ORDERS[2], ORDERS[0]]) {
+    await page.setViewportSize({ width, height })
+    await scrollToProgress(page, PLACES[0] ?? 0)
+    await expect(chapterLabels(page)).toHaveText(
+      order.map((device, index) => `0${index + 1} · ${NAME_OF[device]}`)
+    )
+    expect(await titles(), `${width}`).toEqual(all)
+    expect(await devicesOnStage(page), `${width}`).toEqual([order[0]])
+    const last = order[2]
+    expect((await sizeOf(page, last))[0], `${width}`).toBe(width)
+    expect((await sizeOf(page, 'laptop'))[0], `${width}`).toBe(
+      last === 'laptop' ? width : LAPTOP_WIDTH
+    )
+  }
+})
+
+test('the laptop opens and lights in second place', async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 })
+  await gotoNotebook(page)
+  const opacity = () =>
+    laptopScreen(page).evaluate(frame =>
+      Number(getComputedStyle(frame).opacity)
+    )
+  await scrollToProgress(page, 0.2)
+  expect(await opacity()).toBeLessThanOrEqual(0.05)
+  await scrollToProgress(page, 0.41)
+  expect(await opacity()).toBeGreaterThanOrEqual(LIT_OPACITY)
+  const box = await laptopScreen(page).evaluate(frame => {
+    const { width, height } = frame.getBoundingClientRect()
+    return { width, height }
+  })
+  // why: the page is 1280 x 879; a closed lid shows it edge-on, near 0.
+  expect(box.height / box.width).toBeGreaterThanOrEqual(0.6)
+})
+
+test('the last phone comes from the depth', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await gotoNotebook(page)
+  const box = () =>
+    screenOf(page, 'phone').evaluate(frame => {
+      const { left, width } = frame.getBoundingClientRect()
+      return { centre: left + width / 2, width }
+    })
+  await scrollToProgress(page, 0.45)
+  const coming = await box()
+  await scrollToProgress(page, 0.62)
+  const landed = await box()
+  expect(Math.abs(coming.centre - 390 / 2)).toBeLessThanOrEqual(390 * 0.1)
+  expect(coming.width).toBeLessThan(landed.width)
+})
+
+test('the tablet turns in first place', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await gotoNotebook(page)
+  await scrollToProgress(page, 0.12)
+  expect(await sizeOf(page, 'tablet')).toEqual([...TABLET.portrait])
+  await scrollToProgress(page, 0.215)
+  expect(await sizeOf(page, 'tablet')).toEqual([...TABLET.landscape])
+})
+
+for (const { width, height } of [
+  { width: 820, height: 1180 },
+  { width: 1000, height: 700 }
+])
+  test(`the last tablet keeps the window's orientation at ${width}x${height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height })
+    await gotoNotebook(page)
+    for (const progress of [0.47, 0.62, 0.9]) {
+      await scrollToProgress(page, progress)
+      expect(await sizeOf(page, 'tablet'), `at ${progress}`).toEqual([
+        width,
+        height
+      ])
+    }
+  })
+
+for (const { width, height, order } of ORDERS)
+  test(`the dive ends on the last device's page filling the window at ${width}x${height}`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height })
+    await gotoNotebook(page)
+    await scrollToProgress(page, 0.9)
+    await scrollWindowTo(page, await notebookEnd(page))
+    await page.waitForTimeout(SETTLE_MS)
+    const last = order[2]
+    const box = await screenOf(page, last).evaluate(frame => {
+      const { left, top, right, bottom } = frame.getBoundingClientRect()
+      return { left, top, right, bottom }
+    })
+    expect(Math.abs(box.left)).toBeLessThanOrEqual(2)
+    expect(Math.abs(box.top)).toBeLessThanOrEqual(2)
+    expect(Math.abs(box.right - width)).toBeLessThanOrEqual(2)
+    // why: on a window wider than its glass the laptop's page runs on
+    // below the window (task swallow-and-copy, 11).
+    if (last === 'laptop') expect(box.bottom).toBeGreaterThanOrEqual(height - 2)
+    else expect(Math.abs(box.bottom - height)).toBeLessThanOrEqual(2)
+  })
 
 test('the tablet turns and its page lays out again for landscape', async ({
   page
@@ -226,12 +478,16 @@ test('the real projects section sits behind the stage as the section ends', asyn
   expect(Math.abs(top)).toBeLessThanOrEqual(1)
 })
 
-// why: the page covers the glass on these shapes of window (task
-// swallow-and-copy, 11–12), so the dive must still end on the real page.
+// why: the page covers the laptop's glass on the first three shapes of
+// window (task swallow-and-copy, 11–12), and the tablet and the phone come
+// last on the other two (portfolio-lp-device-last, 9); every dive must
+// still end on the real page.
 const HANDOFF_VIEWS = [
   [1440, 900],
   [1920, 1080],
-  [1280, 720]
+  [1280, 720],
+  [820, 1180],
+  [390, 844]
 ] as const
 
 for (const [width, height] of HANDOFF_VIEWS)
@@ -253,7 +509,10 @@ for (const [width, height] of HANDOFF_VIEWS)
     })
     await page.waitForTimeout(300)
     const real = await screenPixels(page, clip)
-    expect(differingShare(staged, real)).toBeLessThanOrEqual(HANDOFF_MAX_SHARE)
+    const share = differingShare(staged, real)
+    // why: the measured share, kept in the report for the checklist.
+    test.info().annotations.push({ type: 'share', description: `${share}` })
+    expect(share).toBeLessThanOrEqual(HANDOFF_MAX_SHARE)
   })
 
 test('past the end the stage is gone and the real page takes the pointer', async ({
