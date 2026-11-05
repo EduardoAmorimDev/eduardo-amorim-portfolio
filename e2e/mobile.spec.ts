@@ -8,7 +8,8 @@ import {
   notebookEnd,
   paintedShare,
   screenPixels,
-  scrollWindowTo
+  scrollWindowTo,
+  tokenRgb
 } from './page-helpers'
 
 // why: the checklist's own numbers (.checks/portfolio-lp-mobile.md).
@@ -440,6 +441,33 @@ test.describe('touch', () => {
     await scrollWindowTo(page, await documentTop(page.locator('#contato')))
     await page.waitForTimeout(300)
     expect(await ratio('[data-testid="globe-scene"]')).toBeCloseTo(2, 1)
+  })
+
+  test('the contact title stands out from the globe light', async ({
+    page
+  }) => {
+    // why: the user, 2026-11-05: on short phones the globe's white light
+    // sits behind the title, and white letters vanished into it.
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.goto('/')
+    const ink = (await tokenRgb(page, 'ink')).match(/\d+/g)?.map(Number)
+    const shadows = await page.locator('#contato h2').evaluate(title =>
+      // why: the browser writes the relative colour as color(srgb r g b / a),
+      // channels 0..1; each shadow is its colour, then its offsets and blur.
+      [
+        ...getComputedStyle(title).textShadow.matchAll(
+          /color\(srgb ([\d.]+) ([\d.]+) ([\d.]+) \/ ([\d.]+)\) 0px 0px (\d+)px/g
+        )
+      ].map(([, r, g, b, alpha, blur]) => ({
+        rgb: [r, g, b].map(channel => Math.round(Number(channel) * 255)),
+        alpha: Number(alpha),
+        blur: Number(blur)
+      }))
+    )
+    expect(shadows).toEqual([
+      { rgb: ink, alpha: 0.9, blur: 24 },
+      { rgb: ink, alpha: 0.8, blur: 6 }
+    ])
   })
 
   test('on touch at most four webgl canvases', async ({ page }) => {
