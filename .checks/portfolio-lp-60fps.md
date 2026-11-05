@@ -21,7 +21,7 @@ Reaproveita `useSyncExternalStore` como em `use-fine-pointer.ts` e o padrão de 
 
 | One-way door | Literal shape | Alternative rejected |
 | --- | --- | --- |
-| Nível de desempenho da visita (task, Decided 1) | `lib/performance-tier.ts`: janelas de 2 s de `requestAnimationFrame`, sem contar intervalos acima de 250 ms (compilação de shader, aba em segundo plano) e sem o primeiro 1 s depois do carregamento; média abaixo de 55 FPS → `lite` até o fim da visita; `useLiteMode()`; `<html data-performance="lite">` | Média simples com as pausas: uma compilação de shader de 300 ms numa máquina rápida baixaria a janela para ~51 FPS e ligaria o modo leve sem motivo, o que quebra C3 |
+| Nível de desempenho da visita (task, Decided 1) | `lib/performance-tier.ts`: janelas de 2 s de `requestAnimationFrame`, sem contar intervalos acima de 250 ms (compilação de shader, aba em segundo plano) e sem o primeiro 1 s depois do carregamento; média abaixo de 58 FPS em 3 das últimas 5 janelas → `lite` até o fim da visita (valores finais; ver "Mudanças durante o build"); `useLiteMode()`; `<html data-performance="lite">` | Média simples com as pausas: uma compilação de shader de 300 ms numa máquina rápida baixaria a janela para ~51 FPS e ligaria o modo leve sem motivo, o que quebra C3 |
 | Parallax em linha do tempo de rolagem (task, Decided 2) | `view-timeline` no contêiner do céu; cada fatia com `animation-timeline` nela, keyframes de `translateY(var(--sky-from))` a `translateY(var(--sky-to))` e os dois valores em px escritos no `resize`; `CSS.supports('animation-timeline: view()')` escolhe esse caminho, e o JS de hoje fica como reserva | Uma variável `--sky-top` escrita a cada rolagem: ainda é JS e recálculo de estilo por evento |
 | Teste de desempenho com a CPU desacelerada (task, Decided 3) | `e2e/performance.spec.ts`, CDP `Emulation.setCPUThrottlingRate` 6, a medição da task | Só a conferência manual no DevTools |
 | Efeitos que o modo leve corta, visíveis no DOM para teste | `data-effects="full"` ou `"lite"` no `<Canvas>` do notebook (sombra de contato) e do globo (bloom) | Inspecionar a cena do three por dentro: o teste e2e não alcança a cena |
@@ -48,7 +48,7 @@ Proof: `npx playwright test` (a suíte inteira; é o próprio objeto do claim)
 
 ### S3 - Modo leve · ~15k
 
-**C5** - Média abaixo de 58 FPS em 3 janelas seguidas de 2 s liga `lite`; ele não desliga mais na visita, mesmo com a CPU de volta ao normal; recarregar volta ao modo completo
+**C5** - Média abaixo de 58 FPS em 3 das últimas 5 janelas de 2 s liga `lite`; ele não desliga mais na visita, mesmo com a CPU de volta ao normal; recarregar volta ao modo completo
 Proof: `npx playwright test e2e/performance.spec.ts -g "lite mode switches on and stays for the visit"`
 Proof: `node --test lib/performance-tier.test.ts`
 
@@ -122,6 +122,12 @@ Proof: `npx playwright test e2e/backdrop.spec.ts -g "each glow breathes"`
   - os ouvintes de rolagem da hero e do notebook só leem o layout perto da seção.
 - **Gatilho, valor final:** 3 janelas lentas entre as últimas 5. Exigir 3 seguidas deixava o modo
   leve desligado num trecho que só é lento enquanto rola, porque a rolagem vai e volta.
+
+- **Não registrados antes, apontados pelo Verifier:**
+  - a rolagem roteirizada passou de `scrollTo` a cada quadro para `Input.synthesizeScrollGesture`,
+    que é a rolagem pelo compositor que uma roda de mouse ou um dedo produzem;
+  - o céu do palco do notebook ficou parado em todos os modos (`ParallaxField still`). Ele só aparece
+    com o palco já fixo, onde o deslocamento era zero.
 
 ## Handoff
 
