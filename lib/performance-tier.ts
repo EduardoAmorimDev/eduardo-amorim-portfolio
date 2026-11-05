@@ -1,10 +1,7 @@
 /**
- * The visit's performance tier (task portfolio-lp-60fps, Decided 1): full
- * quality until the page is measured drawing under LITE_BELOW_FPS for
- * SLOW_WINDOWS of its last RECENT_WINDOWS windows, then `lite` for the rest
- * of the visit,
- * where the costliest effects step aside. `<html data-performance="lite">`
- * carries it to CSS.
+ * The visit's performance tier (task portfolio-lp-60fps, Decided 1): `full`
+ * until SLOW_WINDOWS of the last RECENT_WINDOWS frame windows fall under
+ * LITE_BELOW_FPS, then `lite` for the visit (`<html data-performance>`).
  */
 export type PerformanceTier = 'full' | 'lite'
 
