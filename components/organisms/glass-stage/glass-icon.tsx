@@ -16,6 +16,7 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
+import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { GlassBoundary } from './glass-boundary'
 import { GlassMesh, SharedEnvironment } from './glass-material'
@@ -28,24 +29,36 @@ const LEAD = '25% 0px'
 // why: the icon leans back a little, so its top face catches the light.
 const LEAN = 0.3
 
-type IconSceneProps = { model: GlassModel; onReady: () => void }
+type IconSceneProps = {
+  model: GlassModel
+  onReady: () => void
+  /** Draws a frame on every scroll, for a view that follows its box. */
+  follow?: boolean
+}
 
 /** One turning glass model, framed for a 64×64 box, in a view's own scene. */
-export const IconScene = ({ model, onReady }: IconSceneProps) => {
+export const IconScene = ({
+  model,
+  onReady,
+  follow = true
+}: IconSceneProps) => {
   const spin = useRef<Group>(null)
   const still = useRef(false)
   const invalidate = useThree(state => state.invalidate)
+  // why: lite holds the glass still, as reduced motion does (task
+  // portfolio-lp-60fps, 6).
+  const lite = useLiteMode()
 
   useEffect(() => {
     const kick = () => invalidate()
     const sync = () => {
-      still.current = prefersReducedMotion()
+      still.current = prefersReducedMotion() || lite
       kick()
     }
     sync()
     // why: the view follows its box on the page, so a scroll or a resize
     // needs a frame even when the icon itself holds still.
-    window.addEventListener('scroll', kick, { passive: true })
+    if (follow) window.addEventListener('scroll', kick, { passive: true })
     window.addEventListener('resize', kick)
     const stop = onReducedMotionChange(sync)
     return () => {
@@ -53,7 +66,7 @@ export const IconScene = ({ model, onReady }: IconSceneProps) => {
       window.removeEventListener('resize', kick)
       stop()
     }
-  }, [invalidate])
+  }, [invalidate, lite, follow])
 
   useFrame((_, delta) => {
     const body = spin.current

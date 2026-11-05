@@ -5,10 +5,12 @@ import { PerspectiveCamera, Scene } from 'three'
 import '@/lib/three-console'
 import { touchDpr } from '@/lib/adaptive-dpr'
 import { useFinePointer } from '@/lib/use-fine-pointer'
+import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { IconScene } from './glass-icon'
 import { GlassRoot } from './glass-stage'
 import { ShelfContext, type ShelfApi, type ShelfSlot } from './shelf-context'
+import { STILL_SIZE } from '@/lib/canvas-size'
 
 // why: a quarter screen of lead, so the models are loaded and turning before
 // the cards scroll into view (as GlassIcon and RenderGate do).
@@ -64,6 +66,7 @@ const SlotView = ({ element, children }: SlotViewProps) => {
  */
 export const GlassShelf = ({ children }: { children: ReactNode }) => {
   const fine = useFinePointer()
+  const lite = useLiteMode()
   const box = useRef<HTMLDivElement>(null)
   const near = useNearViewport(box, LEAD)
   const [slots, setSlots] = useState<ReadonlyMap<string, ShelfSlot>>(
@@ -78,7 +81,10 @@ export const GlassShelf = ({ children }: { children: ReactNode }) => {
     })
   }, [])
   const api = useMemo<ShelfApi>(() => ({ register }), [register])
-  const touch = fine === false
+  // why: lite draws the icons here on every device too, where the canvas
+  // scrolls with the cards and needs no frame per scroll (task
+  // portfolio-lp-60fps, 6).
+  const touch = fine === false || lite
 
   return (
     <div ref={box} className="relative">
@@ -89,9 +95,10 @@ export const GlassShelf = ({ children }: { children: ReactNode }) => {
         <Canvas
           aria-hidden="true"
           data-testid="glass-shelf"
+          resize={STILL_SIZE}
           data-live={near ? '' : undefined}
           frameloop="demand"
-          dpr={DPR}
+          dpr={lite ? 1 : DPR}
           gl={{ alpha: true }}
           style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
         >
@@ -99,7 +106,7 @@ export const GlassShelf = ({ children }: { children: ReactNode }) => {
             {near &&
               [...slots].map(([id, { element, model, onReady }]) => (
                 <SlotView key={id} element={element}>
-                  <IconScene model={model} onReady={onReady} />
+                  <IconScene model={model} onReady={onReady} follow={false} />
                 </SlotView>
               ))}
           </GlassRoot>

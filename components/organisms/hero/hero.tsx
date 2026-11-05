@@ -2,6 +2,8 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
+import { useLiteMode } from '@/lib/use-lite-mode'
+import { useNearViewport } from '@/lib/use-near-viewport'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
@@ -10,6 +12,7 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import { BLEED, Gargantua, isGone } from './gargantua'
+import { STILL_SIZE } from '@/lib/canvas-size'
 
 // why: the image is soft light, so one shader pass per CSS px suffices, and
 // each pass traces a ray, the scene's whole cost; a GPU that cannot keep up
@@ -28,10 +31,14 @@ type HeroProps = {
  */
 export const Hero = ({ id, children }: HeroProps) => {
   const [dpr, setDpr] = useState(DPR.full)
+  // why: lite draws at the cheapest ratio (task portfolio-lp-60fps, 6).
+  const lite = useLiteMode()
   const section = useRef<HTMLElement>(null)
   // why: the canvas runs a screen past the hero, still on screen after its
   // image has faded out; it stops drawing then instead of tracing clear rays.
   const [gone, setGone] = useState(false)
+  // why: a screen or more past the hero it is settled; no scroll reads it.
+  const near = useNearViewport(section, '100% 0px')
 
   useEffect(() => {
     const update = () => {
@@ -41,6 +48,7 @@ export const Hero = ({ id, children }: HeroProps) => {
       setGone(isGone(-top / Math.max(height, 1), prefersReducedMotion()))
     }
     update()
+    if (!near) return
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
     const stop = onReducedMotionChange(update)
@@ -49,7 +57,7 @@ export const Hero = ({ id, children }: HeroProps) => {
       window.removeEventListener('resize', update)
       stop()
     }
-  }, [])
+  }, [near])
 
   return (
     // why: overflow-x only, so the canvas spills below the section; the next
@@ -68,7 +76,8 @@ export const Hero = ({ id, children }: HeroProps) => {
         aria-hidden="true"
         className="isolate"
         data-testid="hero-scene"
-        dpr={dpr}
+        resize={STILL_SIZE}
+        dpr={lite ? DPR.reduced : dpr}
         gl={{ antialias: false, alpha: true }}
         style={{
           position: 'absolute',
@@ -77,7 +86,9 @@ export const Hero = ({ id, children }: HeroProps) => {
           pointerEvents: 'none'
         }}
       >
-        <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
+        {!lite && (
+          <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
+        )}
         <RenderGate active={!gone} />
         {/* why: the canvas runs half a screen past the hero, and only its
             rows on screen are worth a ray each. */}

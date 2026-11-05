@@ -54,10 +54,16 @@ type NotebookSceneProps = {
   progress: RefObject<number>
   /** Whether the devices' screens show the live site; black otherwise. */
   screenLive: boolean
+  /** Whether the floor takes the devices' soft contact shadow. */
+  shadows?: boolean
 }
 
 /** Phone, tablet and laptop on a floor, under two spotlights, driven by the scroll. */
-export const NotebookScene = ({ progress, screenLive }: NotebookSceneProps) => {
+export const NotebookScene = ({
+  progress,
+  screenLive,
+  shadows = true
+}: NotebookSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
   // when the theme's CSS variables can be read.
   const colors = useMemo(() => readSceneColors(), [])
@@ -117,14 +123,16 @@ export const NotebookScene = ({ progress, screenLive }: NotebookSceneProps) => {
           one soft shadow; `far` is how high it still sees the laptop, so
           the shadow fades as the laptop floats up. 256: blurred this much,
           it looks the same as 512 with a quarter of the pixels to draw. */}
-      <ContactShadows
-        position={[0, FLOOR_Y + 0.01, 0]}
-        scale={12}
-        far={4}
-        blur={3}
-        opacity={0.7}
-        resolution={256}
-      />
+      {shadows && (
+        <ContactShadows
+          position={[0, FLOOR_Y + 0.01, 0]}
+          scale={12}
+          far={4}
+          blur={3}
+          opacity={0.7}
+          resolution={256}
+        />
+      )}
     </>
   )
 }

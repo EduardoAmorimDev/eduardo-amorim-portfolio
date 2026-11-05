@@ -5,7 +5,11 @@ import { MathUtils } from 'three'
 // loop (useFrame) reads `.current` on every frame instead.
 // invariant: 0 while the section's top reaches the viewport top, 1 when its
 // bottom reaches the viewport bottom; clamped in between.
-export const useScrollProgress = (target: RefObject<HTMLElement | null>) => {
+export const useScrollProgress = (
+  target: RefObject<HTMLElement | null>,
+  // why: far from the section the progress holds; no scroll reads it.
+  active = true
+) => {
   const progress = useRef(0)
 
   useEffect(() => {
@@ -19,6 +23,7 @@ export const useScrollProgress = (target: RefObject<HTMLElement | null>) => {
     }
 
     update()
+    if (!active) return
     // why: passive tells the browser this listener never blocks scrolling.
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
@@ -26,7 +31,7 @@ export const useScrollProgress = (target: RefObject<HTMLElement | null>) => {
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
-  }, [target])
+  }, [target, active])
 
   return progress
 }

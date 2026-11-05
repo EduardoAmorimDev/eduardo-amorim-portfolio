@@ -9,6 +9,7 @@ import {
   type GlitchFrame
 } from '@/lib/glitch'
 import { prefersReducedMotion } from '@/lib/media-preferences'
+import { currentTier } from '@/lib/performance-tier'
 
 type GlitchTextProps = {
   as: 'h1' | 'h2'
@@ -69,8 +70,9 @@ export const GlitchText = ({
     }
 
     const burst = () => {
-      // why: under reduced motion the heading stays clean (task cosmos, 11).
-      if (prefersReducedMotion()) return arm()
+      // why: under reduced motion the heading stays clean (task cosmos, 11),
+      // and in lite, which spares the main thread (portfolio-lp-60fps, 6).
+      if (prefersReducedMotion() || currentTier() === 'lite') return arm()
       const now = performance.now()
       const started = requestBurst(history, now)
       if (!started) return arm()

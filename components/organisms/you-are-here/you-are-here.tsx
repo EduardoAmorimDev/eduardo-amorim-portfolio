@@ -7,10 +7,12 @@ import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
 import { touchDpr, type DprSetting } from '@/lib/adaptive-dpr'
 import { useFinePointer } from '@/lib/use-fine-pointer'
+import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
 import { Bloom } from './bloom'
 import { GlobeScene } from './globe-scene'
+import { STILL_SIZE } from '@/lib/canvas-size'
 
 // why: the place is looked up as the section approaches, so a visitor who
 // never scrolls this far never sends the request.
@@ -47,7 +49,10 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
   const fine = useFinePointer()
   const full = useMemo(() => touchDpr(DPR.full, fine !== false), [fine])
   const [stepped, setDpr] = useState<DprSetting | null>(null)
-  const dpr = stepped ?? full
+  // why: lite draws at the cheapest ratio, without the bloom (task
+  // portfolio-lp-60fps, 6).
+  const lite = useLiteMode()
+  const dpr = lite ? DPR.reduced : (stepped ?? full)
 
   // why: the scene lays the globe out in the section alone, though its
   // canvas rises above it (globe-layout.ts).
@@ -86,16 +91,20 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           pointerEvents: 'none'
         }}
         data-testid="globe-scene"
+        resize={STILL_SIZE}
+        data-effects={lite ? 'lite' : 'full'}
         dpr={dpr}
         gl={{ alpha: true }}
         camera={{ position: [0, 0, 3.4], fov: 35 }}
       >
-        <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
+        {!lite && (
+          <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
+        )}
         <RenderGate />
         <GlobeScene place={place ?? null} stageHeight={stageHeight} />
         {/* why: the Earth's light, spilled by its bright land, limb and
             vapour, rather than painted around it. */}
-        <Bloom strength={0.75} radius={0.45} threshold={0.45} />
+        {!lite && <Bloom strength={0.75} radius={0.45} threshold={0.45} />}
       </Canvas>
       <div className="pointer-events-none relative z-10 flex min-h-svh flex-col justify-end px-6 pb-16 lg:px-16 landscape:justify-center landscape:pb-0">
         <div className="max-w-xl landscape:max-w-[46%]">

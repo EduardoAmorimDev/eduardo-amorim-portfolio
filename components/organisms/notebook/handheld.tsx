@@ -11,6 +11,7 @@ import {
 } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
 import { useFinePointer } from '@/lib/use-fine-pointer'
+import { useLiteMode } from '@/lib/use-lite-mode'
 import { useStaticPage } from '@/lib/use-static-page'
 import { ScaledPage } from './scaled-page'
 import { isShown, renderScale, restRenderScale, ZOOM_SETTLE } from './stages'
@@ -157,7 +158,10 @@ export const Handheld = ({
   // zoom keeps its layout width, so the site still lays out for the device.
   const [zoom, setZoom] = useState(1)
   const html = useStaticPage(screenUrl)
-  const touch = useFinePointer() === false
+  // why: lite holds each page as touch does, at one scale and stacking
+  // for the visit (task portfolio-lp-60fps, 6).
+  const lite = useLiteMode()
+  const touch = useFinePointer() === false || lite
   const content = useRef<HTMLDivElement>(null)
   const pending = useRef({ zoom: 1, since: 0 })
   const shown = useRef(true)

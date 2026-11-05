@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MathUtils } from 'three'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { touchDpr, type DprSetting } from '@/lib/adaptive-dpr'
-import { RenderGate } from '@/components/atoms/render-gate'
+import { RENDER_LEAD, RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
 import { useFinePointer } from '@/lib/use-fine-pointer'
+import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { ParallaxField } from '@/components/organisms/parallax-field'
 import { SectionsBackdrop } from '@/components/organisms/sections-backdrop'
@@ -15,6 +16,7 @@ import { DeviceCopy } from './device-copy'
 import { NotebookScene } from './notebook-scene'
 import { CAMERA } from './stages'
 import { useScrollProgress } from './use-scroll-progress'
+import { STILL_SIZE } from '@/lib/canvas-size'
 
 // why: the embedded pages start loading a screen before the section, well
 // ahead of the first device, and are dropped a screen past it, so they cost
@@ -48,8 +50,10 @@ type NotebookProps = { id: string }
 export const Notebook = ({ id }: NotebookProps) => {
   const section = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
-  const progress = useScrollProgress(section)
   const screenLive = useNearViewport(section, SCREEN_LEAD)
+  // why: the stage's fades and hand-off only change while it is on screen.
+  const onScreen = useNearViewport(section, RENDER_LEAD)
+  const progress = useScrollProgress(section, screenLive)
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
   // why: touch caps the ratio (task portfolio-lp-mobile, 15); the full
@@ -61,7 +65,12 @@ export const Notebook = ({ id }: NotebookProps) => {
   // which clears it, and showed as a flicker (task
   // portfolio-lp-mobile-alcance, 3).
   const touch = fine === false
-  const dpr = touch ? DPR.touch : (stepped ?? full)
+  // why: lite draws at the cheapest ratio, without the contact shadow
+  // (task portfolio-lp-60fps, 6).
+  const lite = useLiteMode()
+  // invariant: touch keeps its one ratio in lite too; a step clears the
+  // canvas (task portfolio-lp-mobile-alcance, 3).
+  const dpr = touch ? DPR.touch : lite ? DPR.reduced : (stepped ?? full)
 
   useEffect(() => {
     const update = () => {
@@ -85,15 +94,28 @@ export const Notebook = ({ id }: NotebookProps) => {
       // real section now in its place.
       view.style.visibility = fade >= 1 ? 'hidden' : 'visible'
       setHandedOff(fade >= 1)
+      // why: while the opaque stage fills the window, the skies of the
+      // blocks beneath it are unseen; CSS takes them out of the page, which
+      // the compositor otherwise still drew every frame (task
+      // portfolio-lp-60fps, 1).
+      document.documentElement.toggleAttribute(
+        'data-stage-covers',
+        // invariant: not at the very end, where the hand-off begins and the
+        // real section, its sky included, must already be drawn.
+        ground >= 1 && fade === 0 && box.bottom - window.innerHeight > 1
+      )
     }
     update()
+    // why: off screen the stage is settled; no scroll reads it.
+    if (!onScreen) return
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
     return () => {
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
+      document.documentElement.removeAttribute('data-stage-covers')
     }
-  }, [])
+  }, [onScreen])
 
   return (
     // why: 7 screens tall to give the scroll room for the carousel and the
@@ -127,7 +149,7 @@ export const Notebook = ({ id }: NotebookProps) => {
           className="absolute inset-0 -z-20 opacity-(--stage-ground)"
         >
           <SectionsBackdrop />
-          <ParallaxField />
+          <ParallaxField still />
         </div>
         {/* why: no OrbitControls, so only the scroll moves the devices.
             dpr ≥ 1.5 while the GPU keeps up: MSAA alone left the thin edges
@@ -136,18 +158,24 @@ export const Notebook = ({ id }: NotebookProps) => {
         <Canvas
           className="isolate"
           data-testid="notebook-scene"
+          resize={STILL_SIZE}
+          data-effects={lite ? 'lite' : 'full'}
           dpr={dpr}
           gl={{ alpha: true }}
           camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
         >
-          {!touch && (
+          {!touch && !lite && (
             <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
           )}
           <RenderGate active={!handedOff} />
           {/* why: the stage enters from below the projects' cards; only its
               rows on screen are drawn until it fills the window. */}
           <VisibleScissor />
-          <NotebookScene progress={progress} screenLive={screenLive} />
+          <NotebookScene
+            progress={progress}
+            screenLive={screenLive}
+            shadows={!lite}
+          />
         </Canvas>
         <DeviceCopy id={id} progress={progress} active={screenLive} />
       </div>

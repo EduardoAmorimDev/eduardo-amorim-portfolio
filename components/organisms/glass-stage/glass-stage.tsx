@@ -5,7 +5,9 @@ import { useEffect, useMemo, type ReactNode } from 'react'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import '@/lib/three-console'
 import { useFinePointer } from '@/lib/use-fine-pointer'
+import { useLiteMode } from '@/lib/use-lite-mode'
 import { GlassContext, createBackdrop } from './glass-material'
+import { STILL_SIZE } from '@/lib/canvas-size'
 
 // why: the device's own ratio, up to 2: the canvas covers the whole window
 // and is composited over the page on every frame a piece of glass moves, so
@@ -44,13 +46,15 @@ export const GlassRoot = ({ children }: { children: ReactNode }) => {
  */
 export const GlassStage = () => {
   const fine = useFinePointer()
+  const lite = useLiteMode()
   if (!fine) return null
   return (
     <Canvas
       aria-hidden="true"
       data-testid="glass-stage"
+      resize={STILL_SIZE}
       frameloop="demand"
-      dpr={DPR}
+      dpr={lite ? 1 : DPR}
       gl={{ alpha: true }}
       style={{
         position: 'fixed',
