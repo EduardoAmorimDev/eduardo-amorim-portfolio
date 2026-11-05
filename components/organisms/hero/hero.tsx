@@ -2,7 +2,7 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
-import { useLiteMode } from '@/lib/use-lite-mode'
+import type { DprSetting } from '@/lib/adaptive-dpr'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
@@ -14,10 +14,10 @@ import {
 import { BLEED, Gargantua, isGone } from './gargantua'
 import { STILL_SIZE } from '@/lib/canvas-size'
 
-// why: the image is soft light, so one shader pass per CSS px suffices, and
-// each pass traces a ray, the scene's whole cost; a GPU that cannot keep up
-// traces fewer, larger pixels, down to 0.4, which the film grain hides.
-const DPR = { full: 1, reduced: 0.4 }
+// why: a ray per screen pixel, up to 2 per CSS px, so a phone's 2-3x screen
+// shows the disk's rings sharp, not stair-stepped as at 1; a GPU that cannot
+// keep up traces fewer, larger pixels, down to 0.4, which the grain hides.
+const DPR = { full: [1, 2] as [number, number], reduced: 0.4 }
 
 type HeroProps = {
   id?: string
@@ -30,9 +30,7 @@ type HeroProps = {
  * the screen, and the copy beside it (task hero-gargantua).
  */
 export const Hero = ({ id, children }: HeroProps) => {
-  const [dpr, setDpr] = useState(DPR.full)
-  // why: lite draws at the cheapest ratio (task portfolio-lp-60fps, 6).
-  const lite = useLiteMode()
+  const [dpr, setDpr] = useState<DprSetting>(DPR.full)
   const section = useRef<HTMLElement>(null)
   // why: the canvas runs a screen past the hero, still on screen after its
   // image has faded out; it stops drawing then instead of tracing clear rays.
@@ -77,7 +75,7 @@ export const Hero = ({ id, children }: HeroProps) => {
         className="isolate"
         data-testid="hero-scene"
         resize={STILL_SIZE}
-        dpr={lite ? DPR.reduced : dpr}
+        dpr={dpr}
         gl={{ antialias: false, alpha: true }}
         style={{
           position: 'absolute',
@@ -86,9 +84,7 @@ export const Hero = ({ id, children }: HeroProps) => {
           pointerEvents: 'none'
         }}
       >
-        {!lite && (
-          <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
-        )}
+        <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate active={!gone} />
         {/* why: the canvas runs half a screen past the hero, and only its
             rows on screen are worth a ray each. */}

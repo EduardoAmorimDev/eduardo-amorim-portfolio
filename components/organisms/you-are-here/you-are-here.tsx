@@ -1,12 +1,11 @@
 'use client'
 import { Canvas } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GlitchText } from '@/components/atoms/glitch-text'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
-import { touchDpr, type DprSetting } from '@/lib/adaptive-dpr'
-import { useFinePointer } from '@/lib/use-fine-pointer'
+import type { DprSetting } from '@/lib/adaptive-dpr'
 import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
@@ -44,15 +43,11 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
     return () => controller.abort()
   }, [near, place])
 
-  // why: touch caps the ratio (task portfolio-lp-mobile, 15); the full
-  // ratio holds until the monitor steps, uncapped only before hydration.
-  const fine = useFinePointer()
-  const full = useMemo(() => touchDpr(DPR.full, fine !== false), [fine])
-  const [stepped, setDpr] = useState<DprSetting | null>(null)
-  // why: lite draws at the cheapest ratio, without the bloom (task
+  // why: the Earth keeps its sharpness on touch too, the monitor stepping
+  // it down only where the GPU falls behind; lite drops the bloom (task
   // portfolio-lp-60fps, 6).
+  const [dpr, setDpr] = useState<DprSetting>(DPR.full)
   const lite = useLiteMode()
-  const dpr = lite ? DPR.reduced : (stepped ?? full)
 
   // why: the scene lays the globe out in the section alone, though its
   // canvas rises above it (globe-layout.ts).
@@ -97,9 +92,7 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
         gl={{ alpha: true }}
         camera={{ position: [0, 0, 3.4], fov: 35 }}
       >
-        {!lite && (
-          <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
-        )}
+        <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate />
         <GlobeScene place={place ?? null} stageHeight={stageHeight} />
         {/* why: the Earth's light, spilled by its bright land, limb and
