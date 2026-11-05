@@ -18,6 +18,7 @@ import { CAMERA } from './stages'
 import { useScrollProgress } from './use-scroll-progress'
 import { useViewerDevice } from './use-viewer-device'
 import { STILL_SIZE } from '@/lib/canvas-size'
+import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
 // why: the embedded pages start loading a screen before the section, well
 // ahead of the first device, and are dropped a screen past it, so they cost
@@ -51,6 +52,7 @@ type NotebookProps = { id: string }
 export const Notebook = ({ id }: NotebookProps) => {
   const section = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
+  const recovery = useCanvasRecovery()
   const screenLive = useNearViewport(section, SCREEN_LEAD)
   // why: the stage's fades and hand-off only change while it is on screen.
   const onScreen = useNearViewport(section, RENDER_LEAD)
@@ -160,6 +162,8 @@ export const Notebook = ({ id }: NotebookProps) => {
             stair-stepped. alpha: the sky is the page background. isolate:
             keeps drei <Html>'s huge z-index inside the canvas box. */}
         <Canvas
+          key={recovery.key}
+          onCreated={recovery.onCreated}
           className="isolate"
           data-testid="notebook-scene"
           resize={STILL_SIZE}

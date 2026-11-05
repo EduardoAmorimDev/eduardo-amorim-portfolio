@@ -8,6 +8,7 @@ import { useFinePointer } from '@/lib/use-fine-pointer'
 import { useLiteMode } from '@/lib/use-lite-mode'
 import { GlassContext, createBackdrop } from './glass-material'
 import { STILL_SIZE } from '@/lib/canvas-size'
+import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
 // why: the device's own ratio, up to 2: the canvas covers the whole window
 // and is composited over the page on every frame a piece of glass moves, so
@@ -47,9 +48,12 @@ export const GlassRoot = ({ children }: { children: ReactNode }) => {
 export const GlassStage = () => {
   const fine = useFinePointer()
   const lite = useLiteMode()
+  const recovery = useCanvasRecovery()
   if (!fine) return null
   return (
     <Canvas
+      key={recovery.key}
+      onCreated={recovery.onCreated}
       aria-hidden="true"
       data-testid="glass-stage"
       resize={STILL_SIZE}

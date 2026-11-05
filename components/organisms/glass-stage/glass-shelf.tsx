@@ -11,6 +11,7 @@ import { IconScene } from './glass-icon'
 import { GlassRoot } from './glass-stage'
 import { ShelfContext, type ShelfApi, type ShelfSlot } from './shelf-context'
 import { STILL_SIZE } from '@/lib/canvas-size'
+import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
 // why: a quarter screen of lead, so the models are loaded and turning before
 // the cards scroll into view (as GlassIcon and RenderGate do).
@@ -67,6 +68,7 @@ const SlotView = ({ element, children }: SlotViewProps) => {
 export const GlassShelf = ({ children }: { children: ReactNode }) => {
   const fine = useFinePointer()
   const lite = useLiteMode()
+  const recovery = useCanvasRecovery()
   const box = useRef<HTMLDivElement>(null)
   const near = useNearViewport(box, LEAD)
   const [slots, setSlots] = useState<ReadonlyMap<string, ShelfSlot>>(
@@ -93,6 +95,8 @@ export const GlassShelf = ({ children }: { children: ReactNode }) => {
       </ShelfContext.Provider>
       {touch && (
         <Canvas
+          key={recovery.key}
+          onCreated={recovery.onCreated}
           aria-hidden="true"
           data-testid="glass-shelf"
           resize={STILL_SIZE}

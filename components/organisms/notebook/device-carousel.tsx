@@ -140,12 +140,17 @@ export const DeviceCarousel = ({
 
   useFrame(({ clock }, delta) => {
     if (!phone.current || !tablet.current || !laptop.current) return
-    smoothed.current = MathUtils.damp(
+    // hazard: a frame time that ran backwards turned this NaN for good and
+    // every device vanished; such a frame holds the pose, and a value that
+    // is not a number rejoins the scroll.
+    const step = Number.isFinite(delta) && delta > 0 ? delta : 0
+    const damped = MathUtils.damp(
       smoothed.current,
       progress.current,
       SMOOTHING,
-      delta
+      step
     )
+    smoothed.current = Number.isFinite(damped) ? damped : progress.current
     const p = smoothed.current
     dive.current = ease(p, STAGES.zoom)
     // why: the last device holds still as the camera dives into it.
