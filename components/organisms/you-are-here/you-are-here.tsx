@@ -12,6 +12,7 @@ import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
 import { Bloom } from './bloom'
 import { GlobeScene } from './globe-scene'
 import { STILL_SIZE } from '@/lib/canvas-size'
+import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
 // why: the place is looked up as the section approaches, so a visitor who
 // never scrolls this far never sends the request.
@@ -30,6 +31,7 @@ type YouAreHereProps = { id: string }
  */
 export const YouAreHere = ({ id }: YouAreHereProps) => {
   const section = useRef<HTMLElement>(null)
+  const recovery = useCanvasRecovery()
   const near = useNearViewport(section, LOOKUP_LEAD)
   // invariant: undefined until looked up, null when it cannot be found.
   const [place, setPlace] = useState<VisitorPlace | null | undefined>()
@@ -74,6 +76,8 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
           page's text and takes no events, the FAQ stays clickable, and the
           vapour follows the cursor on the window (globe-vapor.tsx). */}
       <Canvas
+        key={recovery.key}
+        onCreated={recovery.onCreated}
         aria-hidden="true"
         className="pointer-events-none -z-[5] [mask-image:linear-gradient(to_bottom,transparent,black_50svh)]"
         style={{

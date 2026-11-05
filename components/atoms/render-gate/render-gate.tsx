@@ -38,14 +38,18 @@ export const RenderGate = ({ active = true }: RenderGateProps) => {
     setFrameloop(running && !lite ? 'always' : 'never')
     clock.elapsedTime = elapsed
     if (!running || !lite) return
-    // invariant: in 'never', advance takes the clock's own time in seconds,
-    // so it carries on from where the clock stood.
-    const started = performance.now()
+    // invariant: in 'never', advance takes the clock's own time in seconds;
+    // each step adds the time since the last one to the clock as it stands,
+    // since r3f's own frames (a resize) set it in ms, and adding to a stale
+    // value ran it backwards, the frame time negative, the poses NaN.
+    let last = performance.now()
     let frame = 0
     let count = 0
     const tick = (now: number) => {
-      if (count++ % LITE_FRAME_EVERY === 0)
-        advance(elapsed + (now - started) / 1000)
+      if (count++ % LITE_FRAME_EVERY === 0) {
+        advance(get().clock.elapsedTime + Math.max(now - last, 0) / 1000)
+        last = now
+      }
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)

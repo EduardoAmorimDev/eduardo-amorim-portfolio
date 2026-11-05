@@ -13,6 +13,7 @@ import {
 } from '@/lib/media-preferences'
 import { BLEED, Gargantua, isGone } from './gargantua'
 import { STILL_SIZE } from '@/lib/canvas-size'
+import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
 // why: a ray per screen pixel, up to 2 per CSS px, so a phone's 2-3x screen
 // shows the disk's rings sharp, not stair-stepped as at 1; a GPU that cannot
@@ -31,6 +32,7 @@ type HeroProps = {
  */
 export const Hero = ({ id, children }: HeroProps) => {
   const [dpr, setDpr] = useState<DprSetting>(DPR.full)
+  const recovery = useCanvasRecovery()
   const section = useRef<HTMLElement>(null)
   // why: the canvas runs a screen past the hero, still on screen after its
   // image has faded out; it stops drawing then instead of tracing clear rays.
@@ -71,6 +73,8 @@ export const Hero = ({ id, children }: HeroProps) => {
           the shader fades it (gargantua-shader.ts), as a CSS mask over a
           canvas that changes every frame cost the compositor a pass. */}
       <Canvas
+        key={recovery.key}
+        onCreated={recovery.onCreated}
         aria-hidden="true"
         className="isolate"
         data-testid="hero-scene"
