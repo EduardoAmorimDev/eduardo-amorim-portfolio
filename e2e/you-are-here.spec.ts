@@ -1,8 +1,11 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
+import { globeLayout } from '../components/organisms/you-are-here/globe-layout'
 import {
   atContato,
   documentTop,
+  forceLite,
+  luminanceAt,
   meanLuminance,
   nextFrames,
   placeIs,
@@ -180,4 +183,92 @@ test('the faq stays above the light', async ({ page }) => {
   expect(hit, 'the summary is on top').toBe(true)
   await page.mouse.click(centre.x, centre.y)
   await expect(question).toHaveAttribute('data-state', 'open')
+})
+
+// why: task portfolio-lp-mobile-smooth, 13: without the bloom, lite keeps
+// the globe's light within 15% of the full scene's, over the disc and a
+// ring to 1.3 radii; the camera's own numbers (you-are-here.tsx).
+const LIGHT_TOLERANCE = 0.15
+const LIGHT_RING = 1.3
+const GLOBE_CAMERA = { z: 3.4, fov: 35 }
+const MAX_LIFT = 0.6
+
+/** Mean luminance over the globe's disc and ring, as painted now. */
+const globeLight = async (page: Page) => {
+  const canvas = await canvasBox(page)
+  const stage = await page
+    .locator('#contato')
+    .evaluate(node => node.clientHeight)
+  const height =
+    2 * GLOBE_CAMERA.z * Math.tan(((GLOBE_CAMERA.fov / 2) * Math.PI) / 180)
+  const width = (height * canvas.width) / canvas.height
+  const lift = Math.min(Math.max(1 - stage / canvas.height, 0), MAX_LIFT)
+  const layout = globeLayout({ width, height }, lift)
+  const pxPerUnit = canvas.height / height
+  const centre = {
+    x: canvas.x + canvas.width / 2 + layout.x * pxPerUnit,
+    y: canvas.y + canvas.height / 2 - layout.y * pxPerUnit
+  }
+  const radius = layout.scale * pxPerUnit * LIGHT_RING
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error('no viewport')
+  const pixels = await screenPixels(page, {
+    x: 0,
+    y: 0,
+    width: viewport.width,
+    height: viewport.height
+  })
+  let sum = 0
+  let count = 0
+  for (let y = 0; y < pixels.height; y++)
+    for (let x = 0; x < pixels.width; x++)
+      if (Math.hypot(x - centre.x, y - centre.y) <= radius) {
+        sum += luminanceAt(pixels, x, y)
+        count++
+      }
+  return sum / Math.max(count, 1)
+}
+
+test.describe('on a phone, held still', () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    deviceScaleFactor: 3,
+    reducedMotion: 'reduce'
+  })
+
+  /** Loads the page, lite or not, and measures the still globe's light. */
+  const lightIn = async (page: Page, lite: boolean) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    if (lite) await forceLite(page)
+    const answered = page.waitForResponse('**/api/onde-estou')
+    await scrollWindowTo(page, await documentTop(page.locator('#contato')))
+    await answered
+    await page.waitForTimeout(SETTLE_MS * 2)
+    // why: the copy over the globe is the same in both; hidden, it leaves
+    // the light alone to compare.
+    await page
+      .locator('#contato > div.z-10')
+      .evaluate(node => ((node as HTMLElement).style.visibility = 'hidden'))
+    await nextFrames(page)
+    return globeLight(page)
+  }
+
+  test('the globe keeps its light in lite mode', async ({ page }) => {
+    test.setTimeout(90_000)
+    await placeIs(page, CURITIBA)
+    const full = await lightIn(page, false)
+    await expect(page.locator('html')).not.toHaveAttribute(
+      'data-performance',
+      'lite'
+    )
+    const lite = await lightIn(page, true)
+    expect(full).toBeGreaterThan(0)
+    expect(
+      Math.abs(lite - full) / full,
+      `full ${full}, lite ${lite}`
+    ).toBeLessThanOrEqual(LIGHT_TOLERANCE)
+  })
 })

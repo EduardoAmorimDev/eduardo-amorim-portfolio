@@ -380,12 +380,43 @@ test('the last phone comes from the depth', async ({ page }) => {
       const { left, width } = frame.getBoundingClientRect()
       return { centre: left + width / 2, width }
     })
-  await scrollToProgress(page, 0.45)
+  // why: last, the phone comes in once the laptop has left, over
+  // [0.52, 0.62] (task portfolio-lp-mobile-smooth, 10).
+  await scrollToProgress(page, 0.57)
   const coming = await box()
   await scrollToProgress(page, 0.62)
   const landed = await box()
   expect(Math.abs(coming.centre - 390 / 2)).toBeLessThanOrEqual(390 * 0.1)
   expect(coming.width).toBeLessThan(landed.width)
+})
+
+// why: task portfolio-lp-mobile-smooth, 10: the last phone rises from
+// behind the stage's middle only once the laptop has gone, never through it.
+test('the last phone never crosses the leaving laptop', async ({ page }) => {
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await gotoNotebook(page)
+  /** The page box of `device` on screen, or null while off stage. */
+  const shownBox = (device: Device) =>
+    screenOf(page, device).evaluate(frame => {
+      const box = frame.closest('[data-scaled-page]')
+      if (!box || getComputedStyle(box).display === 'none') return null
+      const { left, top, right, bottom } = frame.getBoundingClientRect()
+      return { left, top, right, bottom }
+    })
+  for (let step = 0; step <= 12; step++) {
+    const progress = 0.4 + step * 0.02
+    await scrollToProgress(page, progress)
+    const phone = await shownBox('phone')
+    const laptop = await shownBox('laptop')
+    if (!phone || !laptop) continue
+    const crossing =
+      phone.left < laptop.right &&
+      laptop.left < phone.right &&
+      phone.top < laptop.bottom &&
+      laptop.top < phone.bottom
+    expect(crossing, `at ${progress.toFixed(2)}`).toBe(false)
+  }
 })
 
 test('the tablet turns in first place', async ({ page }) => {

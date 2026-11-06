@@ -3,11 +3,9 @@ import { expect, test } from './fixtures'
 import {
   documentTop,
   gotoNotebook,
-  nextFrames,
   notebookAt,
   notebookEnd,
   paintedShare,
-  screenPixels,
   scrollWindowTo,
   tokenRgb
 } from './page-helpers'
@@ -118,131 +116,61 @@ test.describe('touch', () => {
     await page.waitForTimeout(LOAD_MS)
   }
 
-  /** Mean channel change in `clip` when the shelf's canvas is hidden. */
-  const shelfChange = async (
-    page: Page,
-    clip: { x: number; y: number; width: number; height: number }
-  ) => {
-    const shelf = page.locator('[data-testid="glass-shelf"]')
-    const shown = await screenPixels(page, clip)
-    await shelf.evaluate(node => ((node as HTMLElement).style.opacity = '0'))
-    await nextFrames(page)
-    const hidden = await screenPixels(page, clip)
-    await shelf.evaluate(node => ((node as HTMLElement).style.opacity = ''))
-    await nextFrames(page)
-    let total = 0
-    for (let i = 0; i < shown.data.length; i++)
-      total += Math.abs((shown.data[i] ?? 0) - (hidden.data[i] ?? 0))
-    return total / shown.data.length
-  }
+  // why: task portfolio-lp-mobile-smooth, 3-5: on touch each card shows its
+  // object drawn flat, in the models' order, with no canvas and no model.
+  const SOLUTION_MODELS = ['atom', 'brick', 'cursor', 'flag', 'note', 'wave']
+  const ICON_PX = 64
+  const MAX_ICON_BYTES = 60 * 1024
 
-  test('on touch the glass icons scroll with their cards', async ({ page }) => {
-    await atSolutions(page)
-    const shelf = page.locator('#solucoes [data-testid="glass-shelf"]')
-    await expect(shelf).toHaveCount(1)
-    await expect(shelf).not.toHaveCSS('position', 'fixed')
-    await expect(
-      page.locator('#solucoes [data-glass-icon][data-ready]')
-    ).toHaveCount(6)
-    const start = await documentTop(page.locator('#solucoes ul'))
-    const gaps: number[] = []
-    for (const offset of [-200, 0, 150, 300, 450]) {
-      await scrollWindowTo(page, start + offset)
-      gaps.push(
-        await page.evaluate(() => {
-          const list = document.querySelector('#solucoes ul')
-          const canvas = document.querySelector(
-            '[data-testid="glass-shelf"] canvas'
-          )
-          if (!list || !canvas) throw new Error('no list or shelf canvas')
-          return (
-            canvas.getBoundingClientRect().top -
-            list.getBoundingClientRect().top
-          )
-        })
-      )
-    }
-    for (const gap of gaps) expect(gap).toBe(gaps[0])
-
-    // invariant: mid-list, the glass is drawn in its slot and nowhere else
-    // in its card.
-    await scrollWindowTo(page, start + 150)
-    await page.waitForTimeout(300)
-    const icon = await page
-      .locator('#solucoes [data-glass-icon]')
-      .nth(1)
-      .boundingBox()
-    if (!icon) throw new Error('no icon box')
-    expect(await shelfChange(page, icon), 'glass in its slot').toBeGreaterThan(
-      1
-    )
-    const beside = { ...icon, x: icon.x + icon.width + 8 }
-    expect(await shelfChange(page, beside), 'no glass beside it').toBeLessThan(
-      0.5
-    )
-  })
-
-  test('on touch there is no full-window glass stage', async ({ page }) => {
-    await atSolutions(page)
-    await expect(page.locator('[data-testid="glass-stage"]')).toHaveCount(0)
-    await expect(page.locator('[data-testid="glass-shelf"]')).toHaveCount(1)
-  })
-
-  test('on touch a missing model leaves the glyph', async ({ page }) => {
-    await page.route('**/models/glass/atom.glb', route =>
-      route.fulfill({ status: 404 })
-    )
-    await atSolutions(page)
-    const atom = page.locator('#solucoes [data-glass-icon="atom"]')
-    await expect(atom.locator('svg')).toHaveCount(1)
-    await expect(atom).not.toHaveAttribute('data-ready', '')
-    await expect(
-      page.locator('#solucoes [data-glass-icon][data-ready]')
-    ).toHaveCount(5)
-  })
-
-  test('on touch the icons canvas rests away from the list', async ({
+  test('the solution icons are drawn, with no canvas and no model', async ({
     page
   }) => {
-    // why: counts the draws each WebGL context makes, by its canvas.
-    await page.addInitScript(() => {
-      const counts = new WeakMap<HTMLCanvasElement, number>()
-      const scope = window as unknown as { shelfDraws: () => number }
-      for (const proto of [
-        WebGLRenderingContext.prototype,
-        WebGL2RenderingContext.prototype
-      ]) {
-        const draw = proto.drawElements
-        proto.drawElements = function (...args: Parameters<typeof draw>) {
-          const canvas = this.canvas
-          if (canvas instanceof HTMLCanvasElement)
-            counts.set(canvas, (counts.get(canvas) ?? 0) + 1)
-          return draw.apply(this, args)
-        }
-      }
-      scope.shelfDraws = () => {
-        const canvas = document.querySelector(
-          '[data-testid="glass-shelf"] canvas'
-        )
-        return canvas instanceof HTMLCanvasElement
-          ? (counts.get(canvas) ?? 0)
-          : -1
-      }
-    })
-    const draws = () =>
-      page.evaluate(() =>
-        (window as unknown as { shelfDraws: () => number }).shelfDraws()
-      )
+    const requests: string[] = []
+    page.on('request', request => requests.push(request.url()))
     await atSolutions(page)
-    expect(await draws(), 'it draws near the list').toBeGreaterThan(0)
-    // why: well past the list's quarter screen of lead.
-    await scrollWindowTo(page, await notebookAt(page, 0.3))
-    await page.waitForTimeout(500)
-    const shelf = page.locator('[data-testid="glass-shelf"]')
-    await expect(shelf).not.toHaveAttribute('data-live', '')
-    const before = await draws()
-    await page.waitForTimeout(1000)
-    expect(await draws()).toBe(before)
+    await scrollWindowTo(page, await documentTop(page.locator('#solucoes ul')))
+    await page.waitForTimeout(SETTLE_MS)
+    await expect(page.locator('[data-testid="glass-shelf"]')).toHaveCount(0)
+    await expect(page.locator('#solucoes canvas')).toHaveCount(0)
+    // invariant: the section's models; the Alcance loads its own laptop.
+    expect(requests.filter(url => url.includes('/models/glass/'))).toEqual([])
+
+    const icons = page.locator('#solucoes li [data-glass-icon]')
+    expect(
+      await icons.evaluateAll(all =>
+        all.map(icon => (icon as HTMLElement).dataset.glassIcon)
+      )
+    ).toEqual(SOLUTION_MODELS)
+    for (const icon of await icons.all()) {
+      const box = await icon.boundingBox()
+      expect(box?.width).toBe(ICON_PX)
+      expect(box?.height).toBe(ICON_PX)
+      const drawn = icon.locator('svg[data-flat-icon]')
+      await expect(drawn).toHaveCount(1)
+      await expect(drawn).toHaveClass(/stroke-primary/)
+      await expect(drawn).toHaveClass(/fill-none/)
+      await expect(drawn).toHaveClass(/bg-primary\/15/)
+      await expect(icon).not.toHaveAttribute('data-ready', '')
+    }
+    const bytes = await page
+      .locator('#solucoes svg[data-flat-icon]')
+      .evaluateAll(all =>
+        all.reduce((sum, svg) => sum + new Blob([svg.outerHTML]).size, 0)
+      )
+    expect(bytes).toBeLessThanOrEqual(MAX_ICON_BYTES)
+    // invariant: drawn inline, the icons fetch nothing of their own.
+    await expect(
+      page.locator('#solucoes img, #solucoes svg use, #solucoes svg image')
+    ).toHaveCount(0)
+    await page
+      .locator('#solucoes ul')
+      .screenshot({ path: 'test-results/solution-icons-390.png' })
+  })
+
+  test('on touch the solutions draw no glass canvas', async ({ page }) => {
+    await atSolutions(page)
+    await expect(page.locator('[data-testid="glass-stage"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="glass-shelf"]')).toHaveCount(0)
   })
 
   test('every device page stays inside its glass', async ({ page }) => {
