@@ -2,7 +2,6 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
-import { BrownNoise } from '@/components/atoms/brown-noise'
 import type { DprSetting } from '@/lib/adaptive-dpr'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { RenderGate } from '@/components/atoms/render-gate'
@@ -29,8 +28,7 @@ type HeroProps = {
 
 /**
  * The first screen: a ray-traced black hole with its lensed disk, filling
- * the screen, the copy beside it (task hero-gargantua) and its rumble,
- * which fades out as the hero leaves the screen.
+ * the screen, and the copy beside it (task hero-gargantua).
  */
 export const Hero = ({ id, children }: HeroProps) => {
   const [dpr, setDpr] = useState<DprSetting>(DPR.full)
@@ -98,7 +96,6 @@ export const Hero = ({ id, children }: HeroProps) => {
         <Gargantua />
       </Canvas>
       {children}
-      <BrownNoise area={section} />
     </section>
   )
 }

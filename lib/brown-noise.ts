@@ -40,11 +40,3 @@ export const brownNoise = (
   const gain = rms > 0 ? TARGET_RMS / rms : 0
   return loop.map(sample => clamp(sample * gain))
 }
-
-/**
- * How much of the hero is still on screen, from its top's distance to the
- * viewport top (negative once scrolled past) and its height: 1 at rest, 0
- * once its bottom has left the top of the screen.
- */
-export const heroPresence = (top: number, height: number) =>
-  height > 0 ? Math.min(1, Math.max(0, 1 + top / height)) : 0

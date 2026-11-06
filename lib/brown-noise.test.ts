@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { brownNoise, heroPresence } from './brown-noise.ts'
+import { brownNoise } from './brown-noise.ts'
 
 // why: a fixed sequence keeps every run on the same noise.
 const seeded = (seed: number) => () => {
@@ -50,12 +50,4 @@ test('the noise is a rumble: almost nothing is left above 1 kHz', () => {
 test('the seam where the loop wraps is no bigger than any other step', () => {
   const seam = Math.abs((loop[0] ?? 0) - (loop[LENGTH - 1] ?? 0))
   assert.ok(seam <= Math.max(...steps))
-})
-
-test('the hero is wholly present at rest and gone once scrolled past', () => {
-  assert.equal(heroPresence(0, 900), 1)
-  assert.equal(heroPresence(-450, 900), 0.5)
-  assert.equal(heroPresence(-900, 900), 0)
-  assert.equal(heroPresence(-2000, 900), 0)
-  assert.equal(heroPresence(0, 0), 0)
 })

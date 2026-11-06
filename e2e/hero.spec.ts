@@ -67,12 +67,11 @@ test('the hero has no glass logo, icons, grid, lens or outline title', async ({
   page
 }) => {
   await gotoHero(page)
-  // invariant: task hero-gargantua, 6: one canvas, the scene, and the copy;
-  // the sound toggle's icon is the one svg allowed.
+  // invariant: task hero-gargantua, 6: one canvas, the scene, and the copy.
   await expect(page.locator('#hero canvas')).toHaveCount(1)
   await expect(
     page.locator(
-      '[data-testid="hero-grid"], [data-testid="hero-lens"], [data-lens], #hero img, #hero svg:not(button svg)'
+      '[data-testid="hero-grid"], [data-testid="hero-lens"], [data-lens], #hero img, #hero svg'
     )
   ).toHaveCount(0)
 })

@@ -9,6 +9,7 @@ import { Notebook } from '@/components/organisms/notebook'
 import { ParallaxField } from '@/components/organisms/parallax-field'
 import { SectionsBackdrop } from '@/components/organisms/sections-backdrop'
 import { SocialProof } from '@/components/organisms/social-proof'
+import { Soundscape } from '@/components/organisms/soundscape'
 import { Solutions } from '@/components/organisms/solutions'
 import { Testimonials } from '@/components/organisms/testimonials'
 import { Workflow } from '@/components/organisms/workflow'
@@ -70,6 +71,7 @@ export default function Home() {
       <footer></footer>
       <GlassStage />
       <GlassCursor />
+      <Soundscape heroId="hero" planetId="contato" />
     </>
   )
 }
