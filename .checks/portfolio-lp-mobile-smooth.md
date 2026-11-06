@@ -49,7 +49,7 @@ Proof: `npx playwright test e2e/hero.spec.ts e2e/swallow-and-copy.spec.ts`
 
 **C4** (3) - No celular, os 6 cartões mostram, em caixas de 64×64, os ícones `atom`, `brick`,
 `cursor`, `flag`, `note`, `wave` nessa ordem; `[data-testid="glass-shelf"]` não existe; nenhum
-`.glb` é pedido
+modelo da seção (`/models/glass/*.glb`) é pedido; o `laptop.glb` é do Alcance
 Proof: `npx playwright test e2e/mobile.spec.ts -g "the solution icons are drawn, with no canvas and no model"`
 
 **C5** (3, 7) - Com ponteiro fino, ao ligar o modo leve, cada ícone vira o seu ícone 2D, sem
