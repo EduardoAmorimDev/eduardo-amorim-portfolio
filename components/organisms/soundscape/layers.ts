@@ -1,4 +1,3 @@
-import { brownNoise, whiteNoise } from '@/lib/brown-noise'
 import { breath, murmurEnvelope, swing, type Random } from '@/lib/soundscape'
 
 /**
@@ -8,7 +7,8 @@ import { breath, murmurEnvelope, swing, type Random } from '@/lib/soundscape'
  */
 export type Layer = { output: GainNode; play: (on: boolean) => void }
 
-const LOOP_SECONDS = 10
+/** How long each noise loop runs before it repeats. */
+export const LOOP_SECONDS = 10
 // why: events are written into the audio clock a little ahead, so a late
 // timer never lands one in the past and drops it.
 const LEAD_SECONDS = 0.05
@@ -215,6 +215,7 @@ const city = (
 export const planet = (
   context: AudioContext,
   rumble: Float32Array<ArrayBuffer>,
+  noise: Float32Array<ArrayBuffer>,
   random: Random
 ): Layer => {
   const output = gain(context, 0)
@@ -224,12 +225,8 @@ export const planet = (
     .connect(gain(context, 0.5))
     .connect(output)
 
-  const white = context.createBuffer(
-    1,
-    context.sampleRate * LOOP_SECONDS,
-    context.sampleRate
-  )
-  white.copyToChannel(whiteNoise(white.length, random), 0)
+  const white = context.createBuffer(1, noise.length, context.sampleRate)
+  white.copyToChannel(noise, 0)
   const opening = filter(context, 'lowpass', AIR_HZ.low)
   const air = gain(context, AIR_REST)
   const wind = context.createBufferSource()
@@ -259,7 +256,3 @@ export const planet = (
 
   return { output, play: repeat(breathe, 0.5) }
 }
-
-/** The rumble the black hole and the planet's hum are made of. */
-export const rumbleFor = (context: AudioContext) =>
-  brownNoise(context.sampleRate * LOOP_SECONDS, context.sampleRate)

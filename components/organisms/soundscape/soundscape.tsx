@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { entryShare, heroPresence, layerMix } from '@/lib/soundscape'
-import { blackHole, planet, rumbleFor, space, type Layer } from './layers'
+import { blackHole, LOOP_SECONDS, planet, space, type Layer } from './layers'
+import type { NoiseReply } from './noise.worker'
 
 // why: the user, 2026-11-06: the black hole at 0.05. Space and the planet
 // are set to match it as the ear weighs loudness (A-weighted, in Chromium),
@@ -27,22 +28,19 @@ type State = 'waiting' | 'on' | 'off' | 'unavailable'
 // press, a touch's release, a key. A scroll is none of them.
 const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const
 
-// why: the layers' samples cost tens of ms, more on a phone; they are built
-// once the browser is idle, after it has answered the visitor's gesture.
-const whenIdle = <T,>(build: () => T) =>
-  new Promise<T>((resolve, reject) => {
-    const run = () => {
-      try {
-        resolve(build())
-      } catch (error) {
-        reject(error)
-      }
-    }
-    // hazard: Safari has no requestIdleCallback; a timeout still lets the
-    // browser answer the gesture first.
-    if (typeof window.requestIdleCallback === 'function')
-      window.requestIdleCallback(run, { timeout: 500 })
-    else window.setTimeout(run, 0)
+/** The noise loops, built in a worker off the main thread (noise.worker.ts). */
+const noiseFor = (sampleRate: number) =>
+  new Promise<NoiseReply>((resolve, reject) => {
+    const worker = new Worker(new URL('./noise.worker.ts', import.meta.url))
+    worker.addEventListener('message', (event: MessageEvent<NoiseReply>) => {
+      worker.terminate()
+      resolve(event.data)
+    })
+    worker.addEventListener('error', event => {
+      worker.terminate()
+      reject(new Error(event.message))
+    })
+    worker.postMessage({ length: sampleRate * LOOP_SECONDS, sampleRate })
   })
 
 const createPlayer = (): Player => {
@@ -50,16 +48,18 @@ const createPlayer = (): Player => {
   const master = context.createGain()
   master.gain.value = 0
   master.connect(context.destination)
-  const ready = whenIdle(() => {
-    const rumble = rumbleFor(context)
+  const ready = noiseFor(context.sampleRate).then(({ rumble, white }) => {
     const layers: Layers = {
       blackHole: blackHole(context, rumble),
       space: space(context, Math.random),
-      planet: planet(context, rumble, Math.random)
+      planet: planet(context, rumble, white, Math.random)
     }
     Object.values(layers).forEach(({ output }) => output.connect(master))
     return layers
   })
+  // invariant: a failure is reported by the turn on that awaits it; this
+  // keeps one made on entry, before any turn on, from going unhandled.
+  ready.catch(() => undefined)
   return { context, master, ready }
 }
 
