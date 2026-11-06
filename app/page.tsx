@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { BrownNoise } from '@/components/atoms/brown-noise'
 import { HeroCopy } from '@/components/molecules/hero-copy'
 import { About } from '@/components/organisms/about'
 import { Cases } from '@/components/organisms/cases'
@@ -71,7 +70,6 @@ export default function Home() {
       <footer></footer>
       <GlassStage />
       <GlassCursor />
-      <BrownNoise />
     </>
   )
 }

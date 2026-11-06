@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures'
+import { scrollWindowTo } from './page-helpers'
 
 declare global {
   interface Window {
@@ -39,6 +40,24 @@ test('the brown noise starts off and plays only when asked', async ({
   await button.click()
   await expect(button).toHaveAttribute('aria-pressed', 'false')
   await expect.poll(() => contextState(page)).toBe('suspended')
+})
+
+test('the sound and its button live only in the hero', async ({ page }) => {
+  await page.addInitScript(watchAudioContexts)
+  await page.goto('/')
+  const button = page.getByRole('button', { name: 'Ruído marrom' })
+  await button.click()
+  await expect.poll(() => contextState(page)).toBe('running')
+
+  const height = await page.locator('#hero').evaluate(hero => hero.clientHeight)
+  await scrollWindowTo(page, height * 2)
+  await expect(button).not.toBeInViewport()
+  await expect.poll(() => contextState(page)).toBe('suspended')
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+
+  await scrollWindowTo(page, 0)
+  await expect(button).toBeInViewport()
+  await expect.poll(() => contextState(page)).toBe('running')
 })
 
 test('a browser that refuses the sound leaves the button off', async ({

@@ -33,12 +33,19 @@ test('the hero scene is hidden from assistive tech', async ({ page }) => {
     'aria-hidden',
     'true'
   )
-  // invariant: the hero's accessibility tree holds its copy and nothing
-  // else: the eyebrow, the title, the subtitle and the CTA (hero-copy.tsx).
+  // invariant: the hero's accessibility tree holds its copy and its sound:
+  // the eyebrow, title, subtitle and CTA (hero-copy.tsx), then the toggle.
   const tree = await page.locator('#hero').ariaSnapshot()
   const roles = tree
     .split('\n')
     .map(line => line.trim().replace(/^- /, '').split(/[ :"]/)[0])
     .filter(Boolean)
-  expect(roles).toEqual(['text', 'heading', 'paragraph', 'link', '/url'])
+  expect(roles).toEqual([
+    'text',
+    'heading',
+    'paragraph',
+    'link',
+    '/url',
+    'button'
+  ])
 })
