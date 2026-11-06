@@ -274,6 +274,11 @@ test.describe('glass icons on the solution cards', () => {
     await atSolutions(page)
     const atom = page.locator('#solucoes li').first()
     await expect(atom.locator('[data-glass-icon="atom"] svg')).toHaveCount(1)
+    // why: the stand-in is the atom drawn flat (task
+    // portfolio-lp-mobile-smooth, 6).
+    await expect(
+      atom.locator('[data-glass-icon="atom"] svg[data-flat-icon="atom"]')
+    ).toBeVisible()
     await expect(atom.locator('[data-glass-icon="atom"]')).not.toHaveAttribute(
       'data-ready',
       ''

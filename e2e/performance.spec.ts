@@ -279,7 +279,9 @@ const DRAWN_STRETCHES: (Stretch & { canvas: string })[] = [
 test.describe('at 6x CPU on 390x844, every frame drawn', () => {
   test.use(PHONE)
 
-  for (const tier of ['full', 'lite'] as const)
+  // why: under 6x the tier may turn lite on its own; "as it comes" leaves
+  // it to the tier, "lite" forces it first (task, 1 and 9: with or without).
+  for (const tier of ['as it comes', 'lite'] as const)
     for (const stretch of DRAWN_STRETCHES)
       test(`on 390x844, ${stretch.name} draws every frame, ${tier}`, async ({
         page
@@ -292,8 +294,11 @@ test.describe('at 6x CPU on 390x844, every frame drawn', () => {
         const range = await stretch.range(page)
         const cdp = await page.context().newCDPSession(page)
         await slowDown(cdp, SLOWDOWN)
+        // why: the same warm-up as the stretches above, so the tier has
+        // settled before the frames are counted.
+        await warmUp(page, cdp, PHONE, range)
         const runs: { fps: number; draws: number }[] = []
-        for (let run = 0; run < RUNS + 1; run++) {
+        for (let run = 0; run < RUNS; run++) {
           await scrollWindowTo(page, range[0])
           runs.push(
             await countDrawnFrames(page, stretch.canvas, () =>
@@ -304,12 +309,10 @@ test.describe('at 6x CPU on 390x844, every frame drawn', () => {
           )
         }
         await slowDown(cdp, 1)
-        // why: the first run warms the scene up; the median of the rest.
         const median = (key: 'fps' | 'draws') =>
-          runs
-            .slice(1)
-            .map(run => run[key])
-            .sort((a, b) => a - b)[Math.floor(RUNS / 2)] ?? 0
+          runs.map(run => run[key]).sort((a, b) => a - b)[
+            Math.floor(RUNS / 2)
+          ] ?? 0
         const at = await page.locator('html').getAttribute(LITE.attribute)
         expect(median('fps'), `tier: ${at ?? 'full'}`).toBeGreaterThanOrEqual(
           MIN_FPS
@@ -320,8 +323,38 @@ test.describe('at 6x CPU on 390x844, every frame drawn', () => {
       })
 })
 
+// why: task portfolio-lp-mobile-smooth, 14: lite paints the globe's glow
+// itself, and the contact still holds the rate on a phone.
+test.describe('at 6x CPU on 390x844 in lite', () => {
+  test.use(PHONE)
+
+  test('on 390x844 in lite, the contact at rest runs at 58 fps or more', async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await forceLite(page)
+    const at = (await top(page, '#contato')) - 200
+    const cdp = await page.context().newCDPSession(page)
+    await slowDown(cdp, SLOWDOWN)
+    await warmUp(page, cdp, PHONE, [at, at])
+    const runs = []
+    for (let run = 0; run < RUNS; run++)
+      runs.push(await measure(page, cdp, PHONE, [at, at]))
+    await slowDown(cdp, 1)
+    const fps = [...runs].sort((a, b) => a - b)[Math.floor(RUNS / 2)] ?? 0
+    await expect(page.locator('html')).toHaveAttribute(
+      LITE.attribute,
+      LITE.value
+    )
+    expect(fps).toBeGreaterThanOrEqual(MIN_FPS)
+  })
+})
+
 test('lite mode draws the solution icons flat', async ({ page }) => {
   test.setTimeout(90_000)
+  await countDraws(page)
   await page.goto('/')
   await page.waitForLoadState('networkidle')
   await page.mouse.move(700, 450)
@@ -338,6 +371,16 @@ test('lite mode draws the solution icons flat', async ({ page }) => {
       })
     )
   const before = await boxes()
+  const stage = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as { drawsOf: (canvas: Element | null) => number }
+      ).drawsOf(document.querySelector('[data-testid="glass-stage"] canvas'))
+    )
+  // why: while the glass turns, the stage draws; flat, it has nothing to draw.
+  const turning = await stage()
+  await page.waitForTimeout(1000)
+  expect(await stage(), 'the glass turns before lite').toBeGreaterThan(turning)
   await forceLite(page)
   await scrollWindowTo(page, await top(page, '#solucoes ul'))
   await expect(page.locator('#solucoes svg[data-flat-icon]')).toHaveCount(6)
@@ -345,7 +388,10 @@ test('lite mode draws the solution icons flat', async ({ page }) => {
     await expect(icon.locator('svg[data-flat-icon]')).toBeVisible()
     await expect(icon).not.toHaveAttribute('data-ready', '')
   }
-  await expect(page.locator('[data-testid="glass-shelf"]')).toHaveCount(0)
+  await page.waitForTimeout(500)
+  const resting = await stage()
+  await page.waitForTimeout(1000)
+  expect(await stage(), 'no glass is drawn for the icons').toBe(resting)
   const after = await boxes()
   expect(after).toHaveLength(before.length)
   after.forEach((box, index) => {

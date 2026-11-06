@@ -404,11 +404,14 @@ test('the last phone never crosses the leaving laptop', async ({ page }) => {
       const { left, top, right, bottom } = frame.getBoundingClientRect()
       return { left, top, right, bottom }
     })
+  const seen = { phone: 0, laptop: 0 }
   for (let step = 0; step <= 12; step++) {
     const progress = 0.4 + step * 0.02
     await scrollToProgress(page, progress)
     const phone = await shownBox('phone')
     const laptop = await shownBox('laptop')
+    if (phone) seen.phone++
+    if (laptop) seen.laptop++
     if (!phone || !laptop) continue
     const crossing =
       phone.left < laptop.right &&
@@ -417,6 +420,9 @@ test('the last phone never crosses the leaving laptop', async ({ page }) => {
       laptop.top < phone.bottom
     expect(crossing, `at ${progress.toFixed(2)}`).toBe(false)
   }
+  // invariant: the sweep saw both devices on stage, so it judged the hand-over.
+  expect(seen.phone, 'the phone came on stage').toBeGreaterThan(0)
+  expect(seen.laptop, 'the laptop was on stage').toBeGreaterThan(0)
 })
 
 test('the tablet turns in first place', async ({ page }) => {

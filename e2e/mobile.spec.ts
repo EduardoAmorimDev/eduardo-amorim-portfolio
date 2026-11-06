@@ -158,6 +158,11 @@ test.describe('touch', () => {
         all.reduce((sum, svg) => sum + new Blob([svg.outerHTML]).size, 0)
       )
     expect(bytes).toBeLessThanOrEqual(MAX_ICON_BYTES)
+    // invariant: the icons come in the page's own HTML, before any script.
+    const html = await (await page.request.get('/')).text()
+    expect(html.match(/data-flat-icon="/g) ?? []).toHaveLength(
+      SOLUTION_MODELS.length
+    )
     // invariant: drawn inline, the icons fetch nothing of their own.
     await expect(
       page.locator('#solucoes img, #solucoes svg use, #solucoes svg image')
