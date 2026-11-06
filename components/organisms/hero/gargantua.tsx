@@ -64,6 +64,10 @@ export const Gargantua = () => {
   const material = useRef<ShaderMaterial>(null)
   const pointer = useRef(new Vector2())
   const still = useRef(false)
+  // why: the canvas's top in the document, measured on load and resize; a
+  // box read every frame forced a style pass per frame (task
+  // portfolio-lp-60fps, Intent), where scrollY costs nothing.
+  const documentTop = useRef(0)
   const size = useThree(state => state.size)
   const gl = useThree(state => state.gl)
 
@@ -108,14 +112,20 @@ export const Gargantua = () => {
     const sync = () => {
       still.current = prefersReducedMotion()
     }
+    const measure = () => {
+      documentTop.current = gl.domElement.getBoundingClientRect().top + scrollY
+    }
     sync()
+    measure()
     window.addEventListener('pointermove', move, { passive: true })
+    window.addEventListener('resize', measure)
     const stop = onReducedMotionChange(sync)
     return () => {
       window.removeEventListener('pointermove', move)
+      window.removeEventListener('resize', measure)
       stop()
     }
-  }, [])
+  }, [gl])
 
   useFrame(({ clock }, delta) => {
     const shader = material.current
@@ -160,7 +170,7 @@ export const Gargantua = () => {
       delta
     )
     // why: screens scrolled past the hero's top: 0 at rest, 1 once it has gone.
-    const { top } = gl.domElement.getBoundingClientRect()
+    const top = documentTop.current - scrollY
     const scrolled = Math.max(-top / Math.max(screenHeight, 1), 0)
     const dive = MathUtils.smoothstep(scrolled, 0, DIVE_SCREENS)
     u.uPush.value = dive
