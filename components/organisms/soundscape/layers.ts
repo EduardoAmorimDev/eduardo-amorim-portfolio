@@ -1,10 +1,10 @@
-import { brownNoise } from '@/lib/brown-noise'
-import { pick, type Random } from '@/lib/soundscape'
+import { brownNoise, whiteNoise } from '@/lib/brown-noise'
+import { breath, murmurEnvelope, swing, type Random } from '@/lib/soundscape'
 
 /**
  * One of the page's sounds. `output` carries it at full level, for the mix
- * to set; `play` starts or stops its scheduled events (the stars, the
- * signals), so a silent layer queues nothing.
+ * to set; `play` starts or stops its scheduled movement (the blade's
+ * swings, the planet's breaths), so a silent layer queues nothing.
  */
 export type Layer = { output: GainNode; play: (on: boolean) => void }
 
@@ -12,6 +12,8 @@ const LOOP_SECONDS = 10
 // why: events are written into the audio clock a little ahead, so a late
 // timer never lands one in the past and drops it.
 const LEAD_SECONDS = 0.05
+
+const still = () => undefined
 
 const gain = (context: AudioContext, level: number) => {
   const node = context.createGain()
@@ -70,61 +72,6 @@ const repeat = (step: () => number, first: number) => {
   }
 }
 
-/** A chord of sines, each a slightly detuned pair that breathes slowly. */
-const pad = (
-  context: AudioContext,
-  notes: readonly number[],
-  level: number,
-  random: Random
-) => {
-  const bus = filter(context, 'lowpass', 800)
-  notes.forEach(hz => {
-    const breath = gain(context, level)
-    tone(context, 0.05 + random() * 0.08, level * 0.8).connect(breath.gain)
-    for (const cents of [-4, 4])
-      tone(context, hz * 2 ** (cents / 1200), 1).connect(breath)
-    breath.connect(bus)
-  })
-  return bus
-}
-
-/** A long echo, darkened on every repeat, as a voice in a vast room. */
-const echo = (context: AudioContext, seconds: number, damp: number) => {
-  const input = context.createDelay(1)
-  input.delayTime.value = seconds
-  const feedback = gain(context, 0.45)
-  const output = filter(context, 'lowpass', damp)
-  input.connect(output).connect(feedback).connect(input)
-  return { input, output }
-}
-
-type Strike = {
-  hz: number
-  /** When, on the audio clock. */
-  at: number
-  level: number
-  attack: number
-  decay: number
-}
-
-/** A sine struck at `at`: a soft attack, then a decay of `decay` seconds. */
-const ring = (
-  context: AudioContext,
-  into: readonly AudioNode[],
-  { hz, at, level, attack, decay }: Strike
-) => {
-  const oscillator = context.createOscillator()
-  oscillator.frequency.value = hz
-  const envelope = gain(context, 0)
-  envelope.gain.setValueAtTime(0, at)
-  envelope.gain.linearRampToValueAtTime(level, at + attack)
-  envelope.gain.exponentialRampToValueAtTime(0.0001, at + attack + decay)
-  oscillator.connect(envelope)
-  into.forEach(node => envelope.connect(node))
-  oscillator.start(at)
-  oscillator.stop(at + attack + decay + 0.05)
-}
-
 /**
  * The hero's black hole: a deep brown-noise rumble, lowpassed further by a
  * filter that opens and closes like wind outside, a level that swells, and
@@ -142,74 +89,128 @@ export const blackHole = (
   tone(context, 0.05, 0.2).connect(swell.gain)
   tone(context, 55, 0.04).connect(swell)
   tone(context, 55.3, 0.04).connect(swell)
-  return { output, play: () => undefined }
+  return { output, play: still }
 }
 
-// why: an open A chord in fifths and ninths, no third: wide and unresolved,
-// the way the dark between the stars feels.
-const SPACE_CHORD = [110, 164.81, 246.94, 369.99]
-// why: the stars' notes, a pentatonic over the chord so any two agree, kept
-// under 1.4 kHz: higher, they read as hiss (the user, 2026-11-06).
-const STAR_HZ = [659.25, 783.99, 880, 1046.5, 1318.5] as const
+// why: the blade's hum, the preview the user chose (2026-11-06), taken an
+// octave and more lower ("agudo demais"): 55 Hz, the black hole's own A, so
+// the hero hands over in tune; its harmonics carry it on small speakers.
+const BLADE = [
+  { hz: 55, level: 1 },
+  { hz: 110, level: 0.7 },
+  { hz: 165, level: 0.4 },
+  { hz: 220, level: 0.2 }
+]
+// why: at rest the hum is dark and low; a swing opens the filter, lifts
+// the level and drops the pitch 3%, as a blade moved past the ear, yet
+// never past 700 Hz, so it stays deep.
+const BLADE_REST = { hz: 300, level: 0.6 }
+const BLADE_SWUNG = { hz: 700, level: 1, pitch: 0.97 }
 
 /**
- * Space, between the hero and the contact: the black hole's rumble opened a
- * little, wandering like a wind with no air to carry it, a chord that
- * breathes, and a soft star now and then ringing into a long echo, as the
- * page's sky twinkles. Pure sines and lowpassed noise: no hiss.
+ * Space, down the body of the page: the hum of a source of light, a blade
+ * held still that swings now and then with a "vwoom". Pure tones, none of
+ * the black hole's rumble, so the two never blur.
  */
-export const space = (
-  context: AudioContext,
-  rumble: Float32Array<ArrayBuffer>,
-  random: Random
-): Layer => {
+export const space = (context: AudioContext, random: Random): Layer => {
   const output = gain(context, 0)
+  const body = filter(context, 'lowpass', BLADE_REST.hz, 1.5)
+  const swell = gain(context, BLADE_REST.level)
+  body.connect(swell).connect(output)
+  const tones = BLADE.map(({ hz, level }) => {
+    const oscillator = context.createOscillator()
+    oscillator.frequency.value = hz
+    oscillator.connect(gain(context, level)).connect(body)
+    oscillator.start()
+    return { oscillator, hz }
+  })
 
-  const wind = filter(context, 'lowpass', 300, 2)
-  loop(context, rumble)
-    .connect(wind)
-    .connect(gain(context, 0.6))
-    .connect(output)
-  tone(context, 0.03, 150).connect(wind.frequency)
-
-  pad(context, SPACE_CHORD, 0.03, random).connect(output)
-
-  const hall = echo(context, 0.48, 1200)
-  hall.output.connect(output)
-  const star = () => {
-    ring(context, [output, hall.input], {
-      hz: pick(STAR_HZ, random),
-      at: context.currentTime + LEAD_SECONDS,
-      level: 0.03 + random() * 0.03,
-      attack: 0.03,
-      decay: 3
+  const move = () => {
+    const { rise, fall, next } = swing(random)
+    const at = context.currentTime + LEAD_SECONDS
+    const back = at + rise
+    tones.forEach(({ oscillator, hz }) => {
+      oscillator.frequency.setTargetAtTime(hz * BLADE_SWUNG.pitch, at, rise / 3)
+      oscillator.frequency.setTargetAtTime(hz, back, fall / 3)
     })
-    return 3 + random() * 5
+    swell.gain.setTargetAtTime(BLADE_SWUNG.level, at, rise / 3)
+    swell.gain.setTargetAtTime(BLADE_REST.level, back, fall / 3)
+    body.frequency.setTargetAtTime(BLADE_SWUNG.hz, at, rise / 3)
+    body.frequency.setTargetAtTime(BLADE_REST.hz, back, fall / 3)
+    return next
   }
 
-  return { output, play: repeat(star, random() * 2) }
+  return { output, play: repeat(move, 1 + random() * 2) }
 }
 
-// why: D major with its ninth: the first resolved chord on the page, home
-// after the open fifths of space.
-const PLANET_CHORD = [146.83, 220, 293.66, 369.99, 329.63]
-// why: the Earth's own resonance (Schumann, 7.83 Hz), felt as a slow pulse.
-const EARTH_PULSE_HZ = 7.83
-// why: a ground station's signal, an octave over the chord's root and fifth.
-const SIGNAL_HZ = [587.33, 880] as const
+// why: the air's band closes to 500 Hz between breaths and opens to 750 Hz
+// at their crest, brighter as a wave breaks, yet twice lowpassed, so the
+// hiss stays out (under 1% of the power above 1.5 kHz).
+const AIR_HZ = { low: 500, high: 750, ceiling: 650 }
+const AIR_REST = 0.3
+// why: the city is heard from above: nothing of it passes 1 kHz, twice
+// lowpassed, so it adds no hiss to the air.
+const CITY_CEILING_HZ = 1000
+// why: four knots of people talking, each in its own band and place, their
+// talk looping at lengths that never line up (7, 9, 11 and 13 s).
+const CROWDS = [
+  { hz: 450, pan: -0.6, seconds: 7 },
+  { hz: 650, pan: -0.2, seconds: 9 },
+  { hz: 850, pan: 0.3, seconds: 11 },
+  { hz: 550, pan: 0.7, seconds: 13 }
+]
+// why: the talk's level is a slow signal; 3 kHz holds it, at a sixteenth
+// of the samples a full rate would cost.
+const TALK_RATE = 3000
 
-/** The rest of a planet's noise heard through glass: low, nothing sharp. */
-const murmurFor = (context: AudioContext, random: Random) =>
-  Float32Array.from(
-    { length: context.sampleRate * LOOP_SECONDS },
-    () => random() * 2 - 1
-  )
+/** The city below: the roar of its traffic and the murmur of its crowds. */
+const city = (
+  context: AudioContext,
+  white: AudioBuffer,
+  into: AudioNode,
+  random: Random
+) => {
+  const below = filter(context, 'lowpass', CITY_CEILING_HZ)
+  below.connect(filter(context, 'lowpass', CITY_CEILING_HZ)).connect(into)
+
+  const noise = () => {
+    const source = context.createBufferSource()
+    source.buffer = white
+    source.loop = true
+    source.start(0, random() * white.duration)
+    return source
+  }
+
+  const traffic = gain(context, 0.5)
+  tone(context, 0.07, 0.12).connect(traffic.gain)
+  noise()
+    .connect(filter(context, 'bandpass', 250, 0.6))
+    .connect(filter(context, 'lowpass', 500))
+    .connect(traffic)
+    .connect(below)
+
+  CROWDS.forEach(({ hz, pan, seconds }) => {
+    const talk = context.createBuffer(1, TALK_RATE * seconds, TALK_RATE)
+    talk.copyToChannel(murmurEnvelope(talk.length, TALK_RATE, random), 0)
+    const level = context.createBufferSource()
+    level.buffer = talk
+    level.loop = true
+    const voices = gain(context, 0)
+    level.connect(voices.gain)
+    level.start()
+    noise()
+      .connect(filter(context, 'bandpass', hz, 1.2))
+      .connect(voices)
+      .connect(new StereoPannerNode(context, { pan }))
+      .connect(below)
+  })
+}
 
 /**
- * The planet, at the contact section: the Earth heard from close orbit. Its
- * warm hum pulsing at the planet's own resonance, the murmur of its cities
- * and crowds as through a window, a chord that resolves, and now and then a
- * ground station's soft signal: the systems at work below.
+ * The planet, at the contact: the Earth glowing in its atmosphere, where
+ * the page comes home. The rumble, warm, under an open band of air that
+ * breathes in long, uneven waves as the globe's vapour drifts, and beneath
+ * it a city heard from above: its traffic's roar and its crowds' murmur.
  */
 export const planet = (
   context: AudioContext,
@@ -218,46 +219,47 @@ export const planet = (
 ): Layer => {
   const output = gain(context, 0)
 
-  const hum = gain(context, 0.5)
   loop(context, rumble)
     .connect(filter(context, 'lowpass', 300))
-    .connect(hum)
+    .connect(gain(context, 0.5))
     .connect(output)
-  tone(context, EARTH_PULSE_HZ, 0.1).connect(hum.gain)
 
-  // why: two lowpasses at 700 Hz, 24 dB per octave, leave the crowd and the
-  // traffic their body and drop the hiss white noise would carry.
-  const crowd = gain(context, 0.35)
-  loop(context, murmurFor(context, random))
-    .connect(filter(context, 'highpass', 150))
-    .connect(filter(context, 'lowpass', 700))
-    .connect(filter(context, 'lowpass', 700))
-    .connect(crowd)
+  const white = context.createBuffer(
+    1,
+    context.sampleRate * LOOP_SECONDS,
+    context.sampleRate
+  )
+  white.copyToChannel(whiteNoise(white.length, random), 0)
+  const opening = filter(context, 'lowpass', AIR_HZ.low)
+  const air = gain(context, AIR_REST)
+  const wind = context.createBufferSource()
+  wind.buffer = white
+  wind.loop = true
+  wind
+    .connect(filter(context, 'highpass', 120))
+    .connect(opening)
+    .connect(filter(context, 'lowpass', AIR_HZ.ceiling))
+    .connect(air)
     .connect(output)
-  tone(context, 0.11, 0.12).connect(crowd.gain)
-  tone(context, 0.17, 0.08).connect(crowd.gain)
+  wind.start()
 
-  pad(context, PLANET_CHORD, 0.025, random).connect(output)
-
-  const air = echo(context, 0.36, 1000)
-  air.output.connect(output)
-  const signal = () => {
-    const hz = pick(SIGNAL_HZ, random)
-    const start = context.currentTime + LEAD_SECONDS
-    for (let blip = 0; blip < 3; blip++)
-      ring(context, [output, air.input], {
-        hz,
-        at: start + blip * 0.16,
-        level: 0.02,
-        attack: 0.01,
-        decay: 0.25
-      })
-    return 5 + random() * 5
+  const breathe = () => {
+    const { rise, fall, crest } = breath(random)
+    const at = context.currentTime + LEAD_SECONDS
+    air.gain.setTargetAtTime(crest, at, rise / 3)
+    opening.frequency.setTargetAtTime(AIR_HZ.high, at, rise / 3)
+    air.gain.setTargetAtTime(AIR_REST, at + rise, fall / 3)
+    opening.frequency.setTargetAtTime(AIR_HZ.low, at + rise, fall / 3)
+    return rise + fall
   }
 
-  return { output, play: repeat(signal, 1 + random() * 2) }
+  const streets = gain(context, 0.5)
+  streets.connect(output)
+  city(context, white, streets, random)
+
+  return { output, play: repeat(breathe, 0.5) }
 }
 
-/** The rumble the black hole, space and the planet's hum are made of. */
+/** The rumble the black hole and the planet's hum are made of. */
 export const rumbleFor = (context: AudioContext) =>
   brownNoise(context.sampleRate * LOOP_SECONDS, context.sampleRate)

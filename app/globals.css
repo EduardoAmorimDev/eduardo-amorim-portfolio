@@ -179,6 +179,16 @@ body {
    the text cursor nor a selection, and only controls show the pointer
    (task cosmos, criteria 1–2). Controls come last, so they win. */
 @layer base {
+  /* why: the user, 2026-11-06: no scrollbar over the sky; the page still
+     scrolls by wheel, touch, keys and Lenis, only the bar is hidden. */
+  html {
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+  }
+
   :where(h1, h2, h3, p, li, span, blockquote, figcaption) {
     cursor: default;
     user-select: none;
