@@ -5,33 +5,65 @@ import { scrollWindowTo } from './page-helpers'
 declare global {
   interface Window {
     audioContexts?: AudioContext[]
-    bufferSources?: number
+    oscillators?: number
+    audioTap?: AnalyserNode
   }
 }
 
-// why: the page keeps its AudioContext private; the test keeps a handle on
-// each one built, to read whether the sound is really running, and counts
-// the buffer sources made, as each typed key on the planet makes one.
+// why: the page keeps its audio private; the test keeps a handle on each
+// context built, counts the oscillators made (each star or signal makes
+// one), and taps whatever reaches the speakers to read its spectrum.
 const watchAudio = () => {
   const Original = window.AudioContext
   window.audioContexts = []
-  window.bufferSources = 0
+  window.oscillators = 0
   window.AudioContext = class extends Original {
     constructor(options?: AudioContextOptions) {
       super(options)
       window.audioContexts?.push(this)
     }
-    createBufferSource() {
-      window.bufferSources = (window.bufferSources ?? 0) + 1
-      return super.createBufferSource()
+    createOscillator() {
+      window.oscillators = (window.oscillators ?? 0) + 1
+      return super.createOscillator()
     }
   }
+  const connect = AudioNode.prototype.connect as (
+    this: AudioNode,
+    ...args: unknown[]
+  ) => AudioNode
+  AudioNode.prototype.connect = function (this: AudioNode, ...args: unknown[]) {
+    if (args[0] instanceof AudioDestinationNode) {
+      window.audioTap ??= new AnalyserNode(this.context, { fftSize: 8192 })
+      connect.call(this, window.audioTap)
+    }
+    return connect.apply(this, args)
+  } as AudioNode['connect']
 }
+
+// why: the ear hears the share of power above 1.5 kHz as hiss ("chuviscado").
+const HISS_HZ = 1500
+const hissShare = (page: Page) =>
+  page.evaluate(async above => {
+    const tap = window.audioTap
+    if (!tap) return 1
+    const bins = new Float32Array(tap.frequencyBinCount)
+    let high = 0
+    let all = 0
+    for (let read = 0; read < 30; read++) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      tap.getFloatFrequencyData(bins)
+      bins.forEach((db, bin) => {
+        const power = 10 ** (db / 10)
+        all += power
+        if ((bin * tap.context.sampleRate) / tap.fftSize > above) high += power
+      })
+    }
+    return all > 0 ? high / all : 1
+  }, HISS_HZ)
 
 const contextState = (page: Page) =>
   page.evaluate(() => window.audioContexts?.[0]?.state ?? 'none')
-const bufferSources = (page: Page) =>
-  page.evaluate(() => window.bufferSources ?? 0)
+const oscillators = (page: Page) => page.evaluate(() => window.oscillators ?? 0)
 const toggle = (page: Page) =>
   page.getByRole('button', { name: 'Som ambiente' })
 
@@ -77,22 +109,44 @@ test('the toggle stays on screen and the sound plays down the whole page', async
   }
 })
 
-test('the planet types only once the visitor reaches it', async ({ page }) => {
+test('a silent place schedules nothing; the planet signals once reached', async ({
+  page
+}) => {
   await page.addInitScript(watchAudio)
   await page.goto('/')
   await toggle(page).click()
   await expect.poll(() => contextState(page)).toBe('running')
 
-  // invariant: in the hero the planet is silent and queues no key; its first
-  // typist starts within 4 s and keys every 0.2 s at most once it plays.
-  const atHero = await bufferSources(page)
+  // invariant: in the hero space and the planet are silent and make no star
+  // or signal; the planet's first signal comes within 3 s once it plays.
+  const atHero = await oscillators(page)
   await page.waitForTimeout(5000)
-  expect(await bufferSources(page)).toBe(atHero)
+  expect(await oscillators(page)).toBe(atHero)
 
   await scrollToSection(page, 'contato')
   await expect
-    .poll(() => bufferSources(page), { timeout: 10_000 })
+    .poll(() => oscillators(page), { timeout: 10_000 })
     .toBeGreaterThan(atHero)
+})
+
+test('space and the planet carry almost no hiss', async ({ page }) => {
+  await page.addInitScript(watchAudio)
+  await page.goto('/')
+  await toggle(page).click()
+  await expect.poll(() => contextState(page)).toBe('running')
+
+  const notebook = await page
+    .locator('#notebook')
+    .evaluate(section => section.getBoundingClientRect().top + scrollY)
+  await scrollWindowTo(page, notebook + 2000)
+  await page.waitForTimeout(1000)
+  const space = await hissShare(page)
+  await scrollToSection(page, 'contato')
+  await page.waitForTimeout(1000)
+  const planet = await hissShare(page)
+  // invariant: the first cut's space kept 16% here; its planet 0.6%.
+  expect(space, `space's hiss share ${space}`).toBeLessThan(0.01)
+  expect(planet, `planet's hiss share ${planet}`).toBeLessThan(0.01)
 })
 
 test('a browser that refuses the sound leaves the button off', async ({

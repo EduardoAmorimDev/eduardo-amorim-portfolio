@@ -1,21 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import {
-  entryShare,
-  heroPresence,
-  keyClick,
-  layerMix,
-  phrase,
-  pick,
-  typingRun,
-  VOWELS
-} from './soundscape.ts'
+import { entryShare, heroPresence, layerMix, pick } from './soundscape.ts'
 
-// why: a fixed sequence keeps every run on the same draws.
-const seeded = (seed: number) => () => {
-  seed = (seed * 1664525 + 1013904223) % 2 ** 32
-  return seed / 2 ** 32
-}
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`)
 
@@ -69,37 +55,4 @@ test('a pick stays in the list even when the draw is at its edge', () => {
     pick(['a', 'b'], () => 1),
     'b'
   )
-})
-
-test('a phrase is a few short vowels, falling, then a pause', () => {
-  const random = seeded(3)
-  for (let run = 0; run < 50; run++) {
-    const { syllables, pause } = phrase(random, 150)
-    assert.ok(syllables.length >= 3 && syllables.length <= 10)
-    assert.ok(pause >= 0.6 && pause <= 2.8)
-    for (const { seconds, formants, pitch } of syllables) {
-      assert.ok(seconds >= 0.12 && seconds <= 0.26)
-      assert.ok(VOWELS.some(vowel => vowel === formants))
-      assert.ok(pitch > 100 && pitch < 175)
-    }
-  }
-})
-
-test('typing comes in runs of keys, then a pause', () => {
-  const random = seeded(5)
-  for (let run = 0; run < 50; run++) {
-    const { gaps, pause } = typingRun(random)
-    assert.ok(gaps.length >= 4 && gaps.length <= 20)
-    assert.ok(gaps.every(gap => gap >= 0.07 && gap <= 0.2))
-    assert.ok(pause >= 1.5 && pause <= 6)
-  }
-})
-
-test('a key click is loud at the strike and dies out', () => {
-  const click = keyClick(1200, seeded(9))
-  const level = (from: number, to: number) =>
-    click.slice(from, to).reduce((sum, x) => sum + Math.abs(x), 0)
-  assert.equal(click.length, 1200)
-  assert.ok(click.every(sample => sample >= -1 && sample <= 1))
-  assert.ok(level(0, 100) > 20 * level(1100, 1200))
 })

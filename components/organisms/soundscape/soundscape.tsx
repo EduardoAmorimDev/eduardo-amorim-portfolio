@@ -6,7 +6,7 @@ import { blackHole, planet, rumbleFor, space, type Layer } from './layers'
 // why: the user, 2026-11-06: the black hole at 0.05. Space and the planet
 // are set to match it as the ear weighs loudness (A-weighted, in Chromium),
 // not by raw level, which the rumble's bass would skew.
-const VOLUME = { blackHole: 0.05, space: 0.015, planet: 0.055 }
+const VOLUME = { blackHole: 0.05, space: 0.028, planet: 0.026 }
 const FADE_SECONDS = 0.6
 // why: how fast the mix follows the scroll; short enough to feel tied to
 // it, long enough that a flick of the wheel never steps the volume.
@@ -21,7 +21,7 @@ const createPlayer = (): Player => {
   const rumble = rumbleFor(context)
   const layers: Layers = {
     blackHole: blackHole(context, rumble),
-    space: space(context, Math.random),
+    space: space(context, rumble, Math.random),
     planet: planet(context, rumble, Math.random)
   }
   const master = context.createGain()
@@ -54,13 +54,13 @@ const fadeTo = ({ context, master }: Player, volume: number) => {
 type SoundscapeProps = {
   /** The hero section, where the black hole rumbles. */
   heroId: string
-  /** The section where the planet's office plays, at the page's end. */
+  /** The section where the Earth plays, at the page's end. */
   planetId: string
 }
 
 /**
  * The page's sound, behind a toggle fixed in the corner: the black hole in
- * the hero, space down the page, an office on the planet at its end, each
+ * the hero, space down the page, the Earth from orbit at its end, each
  * crossfading into the next as the visitor scrolls. It starts off: browsers
  * only let a page make sound after the visitor asks, and a sudden noise
  * startles (WCAG 1.4.2). Off, the audio context is suspended.

@@ -3,12 +3,6 @@ export type Random = () => number
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
-const between = (random: Random, low: number, high: number) =>
-  low + random() * (high - low)
-
-const whole = (random: Random, low: number, high: number) =>
-  Math.min(high, low + Math.floor(random() * (high - low + 1)))
-
 /** One item of a non-empty list, drawn with `random`. */
 export const pick = <List extends readonly [unknown, ...unknown[]]>(
   list: List,
@@ -46,55 +40,3 @@ export const layerMix = (hero: number, planet: number) => ({
 // silent layer reads as silent and stops scheduling its sounds.
 const rise = (share: number) =>
   share <= 0 ? 0 : share >= 1 ? 1 : Math.sin((share * Math.PI) / 2)
-
-/** The first two formants (Hz) of the vowels a, e, i, o and u. */
-export const VOWELS = [
-  [730, 1090],
-  [530, 1840],
-  [270, 2290],
-  [570, 840],
-  [300, 870]
-] as const satisfies readonly [
-  readonly [number, number],
-  ...(readonly [number, number])[]
-]
-
-export type Syllable = {
-  seconds: number
-  formants: readonly [number, number]
-  /** The voice's pitch, in Hz. */
-  pitch: number
-}
-
-/**
- * A phrase of murmur, too far off to make out: 3 to 10 syllables of 0.12 to
- * 0.26 s, the pitch around `voice` (Hz) and falling as a sentence does,
- * then a pause of 0.6 to 2.8 s before the next.
- */
-export const phrase = (random: Random, voice: number) => {
-  const count = whole(random, 3, 10)
-  const syllables: Syllable[] = Array.from({ length: count }, (_, at) => ({
-    seconds: between(random, 0.12, 0.26),
-    formants: pick(VOWELS, random),
-    pitch: voice * between(random, 0.9, 1.15) * (1 - (0.15 * at) / count)
-  }))
-  return { syllables, pause: between(random, 0.6, 2.8) }
-}
-
-/**
- * A run of typing: 4 to 20 keys 0.07 to 0.2 s apart, then a pause of 1.5 to
- * 6 s while the typist reads.
- */
-export const typingRun = (random: Random) => ({
-  gaps: Array.from({ length: whole(random, 4, 20) }, () =>
-    between(random, 0.07, 0.2)
-  ),
-  pause: between(random, 1.5, 6)
-})
-
-/** A key's click: `length` samples of white noise decaying fast. */
-export const keyClick = (length: number, random: Random) =>
-  Float32Array.from(
-    { length },
-    (_, at) => (random() * 2 - 1) * Math.exp((-6 * at) / Math.max(length, 1))
-  )
