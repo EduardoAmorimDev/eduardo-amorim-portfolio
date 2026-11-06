@@ -27,6 +27,8 @@ export const SOLUTION_MODELS = [
   'wave'
 ] as const satisfies readonly GlassModel[]
 
+export type SolutionModel = (typeof SOLUTION_MODELS)[number]
+
 /** Radians per second an icon turns about its vertical axis (task, 15). */
 export const SPIN_SPEED = 0.3
 // why: a frame after a long pause (a backgrounded tab, an idle canvas)
