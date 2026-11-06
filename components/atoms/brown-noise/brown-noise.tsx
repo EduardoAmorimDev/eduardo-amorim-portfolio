@@ -3,8 +3,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { brownNoise, heroPresence } from '@/lib/brown-noise'
 
 const LOOP_SECONDS = 10
-// why: a third of the first cut's 0.35 (the user, 2026-11-06: too loud).
-const VOLUME = 0.12
+// why: the user, 2026-11-06: a third of the first cut's 0.35, then half.
+const VOLUME = 0.06
 const FADE_SECONDS = 0.6
 // why: how fast the sound follows the scroll; short enough to feel tied to
 // it, long enough that a flick of the wheel never steps the volume.
