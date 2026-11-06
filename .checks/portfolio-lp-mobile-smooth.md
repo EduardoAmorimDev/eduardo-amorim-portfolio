@@ -95,7 +95,7 @@ globo (disco + anel até 1,3 raio) no modo leve fica a ±15% da do modo completo
 Proof: `npx playwright test e2e/you-are-here.spec.ts -g "the globe keeps its light in lite mode"`
 
 **C15** (14) - Celular, CPU 6×, modo leve, `#contato` parado: ≥ 58 FPS
-Proof: `npx playwright test e2e/performance.spec.ts -g "at 6x CPU on 390x844, the contact at rest"`
+Proof: `npx playwright test e2e/performance.spec.ts -g "on 390x844 in lite, the contact at rest"`
 
 **C16** (15) - Sem modo leve, o bloom (0,75 / 0,45 / 0,45) e o globo continuam como hoje
 Proof: `npx playwright test e2e/you-are-here.spec.ts`
@@ -120,6 +120,13 @@ Proof: `npx playwright test e2e/you-are-here.spec.ts`
 | ícones (6)                            | `atom` `brick` `cursor` `flag` `note` `wave` - C4, por ordem | -        |
 | caminhos do ícone (3)                 | touch C4 · fino + leve C5 · fino + completo C9               | -        |
 | ordens do carrossel com o celular (3) | último C11 · 1º (tablet e laptop) C12                        | -        |
+
+## Round 2 (after the Verifier's FAIL)
+
+The draw-rate proofs run each stretch twice, "as it comes" (the tier left alone) and "lite" (forced
+first), after the 60fps warm-up. C11 now asserts both devices were on stage. C15 forces lite. C5
+asserts the glass stage stops drawing. C7 reads the server HTML. C8 asserts the drawn atom. The
+checks did not change.
 
 ## Handoff
 
