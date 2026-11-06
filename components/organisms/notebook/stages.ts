@@ -53,10 +53,17 @@ const SLOTS: readonly [Slot, Slot, Slot] = [
   { in: [0.42, 0.52], out: null, turn: null, own: [0.52, 0.72] }
 ]
 
+// why: the phone comes from behind the stage's middle, where the device
+// before it is still leaving; last, it waits until that one has gone, so it
+// never rises through it (task portfolio-lp-mobile-smooth, 10).
+const PHONE_LAST_IN: Window = [SLOTS[1].out?.[1] ?? 0.52, 0.62]
+
 /** The windows of `device`'s place in `order`. */
 export const slotOf = (order: readonly Device[], device: Device): Slot => {
   const place = order.indexOf(device)
-  return place === 0 ? SLOTS[0] : place === 1 ? SLOTS[1] : SLOTS[2]
+  if (place === 0) return SLOTS[0]
+  if (place === 1) return SLOTS[1]
+  return device === 'phone' ? { ...SLOTS[2], in: PHONE_LAST_IN } : SLOTS[2]
 }
 
 /** Windows of the section's scroll progress (0..1) beyond the carousel. */

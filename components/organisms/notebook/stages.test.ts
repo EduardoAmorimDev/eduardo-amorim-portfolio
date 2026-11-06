@@ -8,6 +8,7 @@ import {
   floatAt,
   renderScale,
   restRenderScale,
+  slotOf,
   viewerDevice
 } from './stages.ts'
 
@@ -55,4 +56,31 @@ test("the visitor's device comes last, the others in today's order", () => {
   assert.deepEqual(deviceOrder('laptop'), ['phone', 'tablet', 'laptop'])
   assert.deepEqual(deviceOrder('tablet'), ['phone', 'laptop', 'tablet'])
   assert.deepEqual(deviceOrder('phone'), ['tablet', 'laptop', 'phone'])
+})
+
+// why: task portfolio-lp-mobile-smooth, 10: last, the phone rises from
+// behind the stage's middle only once the device before it has gone.
+test('the phone waits for the stage to clear when it comes last', () => {
+  const order = deviceOrder('phone')
+  const leaving = slotOf(order, 'laptop').out
+  const phone = slotOf(order, 'phone')
+  assert.ok(leaving)
+  assert.ok(phone.in[0] >= leaving[1], `${phone.in[0]} < ${leaving[1]}`)
+  assert.ok(phone.in[1] <= phone.own[1])
+})
+
+// why: task portfolio-lp-mobile-smooth, 11: first, the phone and the others
+// keep today's windows.
+test('the windows hold when the phone comes first', () => {
+  for (const viewer of ['laptop', 'tablet'] as const) {
+    const order = deviceOrder(viewer)
+    assert.deepEqual(slotOf(order, 'phone'), {
+      in: [0, 0.14],
+      out: [0.22, 0.32],
+      turn: [0.15, 0.21],
+      own: [0, 0.22]
+    })
+    assert.deepEqual(slotOf(order, order[1] ?? 'tablet').in, [0.22, 0.32])
+    assert.deepEqual(slotOf(order, viewer).in, [0.42, 0.52])
+  }
 })
