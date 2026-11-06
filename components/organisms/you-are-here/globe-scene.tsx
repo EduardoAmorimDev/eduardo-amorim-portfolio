@@ -50,6 +50,7 @@ void main() {
 const DOT_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
 uniform vec3 uRim;
+uniform float uGlow;
 varying float vFacing;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
@@ -58,7 +59,10 @@ void main() {
   // violet; the near side glows, brightest facing the viewer.
   float alpha = round * mix(0.18, 0.7, smoothstep(-0.15, 0.45, vFacing));
   vec3 col = mix(uRim, uColor, smoothstep(0.0, 0.7, vFacing));
-  gl_FragColor = vec4(col, alpha);
+  // why: without the bloom (lite) the land itself burns whiter and denser,
+  // as the bloom's spill made it look.
+  col = mix(col, vec3(1.0), uGlow * 0.45);
+  gl_FragColor = vec4(col, min(alpha * (1.0 + uGlow * 0.9), 1.0));
 }
 `
 
@@ -73,12 +77,38 @@ void main() {
 
 const HALO_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
+uniform float uGlow;
 varying float vRim;
 void main() {
   // why: a thin atmosphere hugging the limb; the bloom turns its light
   // into the glow around the Earth.
   float rim = smoothstep(0.6, 1.0, vRim);
-  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.94, 1.0, vRim)) * 0.8);
+  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.94, 1.0, vRim)) * 0.8 * (1.0 + uGlow));
+}
+`
+
+// why: the bloom's light painted once, for lite: a soft glow over the disc
+// and around the limb, in globe radii (the quad spans GLOW_SPAN of them).
+const GLOW_SPAN = 1.8
+const GLOW_VERTEX = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+const GLOW_FRAGMENT = /* glsl */ `
+uniform vec3 uColor;
+uniform float uStrength;
+varying vec2 vUv;
+void main() {
+  float r = length(vUv - 0.5) * 2.0 * ${GLOW_SPAN.toFixed(2)};
+  float limb = exp(-pow((r - 1.0) * 4.0, 2.0));
+  float spill = exp(-max(r - 1.0, 0.0) * 3.5) * smoothstep(${GLOW_SPAN.toFixed(2)}, 1.2, r);
+  float disc = 1.0 - smoothstep(0.85, 1.0, r);
+  float light = (0.55 * limb + 0.4 * spill + 0.15 * disc) * uStrength;
+  // invariant: blended additively, alpha weighs the colour, as the dots do.
+  gl_FragColor = vec4(uColor, min(light, 1.0));
 }
 `
 
@@ -87,13 +117,19 @@ type GlobeSceneProps = {
   place: VisitorPlace | null
   /** The section's height in CSS px; the canvas rises above it. */
   stageHeight: number
+  /** Paints the bloom's light itself, for a canvas drawn without it. */
+  glow?: boolean
 }
 
 /**
  * The dotted Earth, its halo, the pin on the visitor's place and the vapour
  * around it. The globe turns on its own; only the vapour answers the cursor.
  */
-export const GlobeScene = ({ place, stageHeight }: GlobeSceneProps) => {
+export const GlobeScene = ({
+  place,
+  stageHeight,
+  glow = false
+}: GlobeSceneProps) => {
   const globe = useRef<Group>(null)
   const ring = useRef<Mesh>(null)
   const [dots, setDots] = useState<Float32Array | null>(null)
@@ -155,12 +191,21 @@ export const GlobeScene = ({ place, stageHeight }: GlobeSceneProps) => {
     () => ({
       uSize: { value: 2.6 * dpr * 3.4 },
       uColor: { value: colors.dot },
-      uRim: { value: colors.rim }
+      uRim: { value: colors.rim },
+      uGlow: { value: Number(glow) }
     }),
-    [colors, dpr]
+    [colors, dpr, glow]
   )
   const haloUniforms = useMemo(
-    () => ({ uColor: { value: colors.rim } }),
+    () => ({ uColor: { value: colors.rim }, uGlow: { value: Number(glow) } }),
+    [colors, glow]
+  )
+  const glowUniforms = useMemo(
+    () => ({
+      // why: the bloom's spill reads whiter than the limb it comes from.
+      uColor: { value: colors.rim.clone().lerp(new Color('#ffffff'), 0.4) },
+      uStrength: { value: 1 }
+    }),
     [colors]
   )
 
@@ -214,6 +259,19 @@ export const GlobeScene = ({ place, stageHeight }: GlobeSceneProps) => {
 
   return (
     <group position={[layout.x, layout.y, 0]} scale={layout.scale}>
+      {glow && (
+        <mesh renderOrder={-2} scale={GLOW_SPAN * 2}>
+          <planeGeometry args={[1, 1]} />
+          <shaderMaterial
+            uniforms={glowUniforms}
+            vertexShader={GLOW_VERTEX}
+            fragmentShader={GLOW_FRAGMENT}
+            transparent
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+        </mesh>
+      )}
       <mesh scale={1.04}>
         <sphereGeometry args={[1, 64, 64]} />
         <shaderMaterial

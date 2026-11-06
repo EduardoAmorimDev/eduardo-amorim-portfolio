@@ -1,6 +1,11 @@
 import type { CDPSession, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { documentTop, notebookAt, scrollWindowTo } from './page-helpers'
+import {
+  documentTop,
+  forceLite,
+  notebookAt,
+  scrollWindowTo
+} from './page-helpers'
 
 // why: the task's own numbers (.tasks/portfolio-lp-60fps.md, Intent).
 const MIN_FPS = 58
@@ -178,6 +183,224 @@ for (const [label, device] of [
         expect(fps, `tier: ${tier ?? 'full'}`).toBeGreaterThanOrEqual(MIN_FPS)
       })
   })
+
+/** Counts, per canvas, the WebGL draw calls made; installed before load. */
+const countDraws = (page: Page) =>
+  page.addInitScript(() => {
+    const counts = new WeakMap<HTMLCanvasElement, number>()
+    const scope = window as unknown as {
+      drawsOf: (canvas: Element | null) => number
+    }
+    for (const proto of [
+      WebGLRenderingContext.prototype,
+      WebGL2RenderingContext.prototype
+    ])
+      for (const name of ['drawElements', 'drawArrays'] as const) {
+        const draw = proto[name] as (...args: unknown[]) => void
+        Object.defineProperty(proto, name, {
+          value: function (this: WebGLRenderingContext, ...args: unknown[]) {
+            const canvas = this.canvas
+            if (canvas instanceof HTMLCanvasElement)
+              counts.set(canvas, (counts.get(canvas) ?? 0) + 1)
+            return draw.apply(this, args)
+          }
+        })
+      }
+    scope.drawsOf = canvas =>
+      canvas instanceof HTMLCanvasElement ? (counts.get(canvas) ?? 0) : -1
+  })
+
+/**
+ * Frames per second, and frames per second in which the canvas inside
+ * `selector` drew anything, until `stop` resolves.
+ */
+const countDrawnFrames = async (
+  page: Page,
+  selector: string,
+  stop: () => Promise<unknown>
+) => {
+  await page.evaluate(target => {
+    const scope = window as unknown as {
+      drawsOf: (canvas: Element | null) => number
+      drawnRate: () => { fps: number; draws: number }
+    }
+    const canvas = document.querySelector(`${target} canvas`)
+    const start = performance.now()
+    let frames = 0
+    let drawn = 0
+    let last = start
+    let seen = scope.drawsOf(canvas)
+    let counting = true
+    const tick = (now: number) => {
+      if (!counting) return
+      frames++
+      last = now
+      const draws = scope.drawsOf(canvas)
+      if (draws !== seen) drawn++
+      seen = draws
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+    scope.drawnRate = () => {
+      counting = false
+      const seconds = (last - start) / 1000
+      return { fps: frames / seconds, draws: drawn / seconds }
+    }
+  }, selector)
+  await stop()
+  return page.evaluate(() =>
+    (
+      window as unknown as { drawnRate: () => { fps: number; draws: number } }
+    ).drawnRate()
+  )
+}
+
+// why: the scenes that follow the finger on a phone (task
+// portfolio-lp-mobile-smooth, 1 and 9): a canvas drawn every other frame
+// passes the page's frame rate and still judders.
+const DRAWN_STRETCHES: (Stretch & { canvas: string })[] = [
+  {
+    name: 'the hero at rest',
+    canvas: '[data-testid="hero-scene"]',
+    range: async () => [0, 0]
+  },
+  {
+    name: 'the dive through the hero',
+    canvas: '[data-testid="hero-scene"]',
+    range: async page => [0, await page.evaluate(() => innerHeight)]
+  },
+  {
+    name: 'the scroll through the Alcance',
+    canvas: '[data-testid="notebook-scene"]',
+    range: async page => [await notebookAt(page, 0), await notebookAt(page, 1)]
+  }
+]
+
+test.describe('at 6x CPU on 390x844, every frame drawn', () => {
+  test.use(PHONE)
+
+  // why: under 6x the tier may turn lite on its own; "as it comes" leaves
+  // it to the tier, "lite" forces it first (task, 1 and 9: with or without).
+  for (const tier of ['as it comes', 'lite'] as const)
+    for (const stretch of DRAWN_STRETCHES)
+      test(`on 390x844, ${stretch.name} draws every frame, ${tier}`, async ({
+        page
+      }) => {
+        test.setTimeout(120_000)
+        await countDraws(page)
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+        if (tier === 'lite') await forceLite(page)
+        const range = await stretch.range(page)
+        const cdp = await page.context().newCDPSession(page)
+        await slowDown(cdp, SLOWDOWN)
+        // why: the same warm-up as the stretches above, so the tier has
+        // settled before the frames are counted.
+        await warmUp(page, cdp, PHONE, range)
+        const runs: { fps: number; draws: number }[] = []
+        for (let run = 0; run < RUNS; run++) {
+          await scrollWindowTo(page, range[0])
+          runs.push(
+            await countDrawnFrames(page, stretch.canvas, () =>
+              range[1] === range[0]
+                ? page.waitForTimeout(MEASURE_MS)
+                : gesture(cdp, PHONE, range[1] - range[0], MEASURE_MS)
+            )
+          )
+        }
+        await slowDown(cdp, 1)
+        const median = (key: 'fps' | 'draws') =>
+          runs.map(run => run[key]).sort((a, b) => a - b)[
+            Math.floor(RUNS / 2)
+          ] ?? 0
+        const at = await page.locator('html').getAttribute(LITE.attribute)
+        expect(median('fps'), `tier: ${at ?? 'full'}`).toBeGreaterThanOrEqual(
+          MIN_FPS
+        )
+        expect(median('draws'), `tier: ${at ?? 'full'}`).toBeGreaterThanOrEqual(
+          MIN_FPS
+        )
+      })
+})
+
+// why: task portfolio-lp-mobile-smooth, 14: lite paints the globe's glow
+// itself, and the contact still holds the rate on a phone.
+test.describe('at 6x CPU on 390x844 in lite', () => {
+  test.use(PHONE)
+
+  test('on 390x844 in lite, the contact at rest runs at 58 fps or more', async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await forceLite(page)
+    const at = (await top(page, '#contato')) - 200
+    const cdp = await page.context().newCDPSession(page)
+    await slowDown(cdp, SLOWDOWN)
+    await warmUp(page, cdp, PHONE, [at, at])
+    const runs = []
+    for (let run = 0; run < RUNS; run++)
+      runs.push(await measure(page, cdp, PHONE, [at, at]))
+    await slowDown(cdp, 1)
+    const fps = [...runs].sort((a, b) => a - b)[Math.floor(RUNS / 2)] ?? 0
+    await expect(page.locator('html')).toHaveAttribute(
+      LITE.attribute,
+      LITE.value
+    )
+    expect(fps).toBeGreaterThanOrEqual(MIN_FPS)
+  })
+})
+
+test('lite mode draws the solution icons flat', async ({ page }) => {
+  test.setTimeout(90_000)
+  await countDraws(page)
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.mouse.move(700, 450)
+  await scrollWindowTo(page, await top(page, '#solucoes ul'))
+  const icons = page.locator('#solucoes li [data-glass-icon]')
+  await expect(
+    page.locator('#solucoes [data-glass-icon][data-ready]')
+  ).toHaveCount(6, { timeout: 15_000 })
+  const boxes = async () =>
+    icons.evaluateAll(all =>
+      all.map(icon => {
+        const { x, y, width, height } = icon.getBoundingClientRect()
+        return { x, y, width, height }
+      })
+    )
+  const before = await boxes()
+  const stage = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as { drawsOf: (canvas: Element | null) => number }
+      ).drawsOf(document.querySelector('[data-testid="glass-stage"] canvas'))
+    )
+  // why: while the glass turns, the stage draws; flat, it has nothing to draw.
+  const turning = await stage()
+  await page.waitForTimeout(1000)
+  expect(await stage(), 'the glass turns before lite').toBeGreaterThan(turning)
+  await forceLite(page)
+  await scrollWindowTo(page, await top(page, '#solucoes ul'))
+  await expect(page.locator('#solucoes svg[data-flat-icon]')).toHaveCount(6)
+  for (const icon of await icons.all()) {
+    await expect(icon.locator('svg[data-flat-icon]')).toBeVisible()
+    await expect(icon).not.toHaveAttribute('data-ready', '')
+  }
+  await page.waitForTimeout(500)
+  const resting = await stage()
+  await page.waitForTimeout(1000)
+  expect(await stage(), 'no glass is drawn for the icons').toBe(resting)
+  const after = await boxes()
+  expect(after).toHaveLength(before.length)
+  after.forEach((box, index) => {
+    const was = before[index]
+    if (!was) throw new Error(`no box ${index} before lite`)
+    for (const key of ['x', 'y', 'width', 'height'] as const)
+      expect(Math.abs(box[key] - was[key]), key).toBeLessThanOrEqual(0.5)
+  })
+})
 
 test('a full-speed visit keeps full quality', async ({ page }) => {
   test.setTimeout(120_000)

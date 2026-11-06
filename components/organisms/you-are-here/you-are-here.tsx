@@ -98,7 +98,13 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
       >
         <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate />
-        <GlobeScene place={place ?? null} stageHeight={stageHeight} />
+        {/* why: lite paints the bloom's light itself, so the Earth keeps its
+            glow (task portfolio-lp-mobile-smooth, 13). */}
+        <GlobeScene
+          place={place ?? null}
+          stageHeight={stageHeight}
+          glow={lite}
+        />
         {/* why: the Earth's light, spilled by its bright land, limb and
             vapour, rather than painted around it. */}
         {!lite && <Bloom strength={0.75} radius={0.45} threshold={0.45} />}

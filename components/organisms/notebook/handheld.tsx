@@ -1,6 +1,6 @@
 'use client'
 import { Html } from '@react-three/drei'
-import { useFrame, useThree } from '@react-three/fiber'
+import { flushSync, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   ExtrudeGeometry,
@@ -87,10 +87,12 @@ export const Handheld = ({
 }: HandheldProps) => {
   const geometry = useMemo(() => createSlab(spec), [spec])
   // hazard: drei's <Html> mounted in the canvas's first commit loses its
-  // page to a late root unmount; mounting it a frame later keeps it.
+  // page to a late root unmount; mounting it a frame later keeps it. Left
+  // pending, the canvas's next render inside react-dom's commit flushed it,
+  // and StrictMode's remount unmounted drei's root mid-render; flush it now.
   const [settled, setSettled] = useState(false)
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setSettled(true))
+    const frame = requestAnimationFrame(() => flushSync(() => setSettled(true)))
     return () => cancelAnimationFrame(frame)
   }, [])
   // invariant: ExtrudeGeometry's group 0 is the front and back caps (glass),

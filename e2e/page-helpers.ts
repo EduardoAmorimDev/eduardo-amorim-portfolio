@@ -310,3 +310,24 @@ export const atContato = async (page: Page) => {
   await answered
   return page.locator('#contato')
 }
+
+/**
+ * Turns the visit lite at once: busy frames until the tier gives up, as a
+ * slow phone would make it (task portfolio-lp-60fps, 5).
+ */
+export const forceLite = async (page: Page) => {
+  await page.evaluate(() => {
+    const burn = () => {
+      const until = performance.now() + 30
+      while (performance.now() < until);
+      if (document.documentElement.dataset.performance !== 'lite')
+        requestAnimationFrame(burn)
+    }
+    requestAnimationFrame(burn)
+  })
+  await page.waitForFunction(
+    () => document.documentElement.dataset.performance === 'lite',
+    null,
+    { timeout: 30_000 }
+  )
+}
