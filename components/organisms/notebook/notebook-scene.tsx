@@ -1,5 +1,4 @@
 'use client'
-import { ContactShadows } from '@react-three/drei'
 import { Suspense, useEffect, useMemo, type RefObject } from 'react'
 import { CanvasTexture } from 'three'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
@@ -55,8 +54,6 @@ type NotebookSceneProps = {
   progress: RefObject<number>
   /** Whether the devices' screens show the live site; black otherwise. */
   screenLive: boolean
-  /** Whether the floor takes the devices' soft contact shadow. */
-  shadows?: boolean
   /** The visitor's own device, which the carousel ends on. */
   viewer: Device
 }
@@ -65,7 +62,6 @@ type NotebookSceneProps = {
 export const NotebookScene = ({
   progress,
   screenLive,
-  shadows = true,
   viewer
 }: NotebookSceneProps) => {
   // why: <Canvas> renders this only in the browser, after mount, which is
@@ -123,21 +119,10 @@ export const NotebookScene = ({
         />
       </mesh>
 
-      {/* why: shadow maps gave two hard shadows, one per light.
-          ContactShadows renders the scene from below and blurs it into
-          one soft shadow; `far` is how high it still sees the laptop, so
-          the shadow fades as the laptop floats up. 256: blurred this much,
-          it looks the same as 512 with a quarter of the pixels to draw. */}
-      {shadows && (
-        <ContactShadows
-          position={[0, FLOOR_Y + 0.01, 0]}
-          scale={12}
-          far={4}
-          blur={3}
-          opacity={0.7}
-          resolution={256}
-        />
-      )}
+      {/* why: no shadow is computed while the stage runs: the contact
+          shadow drew the scene again from below and blurred it every
+          frame, which a phone's GPU could not afford (the user, 2026-11-07,
+          for every device). */}
     </>
   )
 }

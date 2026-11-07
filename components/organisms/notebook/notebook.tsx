@@ -71,8 +71,7 @@ export const Notebook = ({ id }: NotebookProps) => {
   // which clears it, and showed as a flicker (task
   // portfolio-lp-mobile-alcance, 3).
   const touch = fine === false
-  // why: lite draws at the cheapest ratio, without the contact shadow
-  // (task portfolio-lp-60fps, 6).
+  // why: lite draws at the cheapest ratio (task portfolio-lp-60fps, 6).
   const lite = useLiteMode()
   // invariant: touch keeps its one ratio in lite too; a step clears the
   // canvas (task portfolio-lp-mobile-alcance, 3).
@@ -182,7 +181,6 @@ export const Notebook = ({ id }: NotebookProps) => {
           <NotebookScene
             progress={progress}
             screenLive={screenLive}
-            shadows={!lite}
             viewer={viewer}
           />
         </Canvas>
