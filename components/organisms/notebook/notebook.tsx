@@ -2,19 +2,20 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MathUtils } from 'three'
-import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
-import { touchDpr, type DprSetting } from '@/lib/adaptive-dpr'
 import { RENDER_LEAD, RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
-import { useFinePointer } from '@/lib/use-fine-pointer'
+import { captureTarget } from '@/lib/capture'
+import { firstSceneMode } from '@/lib/scene-mode'
 import { useLiteMode } from '@/lib/use-lite-mode'
+import { useSceneMode } from '@/lib/use-scene-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { ParallaxField } from '@/components/organisms/parallax-field'
 import { SectionsBackdrop } from '@/components/organisms/sections-backdrop'
 import { DeviceCopy } from './device-copy'
 import { NotebookScene } from './notebook-scene'
 import { CAMERA } from './stages'
+import { StillCarousel } from './still-carousel'
 import { useScrollProgress } from './use-scroll-progress'
 import { useViewerDevice } from './use-viewer-device'
 import { STILL_SIZE } from '@/lib/canvas-size'
@@ -32,14 +33,14 @@ const HANDOFF = 0.25
 // window's top, over which its own ground and sky fade in over the block
 // above's sky, whose glows sit where the stage's do once it is pinned.
 const GROUND_FADE = 0.1
-// why: crisp edges by default; a GPU that drops frames on the carousel
-// draws fewer pixels, down to 0.75 per CSS px, which keeps the motion smooth.
-// Touch keeps one ratio, under the 1.5 cap (portfolio-lp-mobile, 15).
-const DPR = {
-  full: [1.5, 2] as [number, number],
-  reduced: 0.75,
-  touch: 1.25
-}
+// why: crisp edges for the whole visit (MSAA alone left the thin edges
+// stair-stepped); a GPU that cannot keep up gets the images instead of
+// fewer pixels (task portfolio-lp-still-scenes, 11 and 14).
+const DPR: [number, number] = [1.5, 2]
+// why: the still renderer shoots the devices on a small window at up to
+// 6x, so the stage draws as many px per CSS px as the screen has
+// (scripts/render-stills.mjs).
+const CAPTURE_DPR: [number, number] = [1.5, 6]
 
 type NotebookProps = { id: string }
 
@@ -62,20 +63,18 @@ export const Notebook = ({ id }: NotebookProps) => {
   const viewer = useViewerDevice()
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
-  // why: touch caps the ratio (task portfolio-lp-mobile, 15); the full
-  // ratio holds until the monitor steps, uncapped only before hydration.
-  const fine = useFinePointer()
-  const full = useMemo(() => touchDpr(DPR.full, fine !== false), [fine])
-  const [stepped, setDpr] = useState<DprSetting | null>(null)
-  // why: on touch one ratio for the visit; every step resized the canvas,
-  // which clears it, and showed as a flicker (task
-  // portfolio-lp-mobile-alcance, 3).
-  const touch = fine === false
-  // why: lite draws at the cheapest ratio (task portfolio-lp-60fps, 6).
   const lite = useLiteMode()
-  // invariant: touch keeps its one ratio in lite too; a step clears the
-  // canvas (task portfolio-lp-mobile-alcance, 3).
-  const dpr = touch ? DPR.touch : lite ? DPR.reduced : (stepped ?? full)
+  // why: the 3D stage on a fine pointer, the images on touch or once the
+  // stage cannot hold 50 fps; a stage swapped mid-scroll stays until the
+  // images have faded in over it (task portfolio-lp-still-scenes, 5, 11).
+  const dpr = useMemo(() => (captureTarget() ? CAPTURE_DPR : DPR), [])
+  const mode = useSceneMode('reach')
+  const [imagesShown, setImagesShown] = useState(false)
+  const swapped = mode === 'still' && firstSceneMode() === 'live'
+  const live = mode === 'live' || (swapped && !imagesShown)
+  // why: the images load as the section nears and stay for the visit.
+  const [imagesNear, setImagesNear] = useState(false)
+  if (mode === 'still' && screenLive && !imagesNear) setImagesNear(true)
 
   useEffect(() => {
     const update = () => {
@@ -130,6 +129,7 @@ export const Notebook = ({ id }: NotebookProps) => {
     <section
       id={id}
       ref={section}
+      data-scene={mode ?? undefined}
       aria-labelledby={`${id}-title`}
       className="pointer-events-none relative z-10 h-[700vh]"
     >
@@ -157,33 +157,42 @@ export const Notebook = ({ id }: NotebookProps) => {
           <ParallaxField still />
         </div>
         {/* why: no OrbitControls, so only the scroll moves the devices.
-            dpr ≥ 1.5 while the GPU keeps up: MSAA alone left the thin edges
-            stair-stepped. alpha: the sky is the page background. isolate:
-            keeps drei <Html>'s huge z-index inside the canvas box. */}
-        <Canvas
-          key={recovery.key}
-          onCreated={recovery.onCreated}
-          className="isolate"
-          data-testid="notebook-scene"
-          resize={STILL_SIZE}
-          data-effects={lite ? 'lite' : 'full'}
-          dpr={dpr}
-          gl={{ alpha: true }}
-          camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
-        >
-          {!touch && !lite && (
-            <AdaptiveDpr min={DPR.reduced} max={full} onChange={setDpr} />
-          )}
-          <RenderGate active={!handedOff} />
-          {/* why: the stage enters from below the projects' cards; only its
+            alpha: the sky is the page background. isolate: keeps drei
+            <Html>'s huge z-index inside the canvas box. */}
+        {live && (
+          <Canvas
+            key={recovery.key}
+            onCreated={recovery.onCreated}
+            className="isolate"
+            data-testid="notebook-scene"
+            resize={STILL_SIZE}
+            data-effects={lite ? 'lite' : 'full'}
+            dpr={dpr}
+            gl={{ alpha: true }}
+            camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
+          >
+            <RenderGate active={!handedOff && mode === 'live'} scene="reach" />
+            {/* why: the stage enters from below the projects' cards; only its
               rows on screen are drawn until it fills the window. */}
-          <VisibleScissor />
-          <NotebookScene
+            <VisibleScissor />
+            <NotebookScene
+              progress={progress}
+              screenLive={screenLive}
+              viewer={viewer}
+            />
+          </Canvas>
+        )}
+        {/* why: after the canvas, so swapped images fade in over its last
+            frame; the copy stays over both. */}
+        {mode === 'still' && imagesNear && (
+          <StillCarousel
             progress={progress}
-            screenLive={screenLive}
             viewer={viewer}
+            active={onScreen && !handedOff}
+            fade={swapped}
+            onShown={() => setImagesShown(true)}
           />
-        </Canvas>
+        )}
         <DeviceCopy
           id={id}
           progress={progress}
