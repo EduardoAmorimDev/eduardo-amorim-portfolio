@@ -33,7 +33,7 @@ const easeOut = (t: number) => 1 - (1 - t) ** 3
 export const BLEED = 1
 // why: the spill the page shows at rest, in screens below the hero; the dive
 // uncovers the rest of the canvas as it goes.
-const SPILL = 0.5
+export const SPILL = 0.5
 // why: share of a screen scrolled by which the camera has dived all the way,
 // eased in and out so the approach is slow (task swallow-and-copy, 1–2).
 const DIVE_SCREENS = 1
@@ -55,6 +55,14 @@ const VANISH = [0.6, 0.95] as const
  */
 export const isGone = (scrolled: number, still: boolean) =>
   scrolled >= (still ? 1 + SPILL : VANISH[1])
+
+/**
+ * The hero image's opacity once the hero has scrolled `scrolled` screens:
+ * it dissolves where the live scene does, and holds under reduced motion,
+ * as the live scene's still frame does (task portfolio-lp-still-scenes, 3).
+ */
+export const stillOpacity = (scrolled: number, reduced: boolean) =>
+  reduced ? 1 : 1 - MathUtils.smoothstep(scrolled, ...VANISH)
 
 /**
  * The hero's black hole: one full-screen shader that ray traces the light
