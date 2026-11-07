@@ -2,10 +2,8 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { GlitchText } from '@/components/atoms/glitch-text'
-import { AdaptiveDpr } from '@/components/atoms/adaptive-dpr'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
-import type { DprSetting } from '@/lib/adaptive-dpr'
 import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
@@ -17,10 +15,9 @@ import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 // why: the place is looked up as the section approaches, so a visitor who
 // never scrolls this far never sends the request.
 const LOOKUP_LEAD = '100% 0px'
-// why: crisp dots by default; the canvas is a screen and a half tall and
-// drawn twice over by the bloom, so a GPU that drops frames on it draws
-// fewer pixels, the dots keeping their CSS size and the glow its softness.
-const DPR = { full: [1.5, 2] as [number, number], reduced: 0.6 }
+// why: crisp dots on every device, for the whole visit: the ratio never
+// steps down with the GPU (task portfolio-lp-still-scenes, 14).
+const DPR: [number, number] = [1.5, 2]
 
 type YouAreHereProps = { id: string }
 
@@ -45,10 +42,8 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
     return () => controller.abort()
   }, [near, place])
 
-  // why: the Earth keeps its sharpness on touch too, the monitor stepping
-  // it down only where the GPU falls behind; lite drops the bloom (task
-  // portfolio-lp-60fps, 6).
-  const [dpr, setDpr] = useState<DprSetting>(DPR.full)
+  // why: lite drops the bloom and paints its light instead, the same glow
+  // (task portfolio-lp-mobile-smooth, 13).
   const lite = useLiteMode()
 
   // why: the scene lays the globe out in the section alone, though its
@@ -92,11 +87,10 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
         data-testid="globe-scene"
         resize={STILL_SIZE}
         data-effects={lite ? 'lite' : 'full'}
-        dpr={dpr}
+        dpr={DPR}
         gl={{ alpha: true }}
         camera={{ position: [0, 0, 3.4], fov: 35 }}
       >
-        <AdaptiveDpr min={DPR.reduced} max={DPR.full} onChange={setDpr} />
         <RenderGate />
         {/* why: lite paints the bloom's light itself, so the Earth keeps its
             glow (task portfolio-lp-mobile-smooth, 13). */}

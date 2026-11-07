@@ -31,7 +31,8 @@ export const Bloom = ({ strength, radius, threshold }: BloomProps) => {
   const camera = useThree(state => state.camera)
   const size = useThree(state => state.size)
   // why: the composer's targets are sized in device px, so a new pixel
-  // ratio (AdaptiveDpr) rebuilds them; stale, they would blur the scene.
+  // ratio (a window moved to another screen) rebuilds them; stale, they
+  // would blur the scene.
   const dpr = useThree(state => state.viewport.dpr)
   // why: the composer is rebuilt by the effect and read by the loop; a ref
   // is React's place for such a mutable value.

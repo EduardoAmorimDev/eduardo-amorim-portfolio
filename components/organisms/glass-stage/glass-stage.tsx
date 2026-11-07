@@ -5,7 +5,6 @@ import { useEffect, useMemo, type ReactNode } from 'react'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
 import '@/lib/three-console'
 import { useFinePointer } from '@/lib/use-fine-pointer'
-import { useLiteMode } from '@/lib/use-lite-mode'
 import { GlassContext, createBackdrop } from './glass-material'
 import { STILL_SIZE } from '@/lib/canvas-size'
 import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
@@ -47,7 +46,6 @@ export const GlassRoot = ({ children }: { children: ReactNode }) => {
  */
 export const GlassStage = () => {
   const fine = useFinePointer()
-  const lite = useLiteMode()
   const recovery = useCanvasRecovery()
   if (!fine) return null
   return (
@@ -58,7 +56,7 @@ export const GlassStage = () => {
       data-testid="glass-stage"
       resize={STILL_SIZE}
       frameloop="demand"
-      dpr={lite ? 1 : DPR}
+      dpr={DPR}
       gl={{ alpha: true }}
       style={{
         position: 'fixed',
