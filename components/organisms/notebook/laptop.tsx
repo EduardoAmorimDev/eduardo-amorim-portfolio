@@ -3,9 +3,11 @@ import { Html, useGLTF } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef, useState, type RefObject } from 'react'
 import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
+import { captureTarget } from '@/lib/capture'
 import { useFinePointer } from '@/lib/use-fine-pointer'
 import { useLiteMode } from '@/lib/use-lite-mode'
 import { useStaticPage } from '@/lib/use-static-page'
+import { LAPTOP_FRAME } from './devices'
 import { STILL_STACK } from './handheld'
 import { ScaledPage } from './scaled-page'
 import {
@@ -16,7 +18,6 @@ import {
   restRenderScale,
   ZOOM_SETTLE,
   stageViewport,
-  type Frame,
   type ScreenView
 } from './stages'
 
@@ -27,9 +28,6 @@ const NODES = { base: 'Base', lidPivot: 'LidPivot', screen: 'Screen' }
 // why: the model is ~0.3 m wide; scaling it to ~3 units keeps the lights,
 // camera and floor in friendly numbers.
 const MODEL_SCALE = 10
-// why: the room the laptop needs in its widest pose (crooked and half open,
-// plus the bobbing), with a margin; it shrinks when the view is smaller.
-export const LAPTOP_FRAME: Frame = { width: 4.2, height: 3.4 }
 
 // why: the visible display of the model, in metres; same values as
 // SCREEN_SIZE in canvas-lab/src/models/laptop-nodes.js.
@@ -128,6 +126,7 @@ export const Laptop = ({
   // animated through `parts` below, because a hook's value cannot be mutated.
   const anchor = useMemo(() => findParts(scene), [scene])
   const parts = useRef<ReturnType<typeof findParts>>(null)
+  const capture = useMemo(() => captureTarget() !== null, [])
   // why: the selector re-renders only on resize, never per frame.
   const size = useThree(state => state.size)
   const fit = fitIn(stageViewport(size), LAPTOP_FRAME, side)
@@ -188,7 +187,8 @@ export const Laptop = ({
     // reads the lid's pose this frame.
     body.current.position.y = divingFloatAt(
       clock.elapsedTime,
-      last ? dive.current : 0
+      last ? dive.current : 0,
+      capture
     )
     parts.current.lid.rotation.x = LID_OPEN * open
     // why: fading the page in over the black backing reads as the screen

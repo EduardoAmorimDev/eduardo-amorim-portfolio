@@ -1,5 +1,12 @@
 import type { Frame } from './stages'
 
+// why: the room each device needs at rest, with a margin; the tablet's is
+// square and holds its 45° diagonal (~3.44) mid-turn, and the laptop's holds
+// its widest pose (crooked and half open, plus the bobbing).
+export const PHONE_FRAME: Frame = { width: 1.6, height: 3 }
+export const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
+export const LAPTOP_FRAME: Frame = { width: 4.2, height: 3.4 }
+
 type Size = { width: number; height: number }
 
 /** A phone or tablet: a rounded slab with a live page on its front glass. */

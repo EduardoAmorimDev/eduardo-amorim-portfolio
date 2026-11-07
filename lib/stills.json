@@ -1,0 +1,170 @@
+{
+  "hero": [
+    {
+      "name": "wide",
+      "maxAspect": 100,
+      "width": 3600,
+      "height": 2700,
+      "srcset": [
+        {
+          "src": "/stills/hero-wide-3600.webp",
+          "w": 3600
+        },
+        {
+          "src": "/stills/hero-wide-2400.webp",
+          "w": 2400
+        },
+        {
+          "src": "/stills/hero-wide-1600.webp",
+          "w": 1600
+        }
+      ]
+    },
+    {
+      "name": "tablet",
+      "maxAspect": 0.95,
+      "width": 1640,
+      "height": 3540,
+      "srcset": [
+        {
+          "src": "/stills/hero-tablet-1640.webp",
+          "w": 1640
+        },
+        {
+          "src": "/stills/hero-tablet-1100.webp",
+          "w": 1100
+        }
+      ]
+    },
+    {
+      "name": "phone",
+      "maxAspect": 0.58,
+      "width": 1290,
+      "height": 4194,
+      "srcset": [
+        {
+          "src": "/stills/hero-phone-1290.webp",
+          "w": 1290
+        },
+        {
+          "src": "/stills/hero-phone-860.webp",
+          "w": 860
+        }
+      ]
+    }
+  ],
+  "floor": [
+    {
+      "name": "wide",
+      "width": 1920,
+      "height": 1080,
+      "srcset": [
+        {
+          "src": "/stills/floor-wide-1920.webp",
+          "w": 1920
+        },
+        {
+          "src": "/stills/floor-wide-1280.webp",
+          "w": 1280
+        }
+      ]
+    },
+    {
+      "name": "tall",
+      "width": 860,
+      "height": 1864,
+      "srcset": [
+        {
+          "src": "/stills/floor-tall-860.webp",
+          "w": 860
+        }
+      ]
+    }
+  ],
+  "devices": {
+    "tablet": {
+      "width": 1610,
+      "height": 2254,
+      "unitsWide": 2.0500848896434634,
+      "screen": {
+        "x": 69,
+        "y": 68,
+        "w": 1471,
+        "h": 2117
+      },
+      "srcset": [
+        {
+          "src": "/stills/device-tablet-1610.webp",
+          "w": 1610
+        },
+        {
+          "src": "/stills/device-tablet-805.webp",
+          "w": 805
+        }
+      ]
+    },
+    "tabletLandscape": {
+      "width": 2254,
+      "height": 1610,
+      "unitsWide": 2.8701188455008486,
+      "screen": {
+        "x": 69,
+        "y": 69,
+        "w": 2117,
+        "h": 1471
+      },
+      "srcset": [
+        {
+          "src": "/stills/device-tabletLandscape-2254.webp",
+          "w": 2254
+        },
+        {
+          "src": "/stills/device-tabletLandscape-1127.webp",
+          "w": 1127
+        }
+      ]
+    },
+    "laptop": {
+      "width": 2950,
+      "height": 2051,
+      "unitsWide": 3.547679683078664,
+      "screen": {
+        "x": 399,
+        "y": 42,
+        "w": 2153,
+        "h": 1474
+      },
+      "srcset": [
+        {
+          "src": "/stills/device-laptop-2950.webp",
+          "w": 2950
+        },
+        {
+          "src": "/stills/device-laptop-1475.webp",
+          "w": 1475
+        }
+      ]
+    },
+    "phone": {
+      "width": 1318,
+      "height": 2727,
+      "unitsWide": 1.2334841884145047,
+      "screen": {
+        "x": 52,
+        "y": 48,
+        "w": 1214,
+        "h": 2628
+      },
+      "srcset": [
+        {
+          "src": "/stills/device-phone-1318.webp",
+          "w": 1318
+        },
+        {
+          "src": "/stills/device-phone-659.webp",
+          "w": 659
+        }
+      ]
+    }
+  }
+}

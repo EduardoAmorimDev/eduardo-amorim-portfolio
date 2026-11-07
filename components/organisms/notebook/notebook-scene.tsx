@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useMemo, type RefObject } from 'react'
 import { CanvasTexture } from 'three'
 import { StudioEnvironment } from '@/components/atoms/studio-environment'
+import { captureTarget } from '@/lib/capture'
 import { readColorToken, readThemeColor } from '@/lib/color-tokens'
 import { DeviceCarousel } from './device-carousel'
 import type { Device } from './stages'
@@ -69,6 +70,10 @@ export const NotebookScene = ({
   const colors = useMemo(() => readSceneColors(), [])
   const floorMask = useMemo(() => createFloorMask(), [])
   useEffect(() => () => floorMask.dispose(), [floorMask])
+  // why: the still renderer shoots the devices and the floor apart, so a
+  // device's image slides over a floor that holds still (scripts/
+  // render-stills.mjs).
+  const capture = useMemo(() => captureTarget(), [])
 
   return (
     <>
@@ -100,6 +105,7 @@ export const NotebookScene = ({
       {/* why: Suspense renders nothing until the model has loaded. */}
       <Suspense fallback={null}>
         <DeviceCarousel
+          hidden={capture === 'floor'}
           progress={progress}
           screenUrl={screenLive ? SCREEN_URL : undefined}
           viewer={viewer}
@@ -108,7 +114,11 @@ export const NotebookScene = ({
 
       {/* why: a plane is vertical by default; -90° around X lays it flat
           to act as the floor the spotlights shine on. */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, FLOOR_Y, 0]}>
+      <mesh
+        rotation-x={-Math.PI / 2}
+        position={[0, FLOOR_Y, 0]}
+        visible={capture !== 'devices'}
+      >
         <planeGeometry args={[FLOOR_SIZE, FLOOR_SIZE]} />
         <meshStandardMaterial
           color={colors.background}

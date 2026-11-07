@@ -202,9 +202,11 @@ export const floatAt = (elapsed: number) =>
   Math.sin(elapsed * FLOAT.speed) * FLOAT.height
 
 /**
- * The last device's bob, settling as the camera dives (`dive` 0..1): the
+ * The last device's bob, settling as the camera dives (`dive` 0..1), and
+ * none at all while `still` (the still renderer measures a device's screen
+ * after shooting it, so a bob between the two moved the screen's box): the
  * camera follows the screen, so a bob left running at the end of the dive
  * moved the camera, the 3D page and the canvas every frame for a still one.
  */
-export const divingFloatAt = (elapsed: number, dive: number) =>
-  floatAt(elapsed) * (1 - Math.min(Math.max(dive, 0), 1))
+export const divingFloatAt = (elapsed: number, dive: number, still = false) =>
+  still ? 0 : floatAt(elapsed) * (1 - Math.min(Math.max(dive, 0), 1))

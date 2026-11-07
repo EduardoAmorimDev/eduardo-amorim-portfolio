@@ -15,15 +15,19 @@ import {
   type Group,
   type PerspectiveCamera
 } from 'three'
+import { captureTarget } from '@/lib/capture'
 import {
   asViewerDevice,
   handheldFrame,
   isLandscape,
+  LAPTOP_FRAME,
   PHONE,
-  TABLET
+  PHONE_FRAME,
+  TABLET,
+  TABLET_FRAME
 } from './devices'
 import { Handheld } from './handheld'
-import { Laptop, LAPTOP_FRAME } from './laptop'
+import { Laptop } from './laptop'
 import {
   CAMERA,
   CAMERA_REST,
@@ -40,14 +44,9 @@ import {
   stageLift,
   stageViewport,
   type Device,
-  type Frame,
   type ScreenView
 } from './stages'
 
-// why: the room each handheld needs at rest, for its own page, with a
-// margin; the tablet's is square and holds its 45° diagonal (~3.44) mid-turn.
-const PHONE_FRAME: Frame = { width: 1.6, height: 3 }
-const TABLET_FRAME: Frame = { width: 3.6, height: 3.6 }
 // why: the phone starts this far behind the stage, edge-on to the viewer,
 // and turns a quarter (90°) to face the camera as it comes.
 const PHONE_START = { z: -5, spin: -Math.PI / 2 }
@@ -91,6 +90,8 @@ type DeviceCarouselProps = {
   screenUrl?: string
   /** The visitor's own device, which comes last and is dived into. */
   viewer: Device
+  /** Leaves the devices out of the picture, still posed by the scroll. */
+  hidden?: boolean
 }
 
 /**
@@ -101,7 +102,8 @@ type DeviceCarouselProps = {
 export const DeviceCarousel = ({
   progress,
   screenUrl,
-  viewer
+  viewer,
+  hidden = false
 }: DeviceCarouselProps) => {
   const phone = useRef<Group>(null)
   const tablet = useRef<Group>(null)
@@ -118,6 +120,7 @@ export const DeviceCarousel = ({
   const viewport = stageViewport(size)
   const side = isSideLayout(size)
   const order = useMemo(() => deviceOrder(viewer), [viewer])
+  const capture = useMemo(() => captureTarget() !== null, [])
   // why: the last device's page is the window, so its body takes the
   // window's proportion and, on a landscape window, lies on its side.
   const lastOnSide = isLandscape(size)
@@ -155,7 +158,11 @@ export const DeviceCarousel = ({
     dive.current = ease(p, STAGES.zoom)
     // why: the last device holds still as the camera dives into it.
     const bob = (device: Device) =>
-      divingFloatAt(clock.elapsedTime, device === viewer ? dive.current : 0)
+      divingFloatAt(
+        clock.elapsedTime,
+        device === viewer ? dive.current : 0,
+        capture
+      )
     // why: the camera sits above the stage looking down at it; tilting the
     // handhelds back by that angle makes their glass face the viewer.
     const tilt = -Math.atan2(CAMERA.position[1], CAMERA.position[2])
@@ -238,7 +245,7 @@ export const DeviceCarousel = ({
   }, AFTER_DEVICES)
 
   return (
-    <group position-y={stageLift(viewport, side)}>
+    <group position-y={stageLift(viewport, side)} visible={!hidden}>
       <group ref={phone}>
         <group scale={phoneFit}>
           <Handheld
