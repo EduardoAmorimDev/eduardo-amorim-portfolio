@@ -549,6 +549,11 @@ for (const [width, height] of HANDOFF_VIEWS)
     const share = differingShare(staged, real)
     // why: the measured share, kept in the report for the checklist.
     test.info().annotations.push({ type: 'share', description: `${share}` })
+    // why: a machine that drew the stage under 50 fps got the images
+    // (task portfolio-lp-still-scenes, 11), whose hand-off is a fade, not
+    // this pixel match; the report says so instead of a false failure.
+    const scene = await page.locator('#notebook').getAttribute('data-scene')
+    test.skip(scene === 'still', 'the Alcance turned into its images')
     expect(share).toBeLessThanOrEqual(HANDOFF_MAX_SHARE)
   })
 

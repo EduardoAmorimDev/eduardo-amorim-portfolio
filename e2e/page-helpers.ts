@@ -312,6 +312,27 @@ export const atContato = async (page: Page) => {
 }
 
 /**
+ * Makes every frame take at least `ms` until the returned stop is called, as
+ * a device too slow for the scene on screen would.
+ */
+export const slowFrames = async (page: Page, ms: number) => {
+  await page.evaluate(busy => {
+    const scope = window as unknown as { slowFrames?: boolean }
+    scope.slowFrames = true
+    const burn = () => {
+      const until = performance.now() + busy
+      while (performance.now() < until);
+      if (scope.slowFrames) requestAnimationFrame(burn)
+    }
+    requestAnimationFrame(burn)
+  }, ms)
+  return () =>
+    page.evaluate(() => {
+      ;(window as unknown as { slowFrames?: boolean }).slowFrames = false
+    })
+}
+
+/**
  * Turns the visit lite at once: busy frames until the tier gives up, as a
  * slow phone would make it (task portfolio-lp-60fps, 5).
  */

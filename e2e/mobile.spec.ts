@@ -2,7 +2,6 @@ import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import {
   documentTop,
-  gotoNotebook,
   notebookAt,
   notebookEnd,
   paintedShare,
@@ -14,17 +13,8 @@ import {
 const PHONE = { width: 390, height: 844 }
 const CLOUD_ASPECT = { min: 0.95, max: 1.05 }
 const MAX_MAGNIFICATION = 2
-const MAX_TOUCH_DPR = 1.5
-const MAX_CANVASES = 4
+const MAX_CANVASES = 1
 const MAX_SLAB_SCREENS = 2
-// why: on a phone the phone comes last, laid out at the window, and the
-// laptop keeps its own width (task portfolio-lp-device-last, 7-8).
-const DEVICE_WIDTHS = {
-  'Preview of the projects section on a phone': PHONE.width,
-  'Preview of the projects section on a tablet': 820,
-  'Preview of the projects section on a tablet, landscape': 1180,
-  'Preview of the projects section on a laptop': 1280
-}
 // why: time for the glass models to load and draw (as reach-and-seams).
 const LOAD_MS = 3000
 const SETTLE_MS = 1200
@@ -34,6 +24,15 @@ const TOUCH = {
   hasTouch: true,
   isMobile: true,
   deviceScaleFactor: 3
+}
+
+/** Loads the page and scrolls to the Alcance, its images loaded. */
+const gotoStillNotebook = async (page: Page) => {
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await scrollWindowTo(page, await documentTop(page.locator('#notebook')))
+  await page.locator('[data-testid="notebook-still"]').waitFor()
+  await page.waitForLoadState('networkidle')
 }
 
 /** The size the clouds are drawn at and the image's own, for every band. */
@@ -178,86 +177,118 @@ test.describe('touch', () => {
     await expect(page.locator('[data-testid="glass-shelf"]')).toHaveCount(0)
   })
 
-  test('every device page stays inside its glass', async ({ page }) => {
-    await gotoNotebook(page)
-    const pages = await page.locator('#notebook iframe').evaluateAll(frames =>
-      frames.map(frame => {
-        const zoomed: string[] = []
-        for (let node: Element | null = frame; node; node = node.parentElement)
-          if (getComputedStyle(node).zoom !== '1') zoomed.push(node.tagName)
-        const clip = frame.closest<HTMLElement>('[data-scaled-page]')
-        const inner = clip?.firstElementChild
-        if (
-          !clip ||
-          !(inner instanceof HTMLElement) ||
-          !(frame instanceof HTMLElement)
-        )
-          throw new Error('a device page outside its scaled box')
-        return {
-          title: frame.getAttribute('title'),
-          zoomed,
-          overflow: getComputedStyle(clip).overflow,
-          right: frame.offsetLeft + frame.offsetWidth,
-          bottom: frame.offsetTop + frame.offsetHeight,
-          width: inner.offsetWidth,
-          height: inner.offsetHeight
-        }
-      })
+  /** The image shots of the Alcance visible at `progress`, settled. */
+  const shotsAt = async (page: Page, progress: number) => {
+    await scrollWindowTo(page, await notebookAt(page, progress))
+    await page.waitForTimeout(SETTLE_MS)
+    return page
+      .locator('#notebook [data-shot]')
+      .evaluateAll(shots =>
+        shots
+          .filter(shot => (shot as HTMLElement).style.visibility === 'visible')
+          .map(shot => shot.getAttribute('data-shot'))
+      )
+  }
+
+  // why: task portfolio-lp-still-scenes, 1, 5 and 17: on touch the hero and
+  // the Alcance are images and the globe is the one scene drawn in 3D.
+  test('on touch the hero and the alcance are images, the globe is 3D', async ({
+    page
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('#hero')).toHaveAttribute('data-scene', 'still')
+    await expect(page.locator('#notebook')).toHaveAttribute(
+      'data-scene',
+      'still'
     )
-    expect(pages).toHaveLength(3)
-    for (const {
-      title,
-      zoomed,
-      overflow,
-      right,
-      bottom,
-      width,
-      height
-    } of pages) {
-      expect(zoomed, `${title}: no zoom`).toEqual([])
-      expect(overflow, title ?? '').toBe('hidden')
-      expect(right, title ?? '').toBeLessThanOrEqual(width)
-      expect(bottom, title ?? '').toBeLessThanOrEqual(height)
-    }
+    await expect(page.locator('#hero canvas')).toHaveCount(0)
+    await expect(page.locator('[data-testid="hero-still"] img')).toBeVisible()
+    await scrollWindowTo(page, await notebookAt(page, 0.3))
+    await page.waitForTimeout(SETTLE_MS)
+    await expect(page.locator('#notebook canvas')).toHaveCount(0)
+    await expect(page.locator('#notebook [data-shot]')).toHaveCount(4)
+    await scrollWindowTo(page, await documentTop(page.locator('#contato')))
+    await expect(
+      page.locator('[data-testid="globe-scene"] canvas')
+    ).toHaveCount(1)
   })
 
-  // why: a device's page is laid out only while the device is on stage
-  // (off stage it is display:none); on a phone the tablet comes first and
-  // turns at 0.15-0.21, then the laptop, then the phone.
-  const ON_STAGE = [
-    { device: 'tablet', progress: 0.1 },
-    { device: 'tablet', progress: 0.215, label: ', landscape' },
-    { device: 'laptop', progress: 0.37 },
-    { device: 'phone', progress: 0.85 }
-  ] as const
+  // why: task portfolio-lp-still-scenes, 2: never enlarged, so never soft.
+  test('the hero image is drawn at most one screen px per image px', async ({
+    page
+  }) => {
+    await page.goto('/')
+    const image = page.locator('[data-testid="hero-still"] img')
+    await expect
+      .poll(() => image.evaluate(node => (node as HTMLImageElement).complete))
+      .toBe(true)
+    const density = await image.evaluate(node => {
+      const img = node as HTMLImageElement
+      const width = Number(/-(\d+)\.webp$/.exec(img.currentSrc)?.[1] ?? 0)
+      const height = (width * img.naturalHeight) / img.naturalWidth
+      const box = img.getBoundingClientRect()
+      const cover = Math.max(box.width / width, box.height / height)
+      return cover * devicePixelRatio
+    })
+    expect(density).toBeGreaterThan(0)
+    expect(density).toBeLessThanOrEqual(1.01)
+  })
 
-  test('every device page lays out at its device width', async ({ page }) => {
-    await gotoNotebook(page)
-    const widths: Record<string, number | undefined> = {}
-    for (const stop of ON_STAGE) {
-      const { device, progress } = stop
-      await scrollWindowTo(page, await notebookAt(page, progress))
-      await page.waitForTimeout(SETTLE_MS)
-      const frame = page.locator(`#notebook iframe[title$="on a ${device}"]`)
-      await expect
-        .poll(() =>
-          frame.evaluate(
-            node =>
-              (node as HTMLIFrameElement).contentDocument?.documentElement
-                .clientWidth ?? 0
-          )
-        )
-        .toBeGreaterThan(0)
-      const title = await frame.getAttribute('title')
-      if (!title) throw new Error(`no ${device} page`)
-      widths[`${title}${'label' in stop ? stop.label : ''}`] =
-        await frame.evaluate(
-          node =>
-            (node as HTMLIFrameElement).contentDocument?.documentElement
-              .clientWidth
-        )
-    }
-    expect(widths).toEqual(DEVICE_WIDTHS)
+  // why: task portfolio-lp-still-scenes, 5: on a phone the tablet comes
+  // first, then the laptop, the phone last.
+  test("the alcance images come in the visitor's order", async ({ page }) => {
+    await gotoStillNotebook(page)
+    expect(await shotsAt(page, 0.1)).toEqual(['tablet'])
+    expect(await shotsAt(page, 0.215)).toEqual(['tabletLandscape'])
+    expect(await shotsAt(page, 0.37)).toEqual(['laptop'])
+    expect(await shotsAt(page, 0.75)).toEqual(['phone'])
+  })
+
+  // why: task portfolio-lp-still-scenes, 6-7: the zoom ends with the
+  // phone's screen covering the window, enlarged at most 1.5x.
+  test("the zoom ends on the phone's screen covering the window", async ({
+    page
+  }) => {
+    await gotoStillNotebook(page)
+    expect(await shotsAt(page, 0.96)).toEqual(['phone'])
+    const end = await page
+      .locator('#notebook [data-shot="phone"]')
+      .evaluate(node => {
+        const img = node as HTMLImageElement
+        const width = Number(/-(\d+)\.webp$/.exec(img.currentSrc)?.[1] ?? 0)
+        const box = img.getBoundingClientRect()
+        return {
+          density: (box.width * devicePixelRatio) / width,
+          box: {
+            left: box.left,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom
+          }
+        }
+      })
+    expect(end.density).toBeLessThanOrEqual(1.5)
+    expect(end.box.left).toBeLessThan(0)
+    expect(end.box.top).toBeLessThan(0)
+    expect(end.box.right).toBeGreaterThan(PHONE.width)
+    expect(end.box.bottom).toBeGreaterThan(PHONE.height)
+  })
+
+  // why: task portfolio-lp-still-scenes, 8.
+  test('a device image that fails leaves the story and the hand-off', async ({
+    page
+  }) => {
+    await page.route('**/stills/device-laptop-*', route => route.abort())
+    await gotoStillNotebook(page)
+    expect(await shotsAt(page, 0.37)).toEqual([])
+    await expect(page.locator('#notebook [aria-current="step"]')).toHaveCount(1)
+    await scrollWindowTo(page, (await notebookEnd(page)) + PHONE.height * 0.3)
+    await page.waitForTimeout(300)
+    await expect(page.locator('#notebook > .sticky')).toHaveCSS(
+      'visibility',
+      'hidden'
+    )
   })
 
   /** Height in px of a probe box `length` tall, e.g. `100lvh`. */
@@ -274,10 +305,10 @@ test.describe('touch', () => {
   test('the alcance stage is as tall as the largest viewport', async ({
     page
   }) => {
-    await gotoNotebook(page)
+    await gotoStillNotebook(page)
     const stage = await page
-      .locator('[data-testid="notebook-scene"]')
-      .evaluate(canvas => canvas.closest('.sticky')?.getBoundingClientRect())
+      .locator('[data-testid="notebook-still"]')
+      .evaluate(still => still.closest('.sticky')?.getBoundingClientRect())
     expect(stage?.height).toBe(await lengthOf(page, '100lvh'))
     expect(stage?.height).toBeGreaterThanOrEqual(
       await page.evaluate(() => innerHeight)
@@ -285,7 +316,7 @@ test.describe('touch', () => {
   })
 
   test('the chapter copy ends above the dynamic viewport', async ({ page }) => {
-    await gotoNotebook(page)
+    await gotoStillNotebook(page)
     await scrollWindowTo(page, await notebookAt(page, 0.1))
     await page.waitForTimeout(SETTLE_MS)
     const chapter = page.locator('#notebook [aria-current="step"]')
@@ -300,7 +331,7 @@ test.describe('touch', () => {
   test('the cases stay painted from the alcance to the workflow', async ({
     page
   }) => {
-    await gotoNotebook(page)
+    await gotoStillNotebook(page)
     // why: past the hand-off (a quarter screen past the end) the real
     // section is what shows; before it, the last device's page stands in.
     const from = (await notebookEnd(page)) + PHONE.height * 0.25 + 1
@@ -340,43 +371,31 @@ test.describe('touch', () => {
       await page.waitForTimeout(SETTLE_MS)
       seen.push(
         await page.evaluate(() =>
-          [...document.querySelectorAll('canvas')].map(canvas => ({
-            // why: the hero and the globe draw at the screen's own ratio,
-            // up to 2 (user, 2026-11-05); the cap holds for the rest.
-            capped: !canvas.closest(
-              '[data-testid="hero-scene"], [data-testid="globe-scene"]'
-            ),
-            ratio: canvas.clientWidth ? canvas.width / canvas.clientWidth : 0
-          }))
+          [...document.querySelectorAll('canvas')].map(
+            canvas =>
+              canvas.closest('[data-testid]')?.getAttribute('data-testid') ?? ''
+          )
         )
       )
     }
     return seen
   }
 
-  test('on touch no canvas draws above 1.5x', async ({ page }) => {
-    const stops = await canvasesAlong(page)
-    expect(stops.flat().length).toBeGreaterThan(0)
-    for (const { ratio, capped } of stops.flat())
-      expect(ratio).toBeLessThanOrEqual(capped ? MAX_TOUCH_DPR + 0.01 : 2.01)
-  })
-
-  test('the hero and the globe draw sharp on a dense screen', async ({
-    page
-  }) => {
-    // why: the user, 2026-11-05: both lost their sharpness on phones, drawn
-    // at 1 and 1.5 px per CSS px on a 3x screen; they start at 2.
-    const ratio = (selector: string) =>
-      page.locator(`${selector} canvas`).evaluate(node => {
-        const canvas = node as HTMLCanvasElement
-        return canvas.width / canvas.clientWidth
-      })
+  // why: task portfolio-lp-still-scenes, 14 and 17: the globe draws at
+  // the screen's own ratio, up to 2, and never steps down.
+  test('the globe draws sharp on a dense screen', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    expect(await ratio('[data-testid="hero-scene"]')).toBeCloseTo(2, 1)
     await scrollWindowTo(page, await documentTop(page.locator('#contato')))
     await page.waitForTimeout(300)
-    expect(await ratio('[data-testid="globe-scene"]')).toBeCloseTo(2, 1)
+    expect(
+      await page
+        .locator('[data-testid="globe-scene"] canvas')
+        .evaluate(node => {
+          const canvas = node as HTMLCanvasElement
+          return canvas.width / canvas.clientWidth
+        })
+    ).toBeCloseTo(2, 1)
   })
 
   test('the contact title stands out from the globe light', async ({
@@ -406,136 +425,8 @@ test.describe('touch', () => {
     ])
   })
 
-  test('on touch at most four webgl canvases', async ({ page }) => {
+  test('on touch the globe is the one webgl canvas', async ({ page }) => {
     for (const canvases of await canvasesAlong(page))
       expect(canvases.length).toBeLessThanOrEqual(MAX_CANVASES)
-  })
-  /**
-   * Scrolls through the Alcance down and back up in steps, calling `sample`
-   * at every step, with the scroll settled.
-   */
-  const passThroughAlcance = async (
-    page: Page,
-    sample: () => Promise<void>,
-    steps = 24
-  ) => {
-    const progress = [
-      ...Array.from({ length: steps + 1 }, (_, i) => i / steps),
-      ...Array.from({ length: steps + 1 }, (_, i) => 1 - i / steps)
-    ]
-    for (const p of progress) {
-      await scrollWindowTo(page, await notebookAt(page, p))
-      await page.waitForTimeout(150)
-      await sample()
-    }
-  }
-
-  test('the device pages hold still', async ({ page }) => {
-    await gotoNotebook(page)
-    await expect(page.locator('#notebook iframe')).toHaveCount(3)
-    const glows = await page
-      .locator('#notebook iframe')
-      .evaluateAll(frames =>
-        frames.flatMap(frame =>
-          [
-            ...((frame as HTMLIFrameElement).contentDocument?.querySelectorAll(
-              '[data-testid="sections-glow"]'
-            ) ?? [])
-          ].map(glow => getComputedStyle(glow).animationName)
-        )
-      )
-    expect(glows.length).toBeGreaterThan(0)
-    for (const name of glows) expect(name).toBe('none')
-  })
-
-  test('on touch each device page keeps one scale', async ({ page }) => {
-    await gotoNotebook(page)
-    const scales: Record<string, Set<string>> = {}
-    await passThroughAlcance(page, async () => {
-      const seen = await page
-        .locator('#notebook [data-scaled-page]')
-        .evaluateAll(boxes =>
-          boxes.map(box => ({
-            device: box.querySelector('iframe')?.title ?? '',
-            scale: box.getAttribute('data-scale') ?? ''
-          }))
-        )
-      for (const { device, scale } of seen)
-        if (device) (scales[device] ??= new Set()).add(scale)
-    })
-    expect(Object.keys(scales)).toHaveLength(3)
-    for (const [device, values] of Object.entries(scales))
-      expect([...values], device).toHaveLength(1)
-  })
-
-  test('on touch the alcance canvas never resizes', async ({ page }) => {
-    // why: a slowed CPU drops frames, which is what used to step the ratio.
-    test.setTimeout(120_000)
-    const cdp = await page.context().newCDPSession(page)
-    await gotoNotebook(page)
-    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 })
-    const canvas = page.locator('[data-testid="notebook-scene"] canvas')
-    const sizes = new Set<string>()
-    const ratios = new Set<number>()
-    await passThroughAlcance(
-      page,
-      async () => {
-        const { width, height, ratio } = await canvas.evaluate(node => {
-          const element = node as HTMLCanvasElement
-          return {
-            width: element.width,
-            height: element.height,
-            ratio: element.width / element.clientWidth
-          }
-        })
-        sizes.add(`${width}x${height}`)
-        ratios.add(Math.round(ratio * 100) / 100)
-      },
-      10
-    )
-    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
-    expect([...sizes]).toHaveLength(1)
-    expect([...ratios]).toEqual([1.25])
-  })
-
-  test('on touch the device pages keep their stacking', async ({ page }) => {
-    await gotoNotebook(page)
-    const stacks: Record<string, Set<string>> = {}
-    await passThroughAlcance(page, async () => {
-      const seen = await page.locator('#notebook iframe').evaluateAll(frames =>
-        frames.map(frame => {
-          // why: drei's wrapper is the outermost box it places in 3D.
-          let wrapper: HTMLElement | null = frame as HTMLElement
-          while (
-            wrapper &&
-            !wrapper.classList.contains('will-change-transform')
-          )
-            wrapper = wrapper.parentElement
-          return {
-            device: frame.getAttribute('title') ?? '',
-            z: wrapper?.style.zIndex ?? ''
-          }
-        })
-      )
-      for (const { device, z } of seen) (stacks[device] ??= new Set()).add(z)
-    })
-    expect(Object.keys(stacks)).toHaveLength(3)
-    for (const [device, values] of Object.entries(stacks))
-      expect([...values], device).toHaveLength(1)
-  })
-
-  test('the handheld glass keeps square corners', async ({ page }) => {
-    await gotoNotebook(page)
-    const corners = await page
-      .locator(
-        '#notebook iframe[title*="phone"], #notebook iframe[title*="tablet"]'
-      )
-      .evaluateAll(frames =>
-        frames.map(frame => {
-          const clip = frame.closest<HTMLElement>('[data-scaled-page]')
-          return clip ? getComputedStyle(clip).borderRadius : 'none'
-        })
-      )
-    expect(corners).toEqual(['0px', '0px'])
   })
 })
