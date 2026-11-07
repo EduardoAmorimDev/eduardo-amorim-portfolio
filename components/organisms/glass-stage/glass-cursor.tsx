@@ -19,8 +19,9 @@ import { GlassBoundary } from './glass-boundary'
 import { GlassMesh, SharedEnvironment } from './glass-material'
 import { CONTROL_SELECTOR, CURSOR_SCALE, tiltFor } from './glass-motion'
 
-// why: px of screen per unit, so the 1-unit-tall model is 32 px (task, 22).
-const PX_PER_UNIT = 32
+// why: px of screen per unit, so the 1-unit-tall model is 24 px; 32 px
+// (task, 22) read as too big (the user, 2026-11-07).
+const PX_PER_UNIT = 24
 // invariant: the model's tip, from cursor.glb's bounds; placed on the
 // view's centre, it is the pixel the click lands on, and the cursor leans
 // and grows about it.
@@ -173,14 +174,14 @@ export const GlassCursor = () => {
   if (!fine) return null
 
   return (
-    // why: a 96 px box centred on the pointer, room for the 32 px arrow
+    // why: a 72 px box centred on the pointer, room for the 24 px arrow
     // below and right of its tip, grown and leaning.
     <div
       ref={box}
       aria-hidden="true"
       data-testid="glass-cursor"
       data-shown={shown && ready ? '' : undefined}
-      className="pointer-events-none fixed top-0 left-0 z-60 -mt-12 -ml-12 size-24"
+      className="pointer-events-none fixed top-0 left-0 z-60 -mt-9 -ml-9 size-18"
     >
       <View className="size-full" visible={shown && ready}>
         <CursorScene pointerRef={pointer} kickRef={kick} onReady={onReady} />

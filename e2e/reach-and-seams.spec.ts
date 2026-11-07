@@ -20,7 +20,7 @@ const ICON_PX = 64
 // under the paint threshold, by a few px.
 const CURSOR = {
   tip: 2,
-  height: 32,
+  height: 24,
   heightSlack: 4,
   grow: 1.2,
   growSlack: 0.08
