@@ -4,7 +4,9 @@ import { prefersFinePointer } from './media-preferences'
 // invariant: read once per visit, so the glass never moves between canvases
 // mid-visit (task portfolio-lp-mobile, Unresolved 5).
 let first: boolean | undefined
-const snapshot = () => (first ??= prefersFinePointer())
+/** Whether the device points with a mouse or trackpad, as first read. */
+export const isFinePointer = () => (first ??= prefersFinePointer())
+const snapshot = isFinePointer
 const unchanging = () => () => {}
 
 /**

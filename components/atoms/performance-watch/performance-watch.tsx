@@ -1,6 +1,6 @@
 'use client'
 import { useEffect } from 'react'
-import { watchPerformance } from '@/lib/performance-tier'
+import { watchPerformance } from '@/lib/watch-performance'
 import { useLiteMode } from '@/lib/use-lite-mode'
 
 /** Measures the visit's frame rate and turns it lite when it falls short. */
