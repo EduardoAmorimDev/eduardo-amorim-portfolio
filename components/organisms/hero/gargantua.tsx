@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Color, MathUtils, Vector2, type ShaderMaterial } from 'three'
 import { readColorToken } from '@/lib/color-tokens'
+import { markHeroReady } from '@/lib/hero-ready'
 import {
   onReducedMotionChange,
   prefersReducedMotion
@@ -127,9 +128,16 @@ export const Gargantua = () => {
     }
   }, [gl])
 
+  const drawn = useRef(false)
+
   useFrame(({ clock }, delta) => {
     const shader = material.current
     if (!shader) return
+    // why: this callback runs before the frame is drawn; the next frame's
+    // start is when the first one is on screen, which lifts the loading
+    // veil (loading-veil.tsx).
+    if (!drawn.current) requestAnimationFrame(markHeroReady)
+    drawn.current = true
     const u = shader.uniforms
     // invariant: the shader frames the screen alone, so the black hole sits
     // where it did before the canvas grew to spill below it.

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { LoadingVeil } from '@/components/atoms/loading-veil'
 import { HeroCopy } from '@/components/molecules/hero-copy'
 import { About } from '@/components/organisms/about'
 import { Cases } from '@/components/organisms/cases'
@@ -72,6 +73,7 @@ export default function Home() {
       <GlassStage />
       <GlassCursor />
       <Soundscape heroId="hero" planetId="contato" />
+      <LoadingVeil />
     </>
   )
 }

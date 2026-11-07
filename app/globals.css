@@ -80,6 +80,50 @@
      own size. */
   --animate-call-pulse: call-pulse 2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
 
+  /* why: the loading veil breathes (loading-veil.tsx): the brackets drift
+     apart along their diagonal and meet again, the halo swells with them,
+     on a sine curve with no hard stop, every 2.4 s; translate, scale and
+     opacity only, so the compositor runs it while the page loads. */
+  --animate-bracket-left: bracket-left 2.4s cubic-bezier(0.37, 0, 0.63, 1)
+    infinite alternate;
+  --animate-bracket-right: bracket-right 2.4s cubic-bezier(0.37, 0, 0.63, 1)
+    infinite alternate;
+  --animate-veil-halo: veil-halo 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite
+    alternate;
+  /* hazard: with no script the veil would never lift; this lifts it after
+     8 s whatever happens, past the 6 s the script waits at most. */
+  --animate-veil-timeout: veil-timeout 0.6s 8s forwards;
+
+  @keyframes bracket-left {
+    to {
+      translate: -10px 10px;
+    }
+  }
+
+  @keyframes bracket-right {
+    to {
+      translate: 10px -10px;
+    }
+  }
+
+  @keyframes veil-halo {
+    from {
+      opacity: 0.45;
+      scale: 0.9;
+    }
+    to {
+      opacity: 1;
+      scale: 1.08;
+    }
+  }
+
+  @keyframes veil-timeout {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
   @keyframes call-pulse {
     from {
       opacity: 0.8;
@@ -178,6 +222,16 @@ body {
 /* why: the page reads as a visual piece, not a document: text never takes
    the text cursor nor a selection, and only controls show the pointer
    (task cosmos, criteria 1–2). Controls come last, so they win. */
+/* why: while the loading veil shows, the page holds still under it, and the
+   hero's copy waits to rise until the veil lifts, so the visitor sees it. */
+html:has([data-loading-veil='loading']) {
+  overflow: hidden;
+}
+
+body:has([data-loading-veil='loading']) #hero * {
+  animation-play-state: paused;
+}
+
 @layer base {
   /* why: the user, 2026-11-06: no scrollbar over the sky; the page still
      scrolls by wheel, touch, keys and Lenis, only the bar is hidden. */
