@@ -1,10 +1,9 @@
 import type { Page } from '@playwright/test'
-import { expect, test } from './fixtures'
+import { LITE_GPU, expect, test, reportGpu } from './fixtures'
 import { globeLayout } from '../components/organisms/you-are-here/globe-layout'
 import {
   atContato,
   documentTop,
-  forceLite,
   luminanceAt,
   meanLuminance,
   nextFrames,
@@ -24,7 +23,10 @@ const SETTLE_MS = 1500
 const CURITIBA = { latitude: -25.43, longitude: -49.27, city: 'Curitiba' }
 
 const canvasBox = async (page: Page) => {
-  const box = await page.locator('[data-testid="globe-scene"]').boundingBox()
+  // invariant: the globe's image lies in the box its canvas would.
+  const box = await page
+    .locator('[data-testid="globe-scene"], [data-testid="globe-still"]')
+    .boundingBox()
   if (!box) throw new Error('the globe has no box')
   return box
 }
@@ -185,9 +187,9 @@ test('the faq stays above the light', async ({ page }) => {
   await expect(question).toHaveAttribute('data-state', 'open')
 })
 
-// why: task portfolio-lp-mobile-smooth, 13: without the bloom, lite keeps
-// the globe's light within 15% of the full scene's, over the disc and a
-// ring to 1.3 radii; the camera's own numbers (you-are-here.tsx).
+// why: task portfolio-lp-device-gate, 8: the image is the live globe's
+// still, so it keeps the light within 15% of the live scene's, over the
+// disc and a ring to 1.3 radii; the camera's own numbers (you-are-here.tsx).
 const LIGHT_TOLERANCE = 0.15
 const LIGHT_RING = 1.3
 const GLOBE_CAMERA = { z: 3.4, fov: 35 }
@@ -229,20 +231,20 @@ const globeLight = async (page: Page) => {
   return sum / Math.max(count, 1)
 }
 
-test.describe('on a phone, held still', () => {
+// why: a phone's window with a mouse, where the full tier draws the globe
+// live and the lite tier shows its image, so the two can be compared.
+test.describe('on a phone-sized window, held still', () => {
   test.use({
     viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
     deviceScaleFactor: 3,
     reducedMotion: 'reduce'
   })
 
-  /** Loads the page, lite or not, and measures the still globe's light. */
+  /** Loads the page, lite or not, and measures the globe's light. */
   const lightIn = async (page: Page, lite: boolean) => {
+    if (lite) await reportGpu(page, LITE_GPU)
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    if (lite) await forceLite(page)
     const answered = page.waitForResponse('**/api/onde-estou')
     await scrollWindowTo(page, await documentTop(page.locator('#contato')))
     await answered
@@ -256,15 +258,13 @@ test.describe('on a phone, held still', () => {
     return globeLight(page)
   }
 
-  test('the globe keeps its light in lite mode', async ({ page }) => {
+  test("the globe image keeps the live globe's light", async ({ page }) => {
     test.setTimeout(90_000)
     await placeIs(page, CURITIBA)
     const full = await lightIn(page, false)
-    await expect(page.locator('html')).not.toHaveAttribute(
-      'data-performance',
-      'lite'
-    )
+    await expect(page.locator('[data-testid="globe-scene"]')).toHaveCount(1)
     const lite = await lightIn(page, true)
+    await expect(page.locator('[data-testid="globe-still"]')).toHaveCount(1)
     expect(full).toBeGreaterThan(0)
     expect(
       Math.abs(lite - full) / full,

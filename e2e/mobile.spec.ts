@@ -13,7 +13,7 @@ import {
 const PHONE = { width: 390, height: 844 }
 const CLOUD_ASPECT = { min: 0.95, max: 1.05 }
 const MAX_MAGNIFICATION = 2
-const MAX_CANVASES = 1
+const MAX_CANVASES = 0
 const MAX_SLAB_SCREENS = 2
 // why: time for the glass models to load and draw (as reach-and-seams).
 const LOAD_MS = 3000
@@ -190,9 +190,9 @@ test.describe('touch', () => {
       )
   }
 
-  // why: task portfolio-lp-still-scenes, 1, 5 and 17: on touch the hero and
-  // the Alcance are images and the globe is the one scene drawn in 3D.
-  test('on touch the hero and the alcance are images, the globe is 3D', async ({
+  // why: task portfolio-lp-device-gate, 7: on touch the hero, the Alcance
+  // and the globe are all images; no scene is drawn in 3D.
+  test('on touch the hero, the alcance and the globe are images', async ({
     page
   }) => {
     await page.goto('/')
@@ -209,9 +209,12 @@ test.describe('touch', () => {
     await expect(page.locator('#notebook canvas')).toHaveCount(0)
     await expect(page.locator('#notebook [data-shot]')).toHaveCount(4)
     await scrollWindowTo(page, await documentTop(page.locator('#contato')))
-    await expect(
-      page.locator('[data-testid="globe-scene"] canvas')
-    ).toHaveCount(1)
+    await expect(page.locator('#contato')).toHaveAttribute(
+      'data-scene',
+      'still'
+    )
+    await expect(page.locator('[data-testid="globe-scene"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="globe-still"] img')).toBeVisible()
   })
 
   // why: task portfolio-lp-still-scenes, 2: never enlarged, so never soft.
@@ -381,21 +384,26 @@ test.describe('touch', () => {
     return seen
   }
 
-  // why: task portfolio-lp-still-scenes, 14 and 17: the globe draws at
-  // the screen's own ratio, up to 2, and never steps down.
+  // why: task portfolio-lp-device-gate, 8: the globe's image is never
+  // enlarged on a dense screen, so never soft.
   test('the globe draws sharp on a dense screen', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
     await scrollWindowTo(page, await documentTop(page.locator('#contato')))
-    await page.waitForTimeout(300)
-    expect(
-      await page
-        .locator('[data-testid="globe-scene"] canvas')
-        .evaluate(node => {
-          const canvas = node as HTMLCanvasElement
-          return canvas.width / canvas.clientWidth
-        })
-    ).toBeCloseTo(2, 1)
+    const image = page.locator('[data-testid="globe-still"] img')
+    await expect
+      .poll(() => image.evaluate(node => (node as HTMLImageElement).complete))
+      .toBe(true)
+    const density = await image.evaluate(node => {
+      const img = node as HTMLImageElement
+      const width = Number(/-(\d+)\.webp$/.exec(img.currentSrc)?.[1] ?? 0)
+      const height = (width * img.naturalHeight) / img.naturalWidth
+      const box = img.getBoundingClientRect()
+      const cover = Math.max(box.width / width, box.height / height)
+      return cover * devicePixelRatio
+    })
+    expect(density).toBeGreaterThan(0)
+    expect(density).toBeLessThanOrEqual(1.01)
   })
 
   test('the contact title stands out from the globe light', async ({
@@ -425,7 +433,8 @@ test.describe('touch', () => {
     ])
   })
 
-  test('on touch the globe is the one webgl canvas', async ({ page }) => {
+  // why: task portfolio-lp-device-gate, 7: touch draws no canvas at all.
+  test('on touch no canvas is drawn', async ({ page }) => {
     for (const canvases of await canvasesAlong(page))
       expect(canvases.length).toBeLessThanOrEqual(MAX_CANVASES)
   })

@@ -1,26 +1,20 @@
 import type { CDPSession, Page } from '@playwright/test'
-import { expect, test } from './fixtures'
-import {
-  documentTop,
-  forceLite,
-  notebookAt,
-  scrollWindowTo,
-  slowFrames
-} from './page-helpers'
+import { FULL_GPU, LITE_GPU, expect, reportGpu, test } from './fixtures'
+import { documentTop, notebookAt, scrollWindowTo } from './page-helpers'
 
-// why: the user's bar (.tasks/portfolio-lp-still-scenes.md, Intent): a
-// device that cannot hold it gets images.
+// why: the bar of .tasks/portfolio-lp-still-scenes.md for a device that
+// gets images, which is now the lite tier (portfolio-lp-device-gate).
 const MIN_FPS = 50
 const SLOWDOWN = 6
 const MEASURE_MS = 3000
 const RUNS = 3
-// why: the tier judges 2 s windows from a second after load and turns
-// lite on three slow ones in a row; four windows leave it time to decide.
+// why: the stretch is gone over before it is measured, so images are
+// decoded and models loaded, as for a visitor arriving there.
 const WARM_UP_MS = 9000
+// why: task portfolio-lp-device-gate, 17: the user's 60 fps, read as 58
+// for requestAnimationFrame's jitter (portfolio-lp-60fps).
+const PHONE_FPS = 58
 const LITE = { attribute: 'data-performance', value: 'lite' }
-// why: every canvas keeps one ratio for the visit, lite or not (task
-// portfolio-lp-still-scenes, 14); at 1x the globe and the stage draw 1.5.
-const FIXED_DPR = { notebook: 1.5, globe: 1.5, glass: 1 }
 
 const DESKTOP = { viewport: { width: 1440, height: 900 } }
 const PHONE = {
@@ -167,12 +161,13 @@ const warmUp = async (
     await gesture(cdp, device, lap % 2 ? from - to : to - from, MEASURE_MS)
 }
 
-for (const [label, device] of [
-  ['1440x900', DESKTOP],
-  ['390x844', PHONE]
-] as const)
+// why: a desktop the check sends to lite draws no WebGL and holds the
+// rate on a slow CPU; a GPU it passes is never swapped mid-visit (task
+// portfolio-lp-device-gate, 4, Decided 2), so the full tier is not judged
+// here. A phone is measured below (17).
+for (const [label, device] of [['1440x900', DESKTOP]] as const)
   test.describe(`at 6x CPU on ${label}`, () => {
-    test.use(device)
+    test.use({ ...device, gpu: LITE_GPU })
 
     for (const stretch of STRETCHES)
       test(`at 6x CPU on ${label}, ${stretch.name} runs at 50 fps or more`, async ({
@@ -195,6 +190,55 @@ for (const [label, device] of [
         await slowDown(cdp, 1)
         const tier = await page.locator('html').getAttribute(LITE.attribute)
         expect(fps, `tier: ${tier ?? 'full'}`).toBeGreaterThanOrEqual(MIN_FPS)
+      })
+  })
+
+/** The stretches a phone is measured on (task portfolio-lp-device-gate, 17). */
+const PHONE_STRETCHES: Stretch[] = [
+  ...STRETCHES.filter(
+    ({ name }) =>
+      name === 'the hero at rest' || name === 'the scroll through the Alcance'
+  ),
+  {
+    name: 'the scroll through the contact',
+    range: async page => [
+      (await top(page, '#contato')) - (await page.evaluate(() => innerHeight)),
+      await page.evaluate(
+        () => document.documentElement.scrollHeight - innerHeight
+      )
+    ]
+  }
+]
+
+for (const [tier, gpu, slowdown] of [
+  ['lite', LITE_GPU, 6],
+  ['full', FULL_GPU, 4]
+] as const)
+  test.describe(`at ${slowdown}x CPU on 390x844 in ${tier}`, () => {
+    test.use({ ...PHONE, gpu })
+
+    for (const stretch of PHONE_STRETCHES)
+      test(`on a phone the page holds 58 fps in ${tier}, ${stretch.name}`, async ({
+        page
+      }) => {
+        test.setTimeout(120_000)
+        await page.goto('/')
+        await page.waitForLoadState('networkidle')
+        await expect(page.locator('html')).toHaveAttribute(
+          'data-performance',
+          tier
+        )
+        const range = await stretch.range(page)
+        await scrollWindowTo(page, range[0])
+        const cdp = await page.context().newCDPSession(page)
+        await slowDown(cdp, slowdown)
+        await warmUp(page, cdp, PHONE, range)
+        const runs = []
+        for (let run = 0; run < RUNS; run++)
+          runs.push(await measure(page, cdp, PHONE, range))
+        const fps = [...runs].sort((a, b) => a - b)[Math.floor(RUNS / 2)] ?? 0
+        await slowDown(cdp, 1)
+        expect(fps, JSON.stringify(runs)).toBeGreaterThanOrEqual(PHONE_FPS)
       })
   })
 
@@ -323,10 +367,10 @@ test.describe('on 1440x900, every frame drawn', () => {
     })
 })
 
-// why: task portfolio-lp-mobile-smooth, 14: lite paints the globe's glow
-// itself, and the contact still holds the rate on a phone.
+// why: task portfolio-lp-mobile-smooth, 14: the contact holds the rate on
+// a phone in lite, where the globe is its image (portfolio-lp-device-gate).
 test.describe('at 6x CPU on 390x844 in lite', () => {
-  test.use(PHONE)
+  test.use({ ...PHONE, gpu: LITE_GPU })
 
   test('on 390x844 in lite, the contact at rest runs at 50 fps or more', async ({
     page
@@ -334,7 +378,6 @@ test.describe('at 6x CPU on 390x844 in lite', () => {
     test.setTimeout(120_000)
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await forceLite(page)
     const at = (await top(page, '#contato')) - 200
     const cdp = await page.context().newCDPSession(page)
     await slowDown(cdp, SLOWDOWN)
@@ -352,51 +395,44 @@ test.describe('at 6x CPU on 390x844 in lite', () => {
   })
 })
 
-test('lite mode draws the solution icons flat', async ({ page }) => {
-  test.setTimeout(90_000)
-  await countDraws(page)
+/** The solution icons' boxes once their section is on screen. */
+const iconBoxes = async (page: Page) => {
   await page.goto('/')
   await page.waitForLoadState('networkidle')
   await page.mouse.move(700, 450)
   await scrollWindowTo(page, await top(page, '#solucoes ul'))
-  const icons = page.locator('#solucoes li [data-glass-icon]')
+  await page.waitForTimeout(1500)
+  return page.locator('#solucoes li [data-glass-icon]').evaluateAll(all =>
+    all.map(icon => {
+      const { x, y, width, height } = icon.getBoundingClientRect()
+      return { x, y, width, height }
+    })
+  )
+}
+
+test('lite mode draws the solution icons flat', async ({ page }) => {
+  test.setTimeout(90_000)
+  const before = await iconBoxes(page)
   await expect(
     page.locator('#solucoes [data-glass-icon][data-ready]')
   ).toHaveCount(6, { timeout: 15_000 })
-  const boxes = async () =>
-    icons.evaluateAll(all =>
-      all.map(icon => {
-        const { x, y, width, height } = icon.getBoundingClientRect()
-        return { x, y, width, height }
-      })
-    )
-  const before = await boxes()
-  const stage = () =>
-    page.evaluate(() =>
-      (
-        window as unknown as { drawsOf: (canvas: Element | null) => number }
-      ).drawsOf(document.querySelector('[data-testid="glass-stage"] canvas'))
-    )
-  // why: while the glass turns, the stage draws; flat, it has nothing to draw.
-  const turning = await stage()
-  await page.waitForTimeout(1000)
-  expect(await stage(), 'the glass turns before lite').toBeGreaterThan(turning)
-  await forceLite(page)
-  await scrollWindowTo(page, await top(page, '#solucoes ul'))
+  // why: the tier is decided per load, so lite is a second visit on a GPU
+  // that cannot hold 60 fps (task portfolio-lp-device-gate, 12, 13).
+  await reportGpu(page, LITE_GPU)
+  const after = await iconBoxes(page)
+  await expect(page.locator('html')).toHaveAttribute(LITE.attribute, LITE.value)
   await expect(page.locator('#solucoes svg[data-flat-icon]')).toHaveCount(6)
-  for (const icon of await icons.all()) {
+  for (const icon of await page
+    .locator('#solucoes li [data-glass-icon]')
+    .all()) {
     await expect(icon.locator('svg[data-flat-icon]')).toBeVisible()
     await expect(icon).not.toHaveAttribute('data-ready', '')
   }
-  await page.waitForTimeout(500)
-  const resting = await stage()
-  await page.waitForTimeout(1000)
-  expect(await stage(), 'no glass is drawn for the icons').toBe(resting)
-  const after = await boxes()
+  await expect(page.locator('[data-testid="glass-stage"]')).toHaveCount(0)
   expect(after).toHaveLength(before.length)
   after.forEach((box, index) => {
     const was = before[index]
-    if (!was) throw new Error(`no box ${index} before lite`)
+    if (!was) throw new Error(`no box ${index} in the full visit`)
     for (const key of ['x', 'y', 'width', 'height'] as const)
       expect(Math.abs(box[key] - was[key]), key).toBeLessThanOrEqual(0.5)
   })
@@ -412,78 +448,22 @@ test('a full-speed visit keeps full quality', async ({ page }) => {
     LITE.attribute,
     LITE.value
   )
-  // why: task portfolio-lp-still-scenes, 12: a device that holds 50 fps
-  // keeps both scenes in 3D for the whole visit.
+  // why: task portfolio-lp-device-gate, 11: a GPU that holds 60 fps keeps
+  // every scene in 3D for the whole visit.
   await expect(page.locator('#hero')).toHaveAttribute('data-scene', 'live')
   await expect(page.locator('#notebook')).toHaveAttribute('data-scene', 'live')
 })
 
-// why: task portfolio-lp-still-scenes, 11: a scene drawn under 50 fps turns
-// into its image within seconds, alone, and stays one for the visit.
-test('a scene too slow to hold 50 fps turns into its image', async ({
-  page
-}) => {
-  test.setTimeout(90_000)
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await expect(page.locator('#hero')).toHaveAttribute('data-scene', 'live')
-  const ratio = await page
-    .locator('[data-testid="hero-scene"] canvas')
-    .evaluate(node => {
-      const canvas = node as HTMLCanvasElement
-      return canvas.width / canvas.clientWidth
-    })
-  const stop = await slowFrames(page, 30)
-  await expect(page.locator('#hero')).toHaveAttribute('data-scene', 'still', {
-    timeout: 8_000
-  })
-  await stop()
-  await expect(page.locator('[data-testid="hero-still"] img')).toBeVisible()
-  await expect(page.locator('[data-testid="hero-scene"]')).toHaveCount(0, {
-    timeout: 3_000
-  })
-  await expect(page.locator('#notebook')).toHaveAttribute('data-scene', 'live')
-  expect(ratio).toBeCloseTo(1, 1)
-  await page.waitForTimeout(3000)
-  await expect(page.locator('#hero')).toHaveAttribute('data-scene', 'still')
-})
-
-// why: task portfolio-lp-still-scenes, 13: swapped mid-scroll, the images
-// carry on from where the 3D devices were.
-test('the Alcance swapped mid-scroll keeps its place', async ({ page }) => {
-  test.setTimeout(90_000)
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await scrollWindowTo(page, await notebookAt(page, 0.41))
-  await page.waitForTimeout(1500)
-  const stop = await slowFrames(page, 30)
-  await expect(page.locator('#notebook')).toHaveAttribute(
-    'data-scene',
-    'still',
-    { timeout: 10_000 }
-  )
-  await stop()
-  await page.waitForTimeout(1500)
-  // why: a laptop visitor's order is phone, tablet, laptop; at 0.41 the
-  // tablet rests on stage, turned.
-  const shown = await page
-    .locator('#notebook [data-shot]')
-    .evaluateAll(shots =>
-      shots
-        .filter(shot => (shot as HTMLElement).style.visibility === 'visible')
-        .map(shot => shot.getAttribute('data-shot'))
-    )
-  expect(shown).toEqual(['tabletLandscape'])
-})
-
-/** Loads the page and turns the visit lite. */
+/** Loads the page on a GPU that cannot hold 60 fps: the lite tier. */
 const turnLite = async (page: Page) => {
+  await reportGpu(page, LITE_GPU)
   await page.goto('/')
   await page.waitForLoadState('networkidle')
-  await forceLite(page)
   await scrollWindowTo(page, 0)
 }
 
+// why: task portfolio-lp-device-gate, 4: the tier is decided once, from
+// the GPU, so it holds for the visit and comes back the same on a reload.
 test('lite mode switches on and stays for the visit', async ({ page }) => {
   test.setTimeout(150_000)
   await turnLite(page)
@@ -492,46 +472,11 @@ test('lite mode switches on and stays for the visit', async ({ page }) => {
   await page.reload()
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(4000)
-  await expect(page.locator('html')).not.toHaveAttribute(
-    LITE.attribute,
-    LITE.value
-  )
+  await expect(page.locator('html')).toHaveAttribute(LITE.attribute, LITE.value)
 })
-
-/** Buffer px per CSS px of the canvas inside `selector`. */
-const ratioOf = (page: Page, selector: string) =>
-  page.locator(`${selector} canvas`).evaluate(node => {
-    const canvas = node as HTMLCanvasElement
-    return canvas.width / canvas.clientWidth
-  })
 
 test('lite mode drops the costly effects', async ({ page }) => {
   test.setTimeout(150_000)
-  // why: counts the draws each WebGL context makes, by its canvas.
-  await page.addInitScript(() => {
-    const counts = new WeakMap<HTMLCanvasElement, number>()
-    const scope = window as unknown as { glassDraws: () => number }
-    for (const proto of [
-      WebGLRenderingContext.prototype,
-      WebGL2RenderingContext.prototype
-    ]) {
-      const draw = proto.drawElements
-      proto.drawElements = function (...args: Parameters<typeof draw>) {
-        const canvas = this.canvas
-        if (canvas instanceof HTMLCanvasElement)
-          counts.set(canvas, (counts.get(canvas) ?? 0) + 1)
-        return draw.apply(this, args)
-      }
-    }
-    scope.glassDraws = () => {
-      const canvas = document.querySelector(
-        '[data-testid="glass-stage"] canvas'
-      )
-      return canvas instanceof HTMLCanvasElement
-        ? (counts.get(canvas) ?? 0)
-        : -1
-    }
-  })
   await turnLite(page)
 
   const sky = await page.evaluate(() => ({
@@ -545,31 +490,16 @@ test('lite mode drops the costly effects', async ({ page }) => {
     ].flatMap(node => node.getAnimations({ subtree: true })).length
   }))
   expect(sky).toEqual({ shifted: 0, animated: 0 })
-  await expect(page.locator('[data-testid="globe-scene"]')).toHaveAttribute(
-    'data-effects',
-    'lite'
-  )
+  // why: task portfolio-lp-device-gate, 12: lite draws no WebGL; the globe
+  // is its image and the glass is not mounted.
   await scrollWindowTo(page, await top(page, '#contato'))
   await page.waitForTimeout(500)
-  expect(await ratioOf(page, '[data-testid="globe-scene"]')).toBeCloseTo(
-    FIXED_DPR.globe,
-    1
-  )
-
+  await expect(page.locator('[data-testid="globe-scene"]')).toHaveCount(0)
+  await expect(page.locator('[data-testid="globe-still"]')).toHaveCount(1)
   await scrollWindowTo(page, await top(page, '#solucoes ul'))
   await page.mouse.move(700, 450)
-  await page.waitForTimeout(2000)
-  expect(await ratioOf(page, '[data-testid="glass-stage"]')).toBeCloseTo(
-    FIXED_DPR.glass,
-    1
-  )
-  const draws = () =>
-    page.evaluate(() =>
-      (window as unknown as { glassDraws: () => number }).glassDraws()
-    )
-  const before = await draws()
   await page.waitForTimeout(1000)
-  expect(await draws(), 'the glass holds still').toBe(before)
+  await expect(page.locator('[data-testid="glass-stage"]')).toHaveCount(0)
 })
 
 test('the sky moves on the scroll timeline', async ({ page }) => {
