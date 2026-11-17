@@ -5,7 +5,6 @@ import { useMemo, useRef, useState, type RefObject } from 'react'
 import { MathUtils, Mesh, Vector3, type Group, type Object3D } from 'three'
 import { captureTarget } from '@/lib/capture'
 import { useFinePointer } from '@/lib/use-fine-pointer'
-import { useLiteMode } from '@/lib/use-lite-mode'
 import { useStaticPage } from '@/lib/use-static-page'
 import { LAPTOP_FRAME } from './devices'
 import { STILL_STACK } from './handheld'
@@ -148,10 +147,7 @@ export const Laptop = ({
   // reaches 1 as the camera ends its dive, for the hand-off to the page.
   const [zoom, setZoom] = useState(1)
   const html = useStaticPage(screenUrl)
-  // why: lite holds each page as touch does, at one scale and stacking
-  // for the visit (task portfolio-lp-60fps, 6).
-  const lite = useLiteMode()
-  const touch = useFinePointer() === false || lite
+  const touch = useFinePointer() === false
   const backing = useRef<HTMLDivElement>(null)
   const pending = useRef({ zoom: 1, since: 0 })
   const shown = useRef(true)

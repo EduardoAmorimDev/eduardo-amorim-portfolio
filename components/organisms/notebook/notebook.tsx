@@ -6,8 +6,6 @@ import { RENDER_LEAD, RenderGate } from '@/components/atoms/render-gate'
 import { VisibleScissor } from '@/components/atoms/visible-scissor'
 import '@/lib/three-console'
 import { captureTarget } from '@/lib/capture'
-import { firstSceneMode } from '@/lib/scene-mode'
-import { useLiteMode } from '@/lib/use-lite-mode'
 import { useSceneMode } from '@/lib/use-scene-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { ParallaxField } from '@/components/organisms/parallax-field'
@@ -34,8 +32,8 @@ const HANDOFF = 0.25
 // above's sky, whose glows sit where the stage's do once it is pinned.
 const GROUND_FADE = 0.1
 // why: crisp edges for the whole visit (MSAA alone left the thin edges
-// stair-stepped); a GPU that cannot keep up gets the images instead of
-// fewer pixels (task portfolio-lp-still-scenes, 11 and 14).
+// stair-stepped); a GPU that cannot hold 60 fps gets the images instead of
+// fewer pixels (task portfolio-lp-device-gate).
 const DPR: [number, number] = [1.5, 2]
 // why: the still renderer shoots the devices on a small window at up to
 // 6x, so the stage draws as many px per CSS px as the screen has
@@ -63,15 +61,10 @@ export const Notebook = ({ id }: NotebookProps) => {
   const viewer = useViewerDevice()
   // why: once the real page has taken over, the hidden stage stops drawing.
   const [handedOff, setHandedOff] = useState(false)
-  const lite = useLiteMode()
-  // why: the 3D stage on a fine pointer, the images on touch or once the
-  // stage cannot hold 50 fps; a stage swapped mid-scroll stays until the
-  // images have faded in over it (task portfolio-lp-still-scenes, 5, 11).
   const dpr = useMemo(() => (captureTarget() ? CAPTURE_DPR : DPR), [])
-  const mode = useSceneMode('reach')
-  const [imagesShown, setImagesShown] = useState(false)
-  const swapped = mode === 'still' && firstSceneMode() === 'live'
-  const live = mode === 'live' || (swapped && !imagesShown)
+  // why: the 3D stage on a fine pointer in the full tier, the images
+  // everywhere else (task portfolio-lp-device-gate, 7, 11, 12).
+  const mode = useSceneMode()
   // why: the images load as the section nears and stay for the visit.
   const [imagesNear, setImagesNear] = useState(false)
   if (mode === 'still' && screenLive && !imagesNear) setImagesNear(true)
@@ -159,19 +152,18 @@ export const Notebook = ({ id }: NotebookProps) => {
         {/* why: no OrbitControls, so only the scroll moves the devices.
             alpha: the sky is the page background. isolate: keeps drei
             <Html>'s huge z-index inside the canvas box. */}
-        {live && (
+        {mode === 'live' && (
           <Canvas
             key={recovery.key}
             onCreated={recovery.onCreated}
             className="isolate"
             data-testid="notebook-scene"
             resize={STILL_SIZE}
-            data-effects={lite ? 'lite' : 'full'}
             dpr={dpr}
             gl={{ alpha: true }}
             camera={{ position: [...CAMERA.position], fov: CAMERA.fov }}
           >
-            <RenderGate active={!handedOff && mode === 'live'} scene="reach" />
+            <RenderGate active={!handedOff} />
             {/* why: the stage enters from below the projects' cards; only its
               rows on screen are drawn until it fills the window. */}
             <VisibleScissor />
@@ -182,15 +174,11 @@ export const Notebook = ({ id }: NotebookProps) => {
             />
           </Canvas>
         )}
-        {/* why: after the canvas, so swapped images fade in over its last
-            frame; the copy stays over both. */}
         {mode === 'still' && imagesNear && (
           <StillCarousel
             progress={progress}
             viewer={viewer}
             active={onScreen && !handedOff}
-            fade={swapped}
-            onShown={() => setImagesShown(true)}
           />
         )}
         <DeviceCopy

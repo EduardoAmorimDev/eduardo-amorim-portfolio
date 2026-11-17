@@ -86,10 +86,6 @@ type StillCarouselProps = {
   viewer: Device
   /** Whether the stage is on screen; off it nothing moves. */
   active: boolean
-  /** Fades the stage in over the live scene it replaces. */
-  fade: boolean
-  /** Called once the stage has faded in. */
-  onShown: () => void
 }
 
 /**
@@ -102,13 +98,10 @@ type StillCarouselProps = {
 export const StillCarousel = ({
   progress,
   viewer,
-  active,
-  fade,
-  onShown
+  active
 }: StillCarouselProps) => {
   const root = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState<Size | null>(null)
-  const [shown, setShown] = useState(!fade)
   const [failed, setFailed] = useState<readonly Shot[]>([])
   const shots = useRef<Partial<Record<Shot, HTMLImageElement | null>>>({})
   const order = useMemo(() => deviceOrder(viewer), [viewer])
@@ -121,12 +114,7 @@ export const StillCarousel = ({
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)
-    // why: one frame at opacity 0 first, so the fade has a start to run from.
-    const frame = requestAnimationFrame(() => setShown(true))
-    return () => {
-      observer.disconnect()
-      cancelAnimationFrame(frame)
-    }
+    return () => observer.disconnect()
   }, [])
 
   const layouts = useMemo(
@@ -205,10 +193,7 @@ export const StillCarousel = ({
       ref={root}
       aria-hidden="true"
       data-testid="notebook-still"
-      onTransitionEnd={event => {
-        if (event.target === event.currentTarget) onShown()
-      }}
-      className={`pointer-events-none absolute inset-0 overflow-hidden transition-opacity duration-600 ${shown ? 'opacity-100' : 'opacity-0'}`}
+      className="pointer-events-none absolute inset-0 overflow-hidden"
       style={{ perspective: `${perspective}px` }}
     >
       {FLOOR.wide && (

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
 import './globals.css'
-import { PerformanceWatch } from '@/components/atoms/performance-watch'
+import { DeviceCheck } from '@/components/atoms/device-check'
 import { SmoothScroll } from '@/components/atoms/smooth-scroll'
 
 const montserrat = Montserrat({
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       className={`${montserrat.variable} ${warping.variable} h-full antialiased`}
     >
       <SmoothScroll />
-      <PerformanceWatch />
+      <DeviceCheck />
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   )

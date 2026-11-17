@@ -1,5 +1,5 @@
 'use client'
-import { useState, type Ref } from 'react'
+import type { Ref } from 'react'
 import { markHeroReady } from '@/lib/hero-ready'
 import stills from '@/lib/stills.json'
 import { SPILL } from './gargantua'
@@ -23,10 +23,6 @@ const media = (image: HeroImage) =>
   `(max-aspect-ratio: ${Math.round(image.maxAspect * 1000)}/1000)`
 
 type HeroStillProps = {
-  /** Fades the image in over the live scene it replaces. */
-  fade: boolean
-  /** Called once the image is on screen, or has failed to load. */
-  onShown: () => void
   /** The box whose opacity the scroll sets (hero.tsx). */
   ref?: Ref<HTMLDivElement>
 }
@@ -37,8 +33,7 @@ type HeroStillProps = {
  * enlarging it (task portfolio-lp-still-scenes, 1-2), one shape for each
  * kind of window.
  */
-export const HeroStill = ({ fade, onShown, ref }: HeroStillProps) => {
-  const [loaded, setLoaded] = useState(false)
+export const HeroStill = ({ ref }: HeroStillProps) => {
   const [wide, ...narrow] = [...stills.hero].sort(
     (a, b) => b.maxAspect - a.maxAspect
   )
@@ -78,18 +73,10 @@ export const HeroStill = ({ fade, onShown, ref }: HeroStillProps) => {
             onLoad={event => {
               // why: the veil lifts on the hero's first frame on screen,
               // which here is the image decoded (task 4).
-              const ready = () => {
-                markHeroReady()
-                setLoaded(true)
-              }
-              event.currentTarget.decode().then(ready, ready)
+              event.currentTarget.decode().then(markHeroReady, markHeroReady)
             }}
-            onError={() => {
-              markHeroReady()
-              onShown()
-            }}
-            onTransitionEnd={onShown}
-            className={`size-full object-cover object-top transition-opacity duration-600 ${fade && !loaded ? 'opacity-0' : 'opacity-100'}`}
+            onError={markHeroReady}
+            className="size-full object-cover object-top"
           />
         </picture>
       )}

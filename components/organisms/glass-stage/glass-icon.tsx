@@ -15,7 +15,6 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
-import { useLiteMode } from '@/lib/use-lite-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { GlassBoundary } from './glass-boundary'
 import { GlassMesh, SharedEnvironment } from './glass-material'
@@ -38,14 +37,11 @@ export const IconScene = ({ model, onReady }: IconSceneProps) => {
   const spin = useRef<Group>(null)
   const still = useRef(false)
   const invalidate = useThree(state => state.invalidate)
-  // why: lite holds the glass still, as reduced motion does (task
-  // portfolio-lp-60fps, 6).
-  const lite = useLiteMode()
 
   useEffect(() => {
     const kick = () => invalidate()
     const sync = () => {
-      still.current = prefersReducedMotion() || lite
+      still.current = prefersReducedMotion()
       kick()
     }
     sync()
@@ -59,7 +55,7 @@ export const IconScene = ({ model, onReady }: IconSceneProps) => {
       window.removeEventListener('resize', kick)
       stop()
     }
-  }, [invalidate, lite])
+  }, [invalidate])
 
   useFrame((_, delta) => {
     const body = spin.current
@@ -94,7 +90,8 @@ type GlassIconProps = {
 /**
  * A 64×64 glass icon, drawn over this box by the page's GlassStage, with the
  * given flat icon in its place until the model has loaded; inside a flat
- * GlassShelf (touch, lite) the flat icon is all there is.
+ * GlassShelf (touch, or anywhere but the full tier) the flat icon is all
+ * there is.
  */
 export const GlassIcon = ({ model, children }: GlassIconProps) => {
   const slot = useRef<HTMLDivElement>(null)

@@ -1,103 +1,92 @@
+import type { TierResult } from 'detect-gpu'
+
 /**
- * The visit's performance tier (task portfolio-lp-60fps, Decided 1, and
- * portfolio-lp-still-scenes, 16): `full` until the page, with no live scene
- * drawing, falls under BELOW_FPS in SLOW_WINDOWS of its last RECENT_WINDOWS
- * windows, then `lite` for the visit (`<html data-performance>`). Lite only
- * stills the page's effects; no canvas draws coarser or fewer frames.
+ * The visit's performance tier (task portfolio-lp-device-gate): decided once,
+ * on load, from the GPU detect-gpu identifies and its benchmark table, and
+ * never changed during the visit. `full` draws the 3D scenes where the
+ * pointer is fine; `lite` draws no WebGL anywhere and stills the page's
+ * effects. Null until the check has answered (`<html>` has no
+ * `data-performance` then).
  */
 export type PerformanceTier = 'full' | 'lite'
 
-// why: the user's bar: a device that cannot draw at 50 fps gets images
-// (task portfolio-lp-still-scenes, Intent); lite uses the same one.
-export const BELOW_FPS = 50
-// why: the page's window; a scene is judged on shorter ones, so a black
-// hole that judders turns still within seconds rather than six.
-export const TIER_WINDOW_MS = 2000
-export const SCENE_WINDOW_MS = 1000
-// why: a gap this long is a stall (a shader compiling), not a slow frame;
-// left out, one hitch on a fast machine never turns it lite.
-export const STALL_MS = 250
-// why: a gap this long is the tab hidden or the machine asleep, never
-// judged; shorter stalls that fill a window are a device drawing at a
-// frame or two a second, which must turn still (task
-// portfolio-lp-still-scenes, 11).
-export const PAUSE_MS = 2000
-// why: the first second after load, or after a scene starts drawing, is
-// hydration, models and first draws.
-export const WARM_UP_MS = 1000
-// why: three slow windows among the last five; one or two in a row turned a
-// fast machine lite when models loaded and shaders compiled on the way down.
-export const SLOW_WINDOWS = 3
-export const RECENT_WINDOWS = 5
+// why: the user's bar: a device that cannot run the site at 60 fps gets
+// the light version (task, criterion 1).
+export const FULL_FPS = 60
+// why: a GPU detect-gpu has no benchmark for (Safari on any Mac, a GPU
+// newer than its data) passes on a desktop with this many cores (task,
+// criterion 2, Unresolved 1).
+export const FALLBACK_CORES = 8
+// why: past this the visit is lite rather than kept waiting (criterion 3).
+export const CHECK_TIMEOUT_MS = 3000
+// invariant: served by the site itself (scripts/copy-gpu-benchmarks.mjs),
+// so no request leaves for a CDN (criterion 1).
+export const BENCHMARKS_URL = '/detect-gpu/benchmarks'
 
-const rate = (intervals: readonly number[], windowMs: number) => {
-  const total = intervals.reduce((sum, ms) => sum + ms, 0)
-  return total >= windowMs / 2 ? (1000 * intervals.length) / total : null
+/** What the check reads of detect-gpu's answer. */
+export type GpuReading = Pick<TierResult, 'type' | 'fps'>
+
+/** What the check reads of the device itself. */
+export type DeviceReading = { finePointer: boolean; cores: number }
+
+/** The tier a GPU reading and a device give; the same inputs, the same tier. */
+export const decideTier = (
+  gpu: GpuReading,
+  device: DeviceReading
+): PerformanceTier => {
+  if (gpu.type === 'BENCHMARK')
+    return (gpu.fps ?? 0) >= FULL_FPS ? 'full' : 'lite'
+  if (gpu.type === 'FALLBACK')
+    return device.finePointer && device.cores >= FALLBACK_CORES
+      ? 'full'
+      : 'lite'
+  return 'lite'
+}
+
+/** What one run of the check needs, injected so it runs without a browser. */
+export type CheckSteps = {
+  /** Reads the GPU, e.g. detect-gpu's getGPUTier. */
+  measure: () => Promise<GpuReading>
+  /** Frees the WebGL context the measure used. */
+  release: () => void
+  device: DeviceReading
+  timeoutMs?: number
 }
 
 /**
- * Frames per second over `intervals` (ms between frames), stalls left out
- * while at least half of `windowMs` is ordinary frames, stalls counted when
- * they fill the window, pauses never; null when too little is left.
+ * Runs the check once: the tier from the reading, `lite` if it throws or
+ * takes over `timeoutMs`. The context is released before the tier resolves,
+ * so no scene mounts while it is alive (criterion 6).
  */
-export const windowRate = (
-  intervals: readonly number[],
-  windowMs = TIER_WINDOW_MS
-) =>
-  rate(
-    intervals.filter(ms => ms > 0 && ms <= STALL_MS),
-    windowMs
-  ) ??
-  rate(
-    intervals.filter(ms => ms > 0 && ms <= PAUSE_MS),
-    windowMs
-  )
-
-/** Whether a window of frame intervals falls under BELOW_FPS. */
-export const isSlowWindow = (
-  intervals: readonly number[],
-  windowMs = TIER_WINDOW_MS
-) => {
-  const rate = windowRate(intervals, windowMs)
-  return rate !== null && rate < BELOW_FPS
-}
-
-/**
- * Judges frame intervals in windows of `windowMs`, after WARM_UP_MS of them:
- * `push` returns true once SLOW_WINDOWS of the last RECENT_WINDOWS were
- * slow.
- */
-export const createJudge = (windowMs: number) => {
-  let warm = 0
-  let spent = 0
-  let intervals: number[] = []
-  let recent: boolean[] = []
-  return {
-    push(ms: number) {
-      if (warm < WARM_UP_MS) {
-        warm += ms
-        return false
-      }
-      intervals.push(ms)
-      spent += ms
-      if (spent < windowMs) return false
-      recent = [...recent, isSlowWindow(intervals, windowMs)].slice(
-        -RECENT_WINDOWS
-      )
-      intervals = []
-      spent = 0
-      return recent.filter(Boolean).length >= SLOW_WINDOWS
-    }
+export const runCheck = async ({
+  measure,
+  release,
+  device,
+  timeoutMs = CHECK_TIMEOUT_MS
+}: CheckSteps): Promise<PerformanceTier> => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<null>(resolve => {
+    timer = setTimeout(() => resolve(null), timeoutMs)
+  })
+  try {
+    const reading = await Promise.race([measure(), late])
+    return reading ? decideTier(reading, device) : 'lite'
+  } catch {
+    return 'lite'
+  } finally {
+    clearTimeout(timer)
+    release()
   }
 }
 
-let tier: PerformanceTier = 'full'
+let tier: PerformanceTier | null = null
+let started: Promise<PerformanceTier> | null = null
 const listeners = new Set<() => void>()
 
-/** The tier now; `full` until the visit has been measured slow. */
+/** The tier now; null until the check has answered. */
 export const currentTier = () => tier
 
-/** Calls `listener` when the tier changes; returns the unsubscribe. */
+/** Calls `listener` when the tier is decided; returns the unsubscribe. */
 export const onTierChange = (listener: () => void) => {
   listeners.add(listener)
   return () => {
@@ -105,10 +94,23 @@ export const onTierChange = (listener: () => void) => {
   }
 }
 
-/** Turns the visit lite, for good. */
-export const turnLite = () => {
-  if (tier === 'lite') return
-  tier = 'lite'
-  document.documentElement.dataset.performance = 'lite'
+const publish = (next: PerformanceTier) => {
+  tier = next
+  if (typeof document !== 'undefined')
+    document.documentElement.dataset.performance = next
   for (const listener of listeners) listener()
+}
+
+/**
+ * Decides the tier for the visit, once: later calls get the same promise
+ * and never run the check again (criterion 4).
+ */
+export const startCheck = (steps: () => CheckSteps | PerformanceTier) => {
+  started ??= (async () => {
+    const plan = steps()
+    const next = typeof plan === 'string' ? plan : await runCheck(plan)
+    publish(next)
+    return next
+  })()
+  return started
 }

@@ -15,6 +15,7 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
+import { useTier } from '@/lib/use-lite-mode'
 import { GlassBoundary } from './glass-boundary'
 import { GlassMesh, SharedEnvironment } from './glass-material'
 import { CONTROL_SELECTOR, CURSOR_SCALE, tiltFor } from './glass-motion'
@@ -113,7 +114,12 @@ export const GlassCursor = () => {
   const box = useRef<HTMLDivElement>(null)
   const pointer = useRef<Pointer>({ x: 0, y: 0, control: false })
   const kick = useRef<() => void>(() => {})
-  const [fine, setFine] = useState(false)
+  const [finePointer, setFine] = useState(false)
+  // why: the glass is drawn in the GlassStage, mounted in the full tier
+  // alone; elsewhere the system's pointer stays (task
+  // portfolio-lp-device-gate, 12).
+  const tier = useTier()
+  const fine = finePointer && tier === 'full'
   const [ready, setReady] = useState(false)
   const [shown, setShown] = useState(false)
   const onReady = useCallback(() => setReady(true), [])

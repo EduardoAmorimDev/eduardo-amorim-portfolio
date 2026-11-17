@@ -9,7 +9,6 @@ import {
   onReducedMotionChange,
   prefersReducedMotion
 } from '@/lib/media-preferences'
-import { firstSceneMode } from '@/lib/scene-mode'
 import { useSceneMode } from '@/lib/use-scene-mode'
 import { BLEED, Gargantua, isGone, stillOpacity } from './gargantua'
 import { HeroStill } from './hero-still'
@@ -17,8 +16,8 @@ import { STILL_SIZE } from '@/lib/canvas-size'
 import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
 // why: a ray per screen pixel, up to 2 per CSS px, for the whole visit: a
-// GPU that cannot keep up gets the image instead of coarser pixels (task
-// portfolio-lp-still-scenes, 11 and 14).
+// GPU that cannot hold 60 fps gets the image instead of coarser pixels
+// (task portfolio-lp-device-gate).
 const DPR: [number, number] = [1, 2]
 
 type HeroProps = {
@@ -30,17 +29,12 @@ type HeroProps = {
 /**
  * The first screen: a ray-traced black hole with its lensed disk, filling
  * the screen, and the copy beside it (task hero-gargantua); on touch, or
- * once the device cannot draw it at 50 fps, its still image (task
- * portfolio-lp-still-scenes).
+ * where the GPU cannot hold 60 fps, its still image (task
+ * portfolio-lp-device-gate).
  */
 export const Hero = ({ id, children }: HeroProps) => {
   const recovery = useCanvasRecovery()
-  const mode = useSceneMode('hero')
-  // why: the scene swapped mid-visit stays until its image has faded in
-  // over it, so the black hole never blinks out (task 11).
-  const [imageShown, setImageShown] = useState(false)
-  const swapped = mode === 'still' && firstSceneMode() === 'live'
-  const live = mode === 'live' || (swapped && !imageShown)
+  const mode = useSceneMode()
   const still = useRef<HTMLDivElement>(null)
   const section = useRef<HTMLElement>(null)
   // why: the canvas runs a screen past the hero, still on screen after its
@@ -86,7 +80,7 @@ export const Hero = ({ id, children }: HeroProps) => {
           the lens dissolves into the page's sky instead of ending on a line;
           the shader fades it (gargantua-shader.ts), as a CSS mask over a
           canvas that changes every frame cost the compositor a pass. */}
-      {live && (
+      {mode === 'live' && (
         <Canvas
           key={recovery.key}
           onCreated={recovery.onCreated}
@@ -103,22 +97,14 @@ export const Hero = ({ id, children }: HeroProps) => {
             pointerEvents: 'none'
           }}
         >
-          <RenderGate active={!gone && mode === 'live'} scene="hero" />
+          <RenderGate active={!gone} />
           {/* why: the canvas runs half a screen past the hero, and only its
             rows on screen are worth a ray each. */}
           <VisibleScissor />
           <Gargantua />
         </Canvas>
       )}
-      {/* why: after the canvas, so a swapped scene's image fades in over
-          its last frame; the copy still lies over both. */}
-      {mode === 'still' && (
-        <HeroStill
-          ref={still}
-          fade={swapped}
-          onShown={() => setImageShown(true)}
-        />
-      )}
+      {mode === 'still' && <HeroStill ref={still} />}
       {children}
     </section>
   )
