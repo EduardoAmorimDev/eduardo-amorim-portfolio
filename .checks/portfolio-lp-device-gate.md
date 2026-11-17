@@ -58,6 +58,7 @@ Proof: `npx playwright test e2e/device-gate.spec.ts -g "nothing mounts before th
 
 **C7** - O contexto WebGL da verificação é perdido (`loseContext`) antes de o tier ser publicado (critério 6)
 Proof: `node --test lib/performance-tier.test.ts` (`the check's context is lost before the tier is told`)
+Proof: `npx playwright test e2e/device-gate.spec.ts -g "the check's own context is lost"` (o `loseContext` real do `WEBGL_lose_context`)
 
 ### S2 - Toque: nenhum WebGL · 6 files · 40 KB · ~10k
 
@@ -68,7 +69,7 @@ Proof: `npx playwright test e2e/device-gate.spec.ts -g "on touch no webgl"`
 Proof: `npx playwright test e2e/device-gate.spec.ts -g "the globe image"`
 
 **C10** - Com um local na face visível há um pin, com anel animado a cada 2,4 s; com um local do outro lado, nenhum pin; com movimento reduzido, o anel não anima (critério 9)
-Proof: `npx playwright test e2e/device-gate.spec.ts -g "the still globe pins"`
+Proof: `npx playwright test e2e/device-gate.spec.ts -g "the still globe pins"` (inclui o anel até 3,2× e `the still globe pins nothing without a place`)
 
 **C11** - Se a imagem do globo falha, o texto do Contato continua visível e nenhuma mensagem aparece (critério 10)
 Proof: `npx playwright test e2e/device-gate.spec.ts -g "a globe image that fails"`

@@ -125,12 +125,55 @@ test('nothing mounts before the check answers', async ({ page }) => {
   await asked
   await page.waitForTimeout(500)
   expect(await page.locator('html').getAttribute('data-performance')).toBeNull()
-  expect(await page.locator('#hero canvas').count()).toBe(0)
-  expect(await page.locator('[data-testid="hero-still"]').count()).toBe(0)
-  expect(await page.locator('[data-loading-veil]').count()).toBe(1)
+  expect(await page.locator('canvas').count()).toBe(0)
+  for (const still of ['hero-still', 'notebook-still', 'globe-still'])
+    expect(await page.locator(`[data-testid="${still}"]`).count(), still).toBe(
+      0
+    )
+  await expect(page.locator('[data-loading-veil]')).toBeVisible()
   release()
   await expect(page.locator('html')).toHaveAttribute('data-performance', 'full')
   await expect(page.locator('[data-testid="hero-scene"]')).toHaveCount(1)
+})
+
+// C7
+test("the check's own context is lost before the tier is told", async ({
+  page
+}) => {
+  // why: only the check asks for WebGL 1 (lib/device-check.ts); the scenes
+  // draw in WebGL 2, so this records the check's own release alone.
+  await page.addInitScript(() => {
+    const scope = window as unknown as { lostWhile: string[] }
+    scope.lostWhile = []
+    const proto = WebGLRenderingContext.prototype
+    const extension = proto.getExtension as (
+      this: WebGLRenderingContext,
+      name: string
+    ) => unknown
+    Object.defineProperty(proto, 'getExtension', {
+      value: function (this: WebGLRenderingContext, name: string) {
+        const found = extension.call(this, name)
+        if (name === 'WEBGL_lose_context' && found) {
+          const lose = found as WEBGL_lose_context
+          const loseContext = lose.loseContext.bind(lose)
+          lose.loseContext = () => {
+            scope.lostWhile.push(
+              document.documentElement.dataset.performance ?? 'pending'
+            )
+            loseContext()
+          }
+        }
+        return found
+      }
+    })
+  })
+  await page.goto('/')
+  await expect(page.locator('html')).toHaveAttribute('data-performance', 'full')
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { lostWhile: string[] }).lostWhile
+    )
+  ).toEqual(['pending'])
 })
 
 for (const [tier, gpu] of [
@@ -196,7 +239,7 @@ test.describe('the globe image', () => {
 test.describe('the still globe pins', () => {
   test.use(PHONE)
 
-  const pinAt = async (page: Page, place: Record<string, unknown>) => {
+  const pinAt = async (page: Page, place?: Record<string, unknown>) => {
     await placeIs(page, place)
     await page.goto('/')
     await page.waitForLoadState('networkidle')
@@ -220,6 +263,15 @@ test.describe('the still globe pins', () => {
       }))
     )
     expect(ring).toEqual([PIN_PULSE])
+    // why: the ring grows to 3.2x its size, as the live pin's does.
+    const scales = await pin
+      .locator('[data-pin-ring]')
+      .evaluate(node =>
+        (node.getAnimations()[0]?.effect as KeyframeEffect | undefined)
+          ?.getKeyframes()
+          .map(frame => frame.scale)
+      )
+    expect(scales).toEqual(['1', '3.2'])
     // invariant: the pin sits on the globe, inside the image's box.
     const inside = await pin.evaluate(node => {
       const box = node.closest('[data-testid="globe-still"]')
@@ -234,6 +286,20 @@ test.describe('the still globe pins', () => {
   test('the still globe pins no place on its far side', async ({ page }) => {
     const pin = await pinAt(page, FAR_PLACE)
     await expect(pin).toHaveCount(0)
+  })
+
+  test.describe('with no place to be found', () => {
+    // why: a time zone the lookup has no city for, so with the host's
+    // answer empty there is no place at all (lib/visitor-place.ts).
+    test.use({ timezoneId: 'UTC' })
+
+    test('the still globe pins nothing without a place', async ({ page }) => {
+      const pin = await pinAt(page)
+      await expect(page.locator('[data-testid="globe-still"] img')).toHaveCount(
+        1
+      )
+      await expect(pin).toHaveCount(0)
+    })
   })
 
   test.describe('under reduced motion', () => {
@@ -302,6 +368,7 @@ test('a slow full desktop never swaps', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-performance', 'full')
   await expect(page.locator('#hero')).toHaveAttribute('data-scene', 'live')
   await expect(page.locator('#notebook')).toHaveAttribute('data-scene', 'live')
+  await expect(page.locator('#contato')).toHaveAttribute('data-scene', 'live')
   await expect(page.locator('[data-testid="hero-scene"]')).toHaveCount(1)
   await expect(page.locator('[data-testid="hero-still"]')).toHaveCount(0)
 })
