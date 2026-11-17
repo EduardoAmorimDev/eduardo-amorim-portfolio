@@ -17,7 +17,7 @@ import {
   prefersReducedMotion
 } from '@/lib/media-preferences'
 import type { VisitorPlace } from '@/lib/visitor-place'
-import { globeLayout } from './globe-layout'
+import { PIN_ALTITUDE, STILL_POSE, aimAt, globeLayout } from './globe-layout'
 import { GlobeVapor } from './globe-vapor'
 import { landDots, loadLandMask, toSphere } from './land-dots'
 
@@ -28,7 +28,6 @@ const LATTICE = 52000
 // to put the visitor's place just above its middle, facing the viewer.
 const IDLE_SPIN = 0.06
 const ARRIVAL_SMOOTHING = 1.6
-const PLACE_ABOVE_MIDDLE = 0.22
 // why: one pulse of the pin's ring every 2.4 s, growing to 3.2× its size.
 const PULSE = { seconds: 2.4, growth: 2.2 }
 // why: the canvas never counts more than this share as risen above the
@@ -50,7 +49,6 @@ void main() {
 const DOT_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
 uniform vec3 uRim;
-uniform float uGlow;
 varying float vFacing;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
@@ -59,10 +57,7 @@ void main() {
   // violet; the near side glows, brightest facing the viewer.
   float alpha = round * mix(0.18, 0.7, smoothstep(-0.15, 0.45, vFacing));
   vec3 col = mix(uRim, uColor, smoothstep(0.0, 0.7, vFacing));
-  // why: without the bloom (lite) the land itself burns whiter and denser,
-  // as the bloom's spill made it look.
-  col = mix(col, vec3(1.0), uGlow * 0.45);
-  gl_FragColor = vec4(col, min(alpha * (1.0 + uGlow * 0.9), 1.0));
+  gl_FragColor = vec4(col, alpha);
 }
 `
 
@@ -77,38 +72,12 @@ void main() {
 
 const HALO_FRAGMENT = /* glsl */ `
 uniform vec3 uColor;
-uniform float uGlow;
 varying float vRim;
 void main() {
   // why: a thin atmosphere hugging the limb; the bloom turns its light
   // into the glow around the Earth.
   float rim = smoothstep(0.6, 1.0, vRim);
-  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.94, 1.0, vRim)) * 0.8 * (1.0 + uGlow));
-}
-`
-
-// why: the bloom's light painted once, for lite: a soft glow over the disc
-// and around the limb, in globe radii (the quad spans GLOW_SPAN of them).
-const GLOW_SPAN = 1.8
-const GLOW_VERTEX = /* glsl */ `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`
-const GLOW_FRAGMENT = /* glsl */ `
-uniform vec3 uColor;
-uniform float uStrength;
-varying vec2 vUv;
-void main() {
-  float r = length(vUv - 0.5) * 2.0 * ${GLOW_SPAN.toFixed(2)};
-  float limb = exp(-pow((r - 1.0) * 4.0, 2.0));
-  float spill = exp(-max(r - 1.0, 0.0) * 3.5) * smoothstep(${GLOW_SPAN.toFixed(2)}, 1.2, r);
-  float disc = 1.0 - smoothstep(0.85, 1.0, r);
-  float light = (0.55 * limb + 0.4 * spill + 0.15 * disc) * uStrength;
-  // invariant: blended additively, alpha weighs the colour, as the dots do.
-  gl_FragColor = vec4(uColor, min(light, 1.0));
+  gl_FragColor = vec4(uColor, rim * rim * (1.0 - smoothstep(0.94, 1.0, vRim)) * 0.8);
 }
 `
 
@@ -117,8 +86,8 @@ type GlobeSceneProps = {
   place: VisitorPlace | null
   /** The section's height in CSS px; the canvas rises above it. */
   stageHeight: number
-  /** Paints the bloom's light itself, for a canvas drawn without it. */
-  glow?: boolean
+  /** Holds the globe in the still's pose, for scripts/render-stills.mjs. */
+  posed?: boolean
 }
 
 /**
@@ -128,7 +97,7 @@ type GlobeSceneProps = {
 export const GlobeScene = ({
   place,
   stageHeight,
-  glow = false
+  posed = false
 }: GlobeSceneProps) => {
   const globe = useRef<Group>(null)
   const ring = useRef<Mesh>(null)
@@ -191,28 +160,19 @@ export const GlobeScene = ({
     () => ({
       uSize: { value: 2.6 * dpr * 3.4 },
       uColor: { value: colors.dot },
-      uRim: { value: colors.rim },
-      uGlow: { value: Number(glow) }
+      uRim: { value: colors.rim }
     }),
-    [colors, dpr, glow]
+    [colors, dpr]
   )
   const haloUniforms = useMemo(
-    () => ({ uColor: { value: colors.rim }, uGlow: { value: Number(glow) } }),
-    [colors, glow]
-  )
-  const glowUniforms = useMemo(
-    () => ({
-      // why: the bloom's spill reads whiter than the limb it comes from.
-      uColor: { value: colors.rim.clone().lerp(new Color('#ffffff'), 0.4) },
-      uStrength: { value: 1 }
-    }),
+    () => ({ uColor: { value: colors.rim } }),
     [colors]
   )
 
   const pin = useMemo(() => {
     if (!place) return null
     const position = new Vector3(
-      ...toSphere(place.latitude, place.longitude, 1.005)
+      ...toSphere(place.latitude, place.longitude, PIN_ALTITUDE)
     )
     // why: the ring lies flat on the ground, facing out of the sphere.
     const facing = new Quaternion().setFromUnitVectors(
@@ -222,10 +182,7 @@ export const GlobeScene = ({
     return {
       position,
       facing,
-      target: {
-        x: MathUtils.degToRad(place.latitude) - PLACE_ABOVE_MIDDLE,
-        y: -MathUtils.degToRad(place.longitude)
-      }
+      target: aimAt(place.latitude, place.longitude)
     }
   }, [place])
 
@@ -233,7 +190,9 @@ export const GlobeScene = ({
     const body = globe.current
     if (!body) return
     const target = aim.current
-    if (pin) {
+    if (posed) {
+      Object.assign(target, aimAt(STILL_POSE.latitude, STILL_POSE.longitude))
+    } else if (pin) {
       const step = still.current ? 1 : 1 - Math.exp(-ARRIVAL_SMOOTHING * delta)
       target.x += (pin.target.x - target.x) * step
       // invariant: turn the short way round, whatever the idle spin left.
@@ -259,19 +218,6 @@ export const GlobeScene = ({
 
   return (
     <group position={[layout.x, layout.y, 0]} scale={layout.scale}>
-      {glow && (
-        <mesh renderOrder={-2} scale={GLOW_SPAN * 2}>
-          <planeGeometry args={[1, 1]} />
-          <shaderMaterial
-            uniforms={glowUniforms}
-            vertexShader={GLOW_VERTEX}
-            fragmentShader={GLOW_FRAGMENT}
-            transparent
-            depthWrite={false}
-            blending={AdditiveBlending}
-          />
-        </mesh>
-      )}
       <mesh scale={1.04}>
         <sphereGeometry args={[1, 64, 64]} />
         <shaderMaterial

@@ -80,6 +80,10 @@
      own size. */
   --animate-call-pulse: call-pulse 2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
 
+  /* why: the still globe's pin sends out the live pin's ring: every 2.4 s
+     it grows to 3.2x and fades (globe-scene.tsx, PULSE). */
+  --animate-pin-pulse: pin-pulse 2.4s linear infinite;
+
   /* why: the loading veil breathes (loading-veil.tsx): the brackets drift
      apart along their diagonal and meet again, the halo swells with them,
      on a sine curve with no hard stop, every 2.4 s; translate, scale and
@@ -121,6 +125,17 @@
     to {
       opacity: 0;
       visibility: hidden;
+    }
+  }
+
+  @keyframes pin-pulse {
+    from {
+      opacity: 0.9;
+      scale: 1;
+    }
+    to {
+      opacity: 0;
+      scale: 3.2;
     }
   }
 

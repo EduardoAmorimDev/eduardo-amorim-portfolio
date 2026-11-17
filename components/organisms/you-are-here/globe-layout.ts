@@ -21,3 +21,24 @@ export const globeLayout = ({ width, height }: Viewport, lift: number) => {
         scale: Math.min(width * 0.4, stage * 0.22)
       }
 }
+
+/** The globe's camera: on the axis, looking at the section's middle. */
+export const GLOBE_CAMERA = { distance: 3.4, fov: 35 } as const
+
+// why: the globe turns to put a place just above its middle (radians of
+// tilt), facing the viewer.
+export const PLACE_ABOVE_MIDDLE = 0.22
+// invariant: the pin floats this far out, in globe radii, above the dots.
+export const PIN_ALTITUDE = 1.005
+
+/**
+ * The pose of the globe's still image (task portfolio-lp-device-gate,
+ * Unresolved 2): Brazil facing the viewer, as the live globe turns to it.
+ */
+export const STILL_POSE = { latitude: -15, longitude: -50 } as const
+
+/** The globe's turn (Euler x and y, radians) that brings a place to face the viewer. */
+export const aimAt = (latitude: number, longitude: number) => ({
+  x: (latitude * Math.PI) / 180 - PLACE_ABOVE_MIDDLE,
+  y: (-longitude * Math.PI) / 180
+})

@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { GlitchText } from '@/components/atoms/glitch-text'
 import { RenderGate } from '@/components/atoms/render-gate'
 import '@/lib/three-console'
-import { useLiteMode } from '@/lib/use-lite-mode'
+import { captureTarget } from '@/lib/capture'
+import { useSceneMode } from '@/lib/use-scene-mode'
 import { useNearViewport } from '@/lib/use-near-viewport'
 import { findVisitorPlace, type VisitorPlace } from '@/lib/visitor-place'
 import { Bloom } from './bloom'
+import { GLOBE_CAMERA } from './globe-layout'
 import { GlobeScene } from './globe-scene'
+import { GlobeStill } from './globe-still'
 import { STILL_SIZE } from '@/lib/canvas-size'
 import { useCanvasRecovery } from '@/lib/use-canvas-recovery'
 
@@ -18,6 +21,9 @@ const LOOKUP_LEAD = '100% 0px'
 // why: crisp dots on every device, for the whole visit: the ratio never
 // steps down with the GPU (task portfolio-lp-still-scenes, 14).
 const DPR: [number, number] = [1.5, 2]
+// why: the still renderer shoots a phone's globe at 3x (scripts/
+// render-stills.mjs), past the 2 the page ever draws at.
+const CAPTURE_DPR: [number, number] = [1.5, 6]
 
 type YouAreHereProps = { id: string }
 
@@ -30,21 +36,22 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
   const section = useRef<HTMLElement>(null)
   const recovery = useCanvasRecovery()
   const near = useNearViewport(section, LOOKUP_LEAD)
+  // why: the still is shot pinless, in its own pose (globe-layout.ts).
+  const posed = captureTarget() === 'globe'
+  // why: the 3D globe on a fine pointer in the full tier, its image
+  // everywhere else (task portfolio-lp-device-gate, 7, 8, 11, 12).
+  const mode = useSceneMode()
   // invariant: undefined until looked up, null when it cannot be found.
   const [place, setPlace] = useState<VisitorPlace | null | undefined>()
 
   useEffect(() => {
-    if (!near || place !== undefined) return
+    if (!near || posed || place !== undefined) return
     const controller = new AbortController()
     void findVisitorPlace(controller.signal).then(found => {
       if (!controller.signal.aborted) setPlace(found)
     })
     return () => controller.abort()
-  }, [near, place])
-
-  // why: lite drops the bloom and paints its light instead, the same glow
-  // (task portfolio-lp-mobile-smooth, 13).
-  const lite = useLiteMode()
+  }, [near, posed, place])
 
   // why: the scene lays the globe out in the section alone, though its
   // canvas rises above it (globe-layout.ts).
@@ -64,45 +71,49 @@ export const YouAreHere = ({ id }: YouAreHereProps) => {
       id={id}
       ref={section}
       aria-labelledby={`${id}-title`}
+      data-scene={mode ?? undefined}
       className="relative min-h-svh overflow-x-clip"
     >
       {/* why: the Earth's light rises half a screen over the FAQ and fades
           into it, so the two read as one space; the canvas sits under the
           page's text and takes no events, the FAQ stays clickable, and the
           vapour follows the cursor on the window (globe-vapor.tsx). */}
-      <Canvas
-        key={recovery.key}
-        onCreated={recovery.onCreated}
-        aria-hidden="true"
-        className="pointer-events-none -z-[5] [mask-image:linear-gradient(to_bottom,transparent,black_50svh)]"
-        style={{
-          position: 'absolute',
-          top: '-50svh',
-          right: 0,
-          bottom: 0,
-          left: 0,
-          height: 'auto',
-          pointerEvents: 'none'
-        }}
-        data-testid="globe-scene"
-        resize={STILL_SIZE}
-        data-effects={lite ? 'lite' : 'full'}
-        dpr={DPR}
-        gl={{ alpha: true }}
-        camera={{ position: [0, 0, 3.4], fov: 35 }}
-      >
-        <RenderGate />
-        {/* why: lite paints the bloom's light itself, so the Earth keeps its
-            glow (task portfolio-lp-mobile-smooth, 13). */}
-        <GlobeScene
-          place={place ?? null}
-          stageHeight={stageHeight}
-          glow={lite}
-        />
-        {/* why: the Earth's light, spilled by its bright land, limb and
-            vapour, rather than painted around it. */}
-        {!lite && <Bloom strength={0.75} radius={0.45} threshold={0.45} />}
-      </Canvas>
+      {mode === 'live' && (
+        <Canvas
+          key={recovery.key}
+          onCreated={recovery.onCreated}
+          aria-hidden="true"
+          className="pointer-events-none -z-[5] [mask-image:linear-gradient(to_bottom,transparent,black_50svh)]"
+          style={{
+            position: 'absolute',
+            top: '-50svh',
+            right: 0,
+            bottom: 0,
+            left: 0,
+            height: 'auto',
+            pointerEvents: 'none'
+          }}
+          data-testid="globe-scene"
+          resize={STILL_SIZE}
+          dpr={posed ? CAPTURE_DPR : DPR}
+          gl={{ alpha: true }}
+          camera={{
+            position: [0, 0, GLOBE_CAMERA.distance],
+            fov: GLOBE_CAMERA.fov
+          }}
+        >
+          <RenderGate />
+          <GlobeScene
+            place={place ?? null}
+            stageHeight={stageHeight}
+            posed={posed}
+          />
+          {/* why: the Earth's light, spilled by its bright land, limb and
+              vapour, rather than painted around it. */}
+          <Bloom strength={0.75} radius={0.45} threshold={0.45} />
+        </Canvas>
+      )}
+      {mode === 'still' && <GlobeStill place={place ?? null} />}
       <div className="pointer-events-none relative z-10 flex min-h-svh flex-col justify-end px-6 pb-16 lg:px-16 landscape:justify-center landscape:pb-0">
         <div className="max-w-xl landscape:max-w-[46%]">
           <span className="text-caption text-foreground/60 font-semibold tracking-[0.3em] uppercase">

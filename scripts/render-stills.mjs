@@ -1,12 +1,13 @@
-// Renders the stills that stand in for the live scenes (task
-// portfolio-lp-still-scenes): the hero's black hole in three window shapes,
-// and the reach's phone, tablet (upright and turned) and laptop with the
-// projects section on their screens, plus the floor they stand on. They are
-// shot from the live page, so run it again whenever the black hole, the
-// models or the projects section change.
+// Renders the stills that stand in for the live scenes (tasks
+// portfolio-lp-still-scenes and portfolio-lp-device-gate): the hero's black
+// hole and the contact's globe in three window shapes each, and the reach's
+// phone, tablet (upright and turned) and laptop with the projects section
+// on their screens, plus the floor they stand on. They are shot from the
+// live page, so run it again whenever a scene or the projects change.
 // Run: npm run build && npm run start -- --port 3100, then
-//      node scripts/render-stills.mjs http://localhost:3100
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+//      node scripts/render-stills.mjs http://localhost:3100 [target...]
+// where a target is hero, devices, floor or globe; none renders them all.
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import {
   LAPTOP_FRAME,
@@ -20,6 +21,20 @@ import {
 } from '../components/organisms/notebook/stages.ts'
 
 const BASE = process.argv[2] ?? 'http://localhost:3100'
+const TARGETS = ['hero', 'devices', 'floor', 'globe']
+const asked = process.argv.slice(3)
+for (const target of asked)
+  if (!TARGETS.includes(target))
+    throw new Error(`unknown target ${target}; one of ${TARGETS.join(', ')}`)
+const renders = new Set(asked.length > 0 ? asked : TARGETS)
+// invariant: the files each target writes, so rendering one leaves the
+// others' files and manifest entries as they were.
+const PREFIXES = {
+  hero: 'hero-',
+  devices: 'device-',
+  floor: 'floor-',
+  globe: 'globe-'
+}
 const OUT = new URL('../public/stills/', import.meta.url)
 const MANIFEST = new URL('../lib/stills.json', import.meta.url)
 // invariant: the canvases draw at most 2 buffer px per CSS px, so a shot
@@ -83,6 +98,40 @@ const PASSES = [
     devices: [{ name: 'phone', at: 0.18, frame: PHONE_FRAME, title: 'phone' }]
   }
 ]
+// why: the globe's canvas is the contact section plus the half screen it
+// rises above it (you-are-here.tsx); each shape is shot at the ratio that
+// keeps its densest window at or under one screen px per image px (task
+// portfolio-lp-device-gate, 8): a 390x844 phone at 3x, the rest at 2x.
+const GLOBE = [
+  {
+    name: 'wide',
+    width: 1800,
+    height: 900,
+    maxAspect: 100,
+    dpr: 2,
+    widths: [3600, 2400, 1600]
+  },
+  {
+    name: 'tablet',
+    width: 820,
+    height: 1180,
+    maxAspect: 0.95,
+    dpr: 2,
+    widths: [1640, 1100]
+  },
+  {
+    name: 'phone',
+    width: 430,
+    height: 932,
+    maxAspect: 0.58,
+    dpr: 3,
+    widths: [1290, 860]
+  }
+]
+const GLOBE_SCREENS = 1.5
+// why: the land mask loads and the bloom settles; the globe holds still.
+const GLOBE_SETTLE_MS = 6000
+
 const FLOORS = [
   { name: 'wide', width: 1920, height: 1080, widths: [1920, 1280] },
   { name: 'tall', width: 860, height: 1864, widths: [860] }
@@ -165,6 +214,63 @@ const save = async (name, encoded) => {
   return srcset
 }
 
+/**
+ * One PNG with straight alpha from a scene shot over black and over white:
+ * its cover is 1 minus the gap between the two, raised to its brightest
+ * channel over black so light drawn where it is clear survives, and its
+ * colour is the light over black divided by that alpha. Over the page's
+ * dark sky it composites as the canvas did.
+ */
+const lightOf = async (page, black, white) =>
+  Buffer.from(
+    await page.evaluate(
+      async ([dark, light]) => {
+        const read = async source => {
+          const image = new Image()
+          image.src = `data:image/png;base64,${source}`
+          await image.decode()
+          const canvas = document.createElement('canvas')
+          canvas.width = image.width
+          canvas.height = image.height
+          const context = canvas.getContext('2d')
+          if (!context) throw new Error('no 2D canvas to read with')
+          context.drawImage(image, 0, 0)
+          return {
+            canvas,
+            context,
+            pixels: context.getImageData(0, 0, image.width, image.height)
+          }
+        }
+        const onBlack = await read(dark)
+        const onWhite = await read(light)
+        const out = onBlack.pixels.data
+        const white = onWhite.pixels.data
+        for (let i = 0; i < out.length; i += 4) {
+          const r = out[i] ?? 0
+          const g = out[i + 1] ?? 0
+          const b = out[i + 2] ?? 0
+          const gap =
+            ((white[i] ?? 0) -
+              r +
+              (white[i + 1] ?? 0) -
+              g +
+              (white[i + 2] ?? 0) -
+              b) /
+            3
+          const alpha = Math.min(Math.max(255 - gap, r, g, b), 255)
+          out[i] = alpha > 0 ? Math.round((r * 255) / alpha) : 0
+          out[i + 1] = alpha > 0 ? Math.round((g * 255) / alpha) : 0
+          out[i + 2] = alpha > 0 ? Math.round((b * 255) / alpha) : 0
+          out[i + 3] = alpha
+        }
+        onBlack.context.putImageData(onBlack.pixels, 0, 0)
+        return onBlack.canvas.toDataURL('image/png').split(',')[1]
+      },
+      [black.toString('base64'), white.toString('base64')]
+    ),
+    'base64'
+  )
+
 /** The box of pixels that are not clear, in the PNG's px, or null. */
 const opaqueBox = (page, png) =>
   page.evaluate(async source => {
@@ -218,11 +324,19 @@ const scrollNotebook = async (page, progress) => {
   await page.waitForTimeout(3500)
 }
 
-await rm(OUT, { recursive: true, force: true })
 await mkdir(OUT, { recursive: true })
-const manifest = { hero: [], floor: [], devices: {} }
+for (const file of await readdir(OUT))
+  if ([...renders].some(target => file.startsWith(PREFIXES[target])))
+    await rm(new URL(file, OUT))
+const previous = await readFile(MANIFEST, 'utf8').then(JSON.parse, () => ({}))
+const manifest = {
+  hero: renders.has('hero') ? [] : (previous.hero ?? []),
+  floor: renders.has('floor') ? [] : (previous.floor ?? []),
+  devices: renders.has('devices') ? {} : (previous.devices ?? {}),
+  globe: renders.has('globe') ? [] : (previous.globe ?? [])
+}
 
-for (const shape of HERO) {
+for (const shape of renders.has('hero') ? HERO : []) {
   const { width, height } = shape
   // why: a window two screens tall with the hero pinned to one, so the
   // canvas, a screen taller than the hero, is drawn whole at once.
@@ -257,7 +371,7 @@ for (const shape of HERO) {
   await context.close()
 }
 
-for (const { stage, dpr, devices } of PASSES) {
+for (const { stage, dpr, devices } of renders.has('devices') ? PASSES : []) {
   const { context, page } = await open(stage, dpr, '/?capture=devices')
   await page.addStyleTag({ content: ONLY('[data-testid="notebook-scene"]') })
   const viewport = stageViewport(stage)
@@ -301,7 +415,65 @@ for (const { stage, dpr, devices } of PASSES) {
   await context.close()
 }
 
-for (const floor of FLOORS) {
+for (const shape of renders.has('globe') ? GLOBE : []) {
+  const { width, height } = shape
+  const canvas = { width, height: height * GLOBE_SCREENS }
+  const { context, page } = await open(canvas, shape.dpr, '/?capture=globe', {
+    reducedMotion: 'reduce'
+  })
+  // why: the section held to one window of the shape, the canvas risen half
+  // of it above, unmasked: the page lays its mask over the image itself.
+  await page.addStyleTag({
+    content: `${ONLY('[data-testid="globe-scene"]')}
+      #contato { height: ${height}px !important; min-height: 0 !important; }
+      [data-testid="globe-scene"] {
+        top: -${height / 2}px !important;
+        mask-image: none !important;
+      }`
+  })
+  await page.waitForSelector('[data-testid="globe-scene"]')
+  await page.evaluate(lift => {
+    const section = document.getElementById('contato')
+    if (!section) throw new Error('no #contato on the page')
+    const top = section.getBoundingClientRect().top + scrollY - lift
+    window.scrollTo({ top, behavior: 'instant' })
+  }, height / 2)
+  await page.waitForTimeout(GLOBE_SETTLE_MS)
+  // why: the bloom adds light where the canvas stays clear (alpha 0), which
+  // the compositor adds over the page but a clear screenshot drops; shot
+  // over black and over white, the light and the cover are both recovered.
+  const over = async colour => {
+    await page.evaluate(
+      value =>
+        document.documentElement.style.setProperty(
+          'background',
+          value,
+          'important'
+        ),
+      colour
+    )
+    await page.waitForTimeout(300)
+    return page.screenshot({ clip: { x: 0, y: 0, ...canvas } })
+  }
+  const png = await lightOf(page, await over('#000'), await over('#fff'))
+  // why: at 0.8 the dotted land shows no visible loss and weighs about a
+  // sixth less than at 0.9; the image loads only as the contact nears.
+  const encoded = await encode(page, png, shape.widths, 0.8)
+  const [largest] = encoded
+  manifest.globe.push({
+    name: shape.name,
+    maxAspect: shape.maxAspect,
+    width: largest.width,
+    height: largest.height,
+    // invariant: the window the shot was taken in, from which the page
+    // projects the visitor's pin onto it (still-pin.ts).
+    shot: { ...canvas, lift: (canvas.height - height) / canvas.height },
+    srcset: await save(`globe-${shape.name}`, encoded)
+  })
+  await context.close()
+}
+
+for (const floor of renders.has('floor') ? FLOORS : []) {
   const { context, page } = await open(
     { width: floor.width, height: floor.height },
     1,

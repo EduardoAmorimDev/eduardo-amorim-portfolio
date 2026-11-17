@@ -166,5 +166,74 @@
         }
       ]
     }
-  }
+  },
+  "globe": [
+    {
+      "name": "wide",
+      "maxAspect": 100,
+      "width": 3600,
+      "height": 2700,
+      "shot": {
+        "width": 1800,
+        "height": 1350,
+        "lift": 0.3333333333333333
+      },
+      "srcset": [
+        {
+          "src": "/stills/globe-wide-3600.webp",
+          "w": 3600
+        },
+        {
+          "src": "/stills/globe-wide-2400.webp",
+          "w": 2400
+        },
+        {
+          "src": "/stills/globe-wide-1600.webp",
+          "w": 1600
+        }
+      ]
+    },
+    {
+      "name": "tablet",
+      "maxAspect": 0.95,
+      "width": 1640,
+      "height": 3540,
+      "shot": {
+        "width": 820,
+        "height": 1770,
+        "lift": 0.3333333333333333
+      },
+      "srcset": [
+        {
+          "src": "/stills/globe-tablet-1640.webp",
+          "w": 1640
+        },
+        {
+          "src": "/stills/globe-tablet-1100.webp",
+          "w": 1100
+        }
+      ]
+    },
+    {
+      "name": "phone",
+      "maxAspect": 0.58,
+      "width": 1290,
+      "height": 4194,
+      "shot": {
+        "width": 430,
+        "height": 1398,
+        "lift": 0.3333333333333333
+      },
+      "srcset": [
+        {
+          "src": "/stills/globe-phone-1290.webp",
+          "w": 1290
+        },
+        {
+          "src": "/stills/globe-phone-860.webp",
+          "w": 860
+        }
+      ]
+    }
+  ]
 }
