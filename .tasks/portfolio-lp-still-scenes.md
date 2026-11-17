@@ -2,6 +2,10 @@
 
 > Build this with **tlc-implement**. Every criterion below becomes a check with a proof, referenced
 > by its number. Nothing under `Unresolved` gets settled while building.
+>
+> **Substituída em parte por `portfolio-lp-device-gate` (2026-11-16):** os critérios 11, 12, 13 e 16
+> (a troca medida durante a visita e o lite abaixo de 50 FPS) e o 17 (o globo 3D em todo
+> dispositivo) deixam de valer. O tier passa a ser decidido uma vez, ao carregar, pelo `detect-gpu`.
 
 ## Intent
 
